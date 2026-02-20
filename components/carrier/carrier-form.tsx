@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import { ReportUpload } from "./report-upload"
 import type { CarrierInputs, CarrierName, BookType } from "./carrier-engine"
 
 interface Props {
@@ -75,6 +76,16 @@ export function CarrierForm({ inputs, onChange }: Props) {
           </Select>
         </CardContent>
       </Card>
+
+      {/* Upload Report */}
+      {carrier && (
+        <ReportUpload
+          carrier={carrier}
+          onParsed={(parsed) => {
+            onChange({ ...inputs, ...parsed })
+          }}
+        />
+      )}
 
       {/* Step 2: Book Type (if applicable) */}
       {carrier && needsBookType && (
