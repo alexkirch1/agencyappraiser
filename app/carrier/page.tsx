@@ -4,6 +4,7 @@ import { useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CarrierForm } from "@/components/carrier/carrier-form"
 import { LeadCaptureModal } from "@/components/lead-capture-modal"
+import { ValuationDisclaimerModal } from "@/components/valuation-disclaimer-modal"
 import { Button } from "@/components/ui/button"
 import { Lock, Unlock, AlertCircle } from "lucide-react"
 import {
@@ -17,6 +18,7 @@ export default function CarrierPage() {
   const [inputs, setInputs] = useState<CarrierInputs>(defaultCarrierInputs)
   const [submitted, setSubmitted] = useState(false)
   const [showLeadCapture, setShowLeadCapture] = useState(false)
+  const [showDisclaimer, setShowDisclaimer] = useState(false)
   const [unlocked, setUnlocked] = useState(false)
 
   const results = useMemo(() => {
@@ -38,7 +40,7 @@ export default function CarrierPage() {
     }
     setValidationError("")
     if (unlocked) {
-      setSubmitted(true)
+      setShowDisclaimer(true)
     } else {
       setShowLeadCapture(true)
     }
@@ -47,6 +49,11 @@ export default function CarrierPage() {
   const handleLeadSubmit = () => {
     setUnlocked(true)
     setShowLeadCapture(false)
+    setShowDisclaimer(true)
+  }
+
+  const handleDisclaimerContinue = () => {
+    setShowDisclaimer(false)
     setSubmitted(true)
   }
 
@@ -183,6 +190,9 @@ export default function CarrierPage() {
           title="Unlock Carrier Book Valuation"
           description="Enter your details to view your carrier-specific book valuation."
         />
+      )}
+      {showDisclaimer && (
+        <ValuationDisclaimerModal onContinue={handleDisclaimerContinue} />
       )}
     </div>
   )

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Button } from "@/components/ui/button"
+import { ValuationDisclaimerModal } from "@/components/valuation-disclaimer-modal"
 import { ArrowRight, Calculator, Zap, DollarSign } from "lucide-react"
 
 function formatCurrency(value: number): string {
@@ -24,6 +25,8 @@ export default function QuickValuePage() {
   const [retention, setRetention] = useState<string>("")
   const [bookType, setBookType] = useState<string>("")
   const [multiplier, setMultiplier] = useState(1.75)
+  const [showDisclaimer, setShowDisclaimer] = useState(false)
+  const [resultsVisible, setResultsVisible] = useState(false)
 
   const estimate = useMemo(() => {
     if (!revenue || revenue <= 0) return null
@@ -182,20 +185,36 @@ export default function QuickValuePage() {
               />
             </CardContent>
           </Card>
+
+          {/* Get Estimate Button */}
+          {!resultsVisible && (
+            <Button
+              onClick={() => {
+                if (!revenue || revenue <= 0) return
+                setShowDisclaimer(true)
+              }}
+              size="lg"
+              className="w-full gap-2 text-base"
+              disabled={!revenue || revenue <= 0}
+            >
+              <DollarSign className="h-5 w-5" />
+              Get My Quick Estimate
+            </Button>
+          )}
         </div>
 
         {/* Right: Sticky Results */}
         <div className="lg:col-span-2">
           <div className="lg:sticky lg:top-24 flex flex-col gap-5">
             {/* Value Display */}
-            <Card className={`border bg-card ${estimate ? "border-primary/40" : "border-border"}`}>
+            <Card className={`border bg-card ${resultsVisible && estimate ? "border-primary/40" : "border-border"}`}>
               <CardContent className="p-6">
                 <div className="flex flex-col items-center text-center">
-                  <div className={`mb-4 flex h-14 w-14 items-center justify-center rounded-full ${estimate ? "bg-[hsl(var(--success))]/10" : "bg-secondary"}`}>
-                    <DollarSign className={`h-7 w-7 ${estimate ? "text-[hsl(var(--success))]" : "text-muted-foreground"}`} />
+                  <div className={`mb-4 flex h-14 w-14 items-center justify-center rounded-full ${resultsVisible && estimate ? "bg-[hsl(var(--success))]/10" : "bg-secondary"}`}>
+                    <DollarSign className={`h-7 w-7 ${resultsVisible && estimate ? "text-[hsl(var(--success))]" : "text-muted-foreground"}`} />
                   </div>
                   <p className="text-sm font-medium text-muted-foreground mb-1">Estimated Agency Value</p>
-                  {estimate ? (
+                  {resultsVisible && estimate ? (
                     <>
                       <p className="text-4xl font-bold text-[hsl(var(--success))] font-mono">
                         {formatCurrency(estimate.value)}
@@ -214,7 +233,9 @@ export default function QuickValuePage() {
                     <>
                       <p className="text-4xl font-bold text-muted-foreground/30 font-mono">$--,---</p>
                       <p className="mt-3 text-sm text-muted-foreground">
-                        Enter your revenue above to see your estimate.
+                        {revenue && revenue > 0
+                          ? "Click \"Get My Quick Estimate\" to see your valuation."
+                          : "Enter your revenue above to see your estimate."}
                       </p>
                     </>
                   )}
@@ -250,6 +271,15 @@ export default function QuickValuePage() {
           </div>
         </div>
       </div>
+
+      {showDisclaimer && (
+        <ValuationDisclaimerModal
+          onContinue={() => {
+            setShowDisclaimer(false)
+            setResultsVisible(true)
+          }}
+        />
+      )}
     </div>
   )
 }
