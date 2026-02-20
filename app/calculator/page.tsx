@@ -4,8 +4,12 @@ import { useState, useMemo } from "react"
 import { ValuationForm } from "@/components/calculator/valuation-form"
 import { ValuationSidebar } from "@/components/calculator/valuation-sidebar"
 import { LeadCaptureModal } from "@/components/lead-capture-modal"
+import { ValuationDisclaimerModal } from "@/components/valuation-disclaimer-modal"
+import { DealSimulator } from "@/components/calculator/deal-simulator"
+import { RiskAudit } from "@/components/calculator/risk-audit"
 import { calculateValuation, runRiskAudit, type ValuationInputs } from "@/components/calculator/valuation-engine"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Lock, Unlock, AlertCircle } from "lucide-react"
 
 const defaultInputs: ValuationInputs = {
@@ -61,6 +65,7 @@ export default function CalculatorPage() {
   const [inputs, setInputs] = useState<ValuationInputs>(defaultInputs)
   const [submitted, setSubmitted] = useState(false)
   const [showLeadCapture, setShowLeadCapture] = useState(false)
+  const [showDisclaimer, setShowDisclaimer] = useState(false)
   const [unlocked, setUnlocked] = useState(false)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
   const [triedSubmit, setTriedSubmit] = useState(false)
@@ -80,7 +85,6 @@ export default function CalculatorPage() {
     const missing = getMissingFields(inputs)
     if (missing.length > 0) {
       setValidationErrors(missing)
-      // Scroll to first missing field
       const firstKey = getInvalidFieldKeys(inputs)[0]
       const el = document.getElementById(`field-${firstKey}`)
       if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
@@ -88,7 +92,8 @@ export default function CalculatorPage() {
     }
     setValidationErrors([])
     if (unlocked) {
-      setSubmitted(true)
+      // Already unlocked: show disclaimer loading, then results
+      setShowDisclaimer(true)
     } else {
       setShowLeadCapture(true)
     }
@@ -97,7 +102,18 @@ export default function CalculatorPage() {
   const handleLeadSubmit = () => {
     setUnlocked(true)
     setShowLeadCapture(false)
+    // Show disclaimer after lead capture
+    setShowDisclaimer(true)
+  }
+
+  const handleDisclaimerContinue = () => {
+    setShowDisclaimer(false)
     setSubmitted(true)
+    // Scroll to results
+    setTimeout(() => {
+      const el = document.getElementById("valuation-results")
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
+    }, 100)
   }
 
   const invalidKeys = triedSubmit ? getInvalidFieldKeys(inputs) : []
@@ -119,9 +135,7 @@ export default function CalculatorPage() {
             inputs={inputs}
             onChange={(newInputs) => {
               setInputs(newInputs)
-              // Clear submitted so recalculation requires re-submit
               if (submitted) setSubmitted(false)
-              // Clear validation errors as user types
               if (triedSubmit) {
                 const stillMissing = getMissingFields(newInputs)
                 setValidationErrors(stillMissing)
@@ -176,6 +190,47 @@ export default function CalculatorPage() {
         </div>
       </div>
 
+      {/* Deal Simulator & Risk Audit -- shown below after valuation is complete */}
+      {results && (
+        <div id="valuation-results" className="mt-12 border-t border-border pt-10">
+          <h2 className="mb-6 text-2xl font-bold tracking-tight text-foreground">
+            Deep Dive: Deal Simulator & Risk Audit
+          </h2>
+          <div className="grid gap-8 lg:grid-cols-2">
+            {/* Deal Simulator */}
+            <div>
+              <Card className="border-border bg-card">
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold text-foreground">Deal Structure Simulator</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Explore different deal structures and see how cash vs. earnout affects your total payout.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <DealSimulator highOffer={results.highOffer} coreScore={results.coreScore} />
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Risk Audit */}
+            <div>
+              <Card className="border-border bg-card p-0">
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold text-foreground">Risk Audit Report</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    A detailed breakdown of risks and strengths identified from your inputs.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <RiskAudit data={riskAudit} />
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modals */}
       {showLeadCapture && (
         <LeadCaptureModal
           onSubmit={handleLeadSubmit}
@@ -183,6 +238,9 @@ export default function CalculatorPage() {
           title="Unlock Your Agency Valuation"
           description="Enter your details to view your complete valuation report with risk audit and deal simulator."
         />
+      )}
+      {showDisclaimer && (
+        <ValuationDisclaimerModal onContinue={handleDisclaimerContinue} />
       )}
     </div>
   )

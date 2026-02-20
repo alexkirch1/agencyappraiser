@@ -14,9 +14,9 @@ interface Props {
 type Strategy = "quick" | "blend" | "structured"
 
 const strategies: { key: Strategy; label: string; cash: number; description: string }[] = [
-  { key: "quick", label: "Quick Payout", cash: 100, description: "100% Cash at Close. Best for clean exits." },
-  { key: "blend", label: "Balanced", cash: 85, description: "85% Cash / 15% Holdback. Standard structure." },
-  { key: "structured", label: "Growth", cash: 70, description: "70% Cash / 30% Earnout. Maximizes total value." },
+  { key: "quick", label: "All Cash", cash: 100, description: "100% Cash at Close. Full payout on day one." },
+  { key: "blend", label: "Cash + Holdback", cash: 85, description: "85% Cash / 15% Holdback. Common industry structure." },
+  { key: "structured", label: "Cash + Earnout", cash: 70, description: "70% Cash / 30% Earnout. Potential for higher total payout." },
 ]
 
 export function DealSimulator({ highOffer, coreScore }: Props) {
@@ -59,11 +59,10 @@ export function DealSimulator({ highOffer, coreScore }: Props) {
         <CardContent className="pt-6 text-center">
           <p className="text-xs text-muted-foreground">Gross Valuation</p>
           <p className="text-2xl font-bold text-[hsl(var(--success))]">{formatCurrency(adjustedValue)}</p>
-          {parseFloat(percentChange) > 0 && (
-            <p className="text-xs text-[hsl(var(--success))]">(+{percentChange}% Potential Upside)</p>
-          )}
-          {parseFloat(percentChange) < 0 && (
-            <p className="text-xs text-muted-foreground">({percentChange}% Liquidity Trade-off)</p>
+          {parseFloat(percentChange) !== 0 && (
+            <p className="text-xs text-muted-foreground">
+              ({parseFloat(percentChange) > 0 ? "+" : ""}{percentChange}% vs. base valuation)
+            </p>
           )}
         </CardContent>
       </Card>
