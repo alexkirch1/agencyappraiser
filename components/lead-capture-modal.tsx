@@ -9,11 +9,12 @@ import { Lock, CheckCircle2 } from "lucide-react"
 
 interface Props {
   onSubmit: (data: { name: string; email: string; phone: string; agencyName: string }) => void
+  onClose?: () => void
   title?: string
   description?: string
 }
 
-export function LeadCaptureModal({ onSubmit, title, description }: Props) {
+export function LeadCaptureModal({ onSubmit, onClose, title, description }: Props) {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
@@ -37,7 +38,7 @@ export function LeadCaptureModal({ onSubmit, title, description }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={(e) => { if (e.target === e.currentTarget && onClose) onClose() }}>
       <Card className="w-full max-w-md border-border bg-card shadow-2xl">
         <CardHeader className="text-center pb-4">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
