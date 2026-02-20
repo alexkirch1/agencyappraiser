@@ -18,9 +18,10 @@ const US_STATES = [
 interface Props {
   inputs: ValuationInputs
   onChange: (inputs: ValuationInputs) => void
+  invalidFields?: string[]
 }
 
-export function ValuationForm({ inputs, onChange }: Props) {
+export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
   const update = (partial: Partial<ValuationInputs>) => {
     onChange({ ...inputs, ...partial })
   }
@@ -33,10 +34,19 @@ export function ValuationForm({ inputs, onChange }: Props) {
 
   const isFullAgency = inputs.scopeOfSale === 1.0
 
+  const isInvalid = (key: string) => invalidFields.includes(key)
+
+  const fieldBorder = (key: string) =>
+    isInvalid(key) ? "ring-2 ring-destructive border-destructive" : ""
+
+  const requiredStar = (label: string) => (
+    <span>{label} <span className="text-destructive">*</span></span>
+  )
+
   return (
     <div className="flex flex-col gap-6">
       {/* 1. Transaction Structure */}
-      <Card className="border-border bg-card">
+      <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold text-foreground">
             1. Transaction Structure & Risk
@@ -56,7 +66,7 @@ export function ValuationForm({ inputs, onChange }: Props) {
             ].map((opt) => (
               <label
                 key={opt.value}
-                className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/5"
+                className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/10"
               >
                 <RadioGroupItem value={opt.value} />
                 {opt.label}
@@ -67,7 +77,7 @@ export function ValuationForm({ inputs, onChange }: Props) {
       </Card>
 
       {/* 2. Book Longevity */}
-      <Card className="border-border bg-card">
+      <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold text-foreground">
             2. Book Longevity Risk
@@ -87,7 +97,7 @@ export function ValuationForm({ inputs, onChange }: Props) {
       </Card>
 
       {/* 3. Demographic & Operational Profile */}
-      <Card className="border-border bg-card">
+      <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold text-foreground">
             3. Agency Demographic & Operational Profile
@@ -111,7 +121,7 @@ export function ValuationForm({ inputs, onChange }: Props) {
             <Label className="mb-2 block text-sm text-muted-foreground">Office Structure</Label>
             <RadioGroup value={inputs.officeStructure} onValueChange={(v) => update({ officeStructure: v })} className="flex flex-col gap-2 sm:flex-row sm:gap-4">
               {["Virtual", "Hybrid", "BrickAndMortar"].map((opt) => (
-                <label key={opt} className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/5">
+                <label key={opt} className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/10">
                   <RadioGroupItem value={opt} />
                   {opt === "BrickAndMortar" ? "Brick & Mortar" : opt}
                 </label>
@@ -126,7 +136,7 @@ export function ValuationForm({ inputs, onChange }: Props) {
       </Card>
 
       {/* 4. Legal & Compliance */}
-      <Card className="border-border bg-card">
+      <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold text-foreground">
             4. Legal & Compliance
@@ -134,7 +144,7 @@ export function ValuationForm({ inputs, onChange }: Props) {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div>
-            <Label htmlFor="eoClaims" className="text-sm text-muted-foreground">E&O Claims (Past 3 Years)</Label>
+            <Label htmlFor="eoClaims" className="text-sm text-muted-foreground">{"E&O Claims (Past 3 Years)"}</Label>
             <Input id="eoClaims" type="number" placeholder="0" value={inputs.eoClaims ?? ""} onChange={(e) => update({ eoClaims: numOrNull(e.target.value) ?? 0 })} className="mt-1.5" />
           </div>
           <div>
@@ -145,7 +155,7 @@ export function ValuationForm({ inputs, onChange }: Props) {
                 { value: "weak", label: "Weak / Informal" },
                 { value: "none", label: "None" },
               ].map((opt) => (
-                <label key={opt.value} className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/5">
+                <label key={opt.value} className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/10">
                   <RadioGroupItem value={opt.value} />
                   {opt.label}
                 </label>
@@ -156,16 +166,17 @@ export function ValuationForm({ inputs, onChange }: Props) {
       </Card>
 
       {/* 5. Financial & Valuation Benchmarks */}
-      <Card className="border-border bg-card">
+      <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold text-foreground">
             5. Financial & Valuation Benchmarks
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div>
-            <Label htmlFor="revLTM" className="text-sm text-muted-foreground">Annual Revenue (LTM) *</Label>
-            <Input id="revLTM" type="number" placeholder="e.g. 1500000" value={inputs.revenueLTM ?? ""} onChange={(e) => update({ revenueLTM: numOrNull(e.target.value) })} className="mt-1.5" />
+          <div id="field-revenueLTM">
+            <Label htmlFor="revLTM" className="text-sm text-muted-foreground">{requiredStar("Annual Revenue (LTM)")}</Label>
+            <Input id="revLTM" type="number" placeholder="e.g. 1500000" value={inputs.revenueLTM ?? ""} onChange={(e) => update({ revenueLTM: numOrNull(e.target.value) })} className={`mt-1.5 ${fieldBorder("revenueLTM")}`} />
+            {isInvalid("revenueLTM") && <p className="mt-1 text-xs text-destructive">Revenue is required for valuation</p>}
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -177,43 +188,47 @@ export function ValuationForm({ inputs, onChange }: Props) {
               <Input id="revY3" type="number" placeholder="2 years ago" value={inputs.revenueY3 ?? ""} onChange={(e) => update({ revenueY3: numOrNull(e.target.value) })} className="mt-1.5" />
             </div>
           </div>
-          <div>
-            <Label htmlFor="sde" className="text-sm text-muted-foreground">SDE / EBITDA *</Label>
-            <Input id="sde" type="number" placeholder="e.g. 400000" value={inputs.sdeEbitda ?? ""} onChange={(e) => update({ sdeEbitda: numOrNull(e.target.value) })} className="mt-1.5" />
+          <div id="field-sdeEbitda">
+            <Label htmlFor="sde" className="text-sm text-muted-foreground">{requiredStar("SDE / EBITDA")}</Label>
+            <Input id="sde" type="number" placeholder="e.g. 400000" value={inputs.sdeEbitda ?? ""} onChange={(e) => update({ sdeEbitda: numOrNull(e.target.value) })} className={`mt-1.5 ${fieldBorder("sdeEbitda")}`} />
             <p className="mt-1 text-xs text-muted-foreground/70">
               {"Net Income + Owner Comp + Non-Recurring Expenses + Depreciation"}
             </p>
+            {isInvalid("sdeEbitda") && <p className="mt-0.5 text-xs text-destructive">SDE/EBITDA is required for valuation</p>}
           </div>
         </CardContent>
       </Card>
 
       {/* 6. Book of Business Quality */}
-      <Card className="border-border bg-card">
+      <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold text-foreground">
             6. Book of Business Quality
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div>
-            <Label htmlFor="retention" className="text-sm text-muted-foreground">Retention Rate (%) *</Label>
-            <Input id="retention" type="number" placeholder="e.g. 92" value={inputs.retentionRate ?? ""} onChange={(e) => update({ retentionRate: numOrNull(e.target.value) })} className="mt-1.5" />
+          <div id="field-retentionRate">
+            <Label htmlFor="retention" className="text-sm text-muted-foreground">{requiredStar("Retention Rate (%)")}</Label>
+            <Input id="retention" type="number" placeholder="e.g. 92" value={inputs.retentionRate ?? ""} onChange={(e) => update({ retentionRate: numOrNull(e.target.value) })} className={`mt-1.5 ${fieldBorder("retentionRate")}`} />
+            {isInvalid("retentionRate") && <p className="mt-1 text-xs text-destructive">Retention rate is required</p>}
           </div>
-          <div>
-            <Label htmlFor="policyMix" className="text-sm text-muted-foreground">Commercial Lines Mix (%) *</Label>
-            <Input id="policyMix" type="number" placeholder="e.g. 60" value={inputs.policyMix ?? ""} onChange={(e) => update({ policyMix: numOrNull(e.target.value) })} className="mt-1.5" />
+          <div id="field-policyMix">
+            <Label htmlFor="policyMix" className="text-sm text-muted-foreground">{requiredStar("Commercial Lines Mix (%)")}</Label>
+            <Input id="policyMix" type="number" placeholder="e.g. 60" value={inputs.policyMix ?? ""} onChange={(e) => update({ policyMix: numOrNull(e.target.value) })} className={`mt-1.5 ${fieldBorder("policyMix")}`} />
             <p className="mt-1 text-xs text-muted-foreground/70">% of premium that is Commercial Lines</p>
+            {isInvalid("policyMix") && <p className="mt-0.5 text-xs text-destructive">Policy mix is required</p>}
           </div>
-          <div>
-            <Label htmlFor="concentration" className="text-sm text-muted-foreground">Client Concentration (%) *</Label>
-            <Input id="concentration" type="number" placeholder="e.g. 15" value={inputs.clientConcentration ?? ""} onChange={(e) => update({ clientConcentration: numOrNull(e.target.value) })} className="mt-1.5" />
+          <div id="field-clientConcentration">
+            <Label htmlFor="concentration" className="text-sm text-muted-foreground">{requiredStar("Client Concentration (%)")}</Label>
+            <Input id="concentration" type="number" placeholder="e.g. 15" value={inputs.clientConcentration ?? ""} onChange={(e) => update({ clientConcentration: numOrNull(e.target.value) })} className={`mt-1.5 ${fieldBorder("clientConcentration")}`} />
             <p className="mt-1 text-xs text-muted-foreground/70">% of revenue from your top 10 clients</p>
+            {isInvalid("clientConcentration") && <p className="mt-0.5 text-xs text-destructive">Client concentration is required</p>}
           </div>
         </CardContent>
       </Card>
 
       {/* 7. Operational / Transferability */}
-      <Card className="border-border bg-card">
+      <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold text-foreground">
             7. Operational / Transferability
@@ -238,7 +253,7 @@ export function ValuationForm({ inputs, onChange }: Props) {
 
       {/* Conditional: Full Agency Due Diligence */}
       {isFullAgency && (
-        <Card className="border-primary/30 bg-card">
+        <Card className="border-primary/30">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold text-primary">
               Full Agency Due Diligence
@@ -254,7 +269,7 @@ export function ValuationForm({ inputs, onChange }: Props) {
                   { value: "standard", label: "Standard (3-6 months)" },
                   { value: "long", label: "Long (6+ months)" },
                 ].map((opt) => (
-                  <label key={opt.value} className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/5">
+                  <label key={opt.value} className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/10">
                     <RadioGroupItem value={opt.value} />
                     {opt.label}
                   </label>
@@ -279,7 +294,7 @@ export function ValuationForm({ inputs, onChange }: Props) {
                   { value: "moderate", label: "Moderate" },
                   { value: "high", label: "High Risk" },
                 ].map((opt) => (
-                  <label key={opt.value} className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/5">
+                  <label key={opt.value} className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/10">
                     <RadioGroupItem value={opt.value} />
                     {opt.label}
                   </label>

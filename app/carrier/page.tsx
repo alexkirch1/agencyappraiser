@@ -3,6 +3,9 @@
 import { useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CarrierForm } from "@/components/carrier/carrier-form"
+import { LeadCaptureModal } from "@/components/lead-capture-modal"
+import { Button } from "@/components/ui/button"
+import { Lock, Unlock, AlertCircle } from "lucide-react"
 import {
   calculateCarrierValuation,
   formatCurrency,
@@ -12,7 +15,40 @@ import {
 
 export default function CarrierPage() {
   const [inputs, setInputs] = useState<CarrierInputs>(defaultCarrierInputs)
-  const results = useMemo(() => calculateCarrierValuation(inputs), [inputs])
+  const [submitted, setSubmitted] = useState(false)
+  const [showLeadCapture, setShowLeadCapture] = useState(false)
+  const [unlocked, setUnlocked] = useState(false)
+
+  const results = useMemo(() => {
+    if (!submitted) return null
+    return calculateCarrierValuation(inputs)
+  }, [inputs, submitted])
+
+  const [validationError, setValidationError] = useState("")
+
+  const handleSubmit = () => {
+    if (!inputs.carrier) {
+      setValidationError("Please select a carrier first.")
+      return
+    }
+    // Check if carrier requires bookType
+    if (["progressive", "hartford", "travelers"].includes(inputs.carrier) && !inputs.bookType) {
+      setValidationError("Please select a book type.")
+      return
+    }
+    setValidationError("")
+    if (unlocked) {
+      setSubmitted(true)
+    } else {
+      setShowLeadCapture(true)
+    }
+  }
+
+  const handleLeadSubmit = () => {
+    setUnlocked(true)
+    setShowLeadCapture(false)
+    setSubmitted(true)
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
@@ -20,13 +56,49 @@ export default function CarrierPage() {
         <h1 className="text-3xl font-bold tracking-tight text-foreground">Carrier Book Calculator</h1>
         <p className="mt-2 text-muted-foreground">
           Value a specific carrier book of business using carrier-specific metrics and our valuation model.
+          Fill in your carrier details and submit to see your valuation.
         </p>
       </div>
 
       <div className="flex flex-col gap-8 lg:flex-row">
         {/* Form */}
         <div className="w-full lg:w-[60%]">
-          <CarrierForm inputs={inputs} onChange={setInputs} />
+          <CarrierForm inputs={inputs} onChange={(newInputs) => {
+            setInputs(newInputs)
+            if (submitted) setSubmitted(false)
+          }} />
+
+          {/* Validation Error */}
+          {validationError && (
+            <div className="mt-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="h-5 w-5 shrink-0 text-destructive" />
+                <p className="text-sm font-medium text-destructive">{validationError}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Submit Button */}
+          <div className="mt-6">
+            <Button onClick={handleSubmit} size="lg" className="w-full gap-2 text-base">
+              {unlocked ? (
+                <>
+                  <Unlock className="h-5 w-5" />
+                  Calculate Carrier Book Value
+                </>
+              ) : (
+                <>
+                  <Lock className="h-5 w-5" />
+                  Submit & Unlock Valuation
+                </>
+              )}
+            </Button>
+            {!unlocked && (
+              <p className="mt-2 text-center text-xs text-muted-foreground">
+                You will be asked for your name and email to view results.
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Sidebar */}
@@ -77,9 +149,13 @@ export default function CarrierPage() {
                     <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-secondary">
                       <span className="text-xl text-muted-foreground">$</span>
                     </div>
-                    <p className="text-sm font-medium text-foreground">Select a Carrier</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {submitted ? "No data to calculate" : "Fill In & Submit"}
+                    </p>
                     <p className="mt-1 max-w-xs text-xs text-muted-foreground">
-                      Choose a carrier and enter your book metrics to see a real-time valuation estimate.
+                      {submitted
+                        ? "Make sure you have entered your carrier book metrics."
+                        : "Choose a carrier, enter your book metrics, and click Submit to see your valuation."}
                     </p>
                   </div>
                 )}
@@ -99,6 +175,15 @@ export default function CarrierPage() {
           </div>
         </div>
       </div>
+
+      {showLeadCapture && (
+        <LeadCaptureModal
+          onSubmit={handleLeadSubmit}
+          onClose={() => setShowLeadCapture(false)}
+          title="Unlock Carrier Book Valuation"
+          description="Enter your details to view your carrier-specific book valuation."
+        />
+      )}
     </div>
   )
 }
