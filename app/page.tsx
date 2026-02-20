@@ -1,15 +1,24 @@
 import Link from "next/link"
-import { ArrowRight, Calculator, BarChart3, ClipboardCheck, CheckCircle2, Shield, Target } from "lucide-react"
+import { ArrowRight, Calculator, BarChart3, ClipboardCheck, CheckCircle2, Shield, Target, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 
 const tools = [
   {
+    href: "/quick-value",
+    icon: Zap,
+    title: "Quick Valuation",
+    description:
+      "Get a fast ballpark estimate in 60 seconds. Answer 3 questions, adjust the revenue multiplier, and see an instant range.",
+    accent: "text-[hsl(var(--warning))]",
+    accentBg: "bg-[hsl(var(--warning))]/10",
+  },
+  {
     href: "/calculator",
     icon: Calculator,
-    title: "Valuation Calculator",
+    title: "Full Valuation Calculator",
     description:
-      "Get a full agency valuation with our 7-category weighted scorecard. Analyze revenue, retention, risk, and more to determine your true market multiple.",
+      "Our in-depth 7-category weighted scorecard analyzes revenue, retention, risk, and more to determine your true market multiple.",
     accent: "text-primary",
     accentBg: "bg-primary/10",
   },
@@ -28,8 +37,8 @@ const tools = [
     title: "Readiness Quiz",
     description:
       "Take a 10-question scored assessment to see if you and your agency are truly ready for an exit. Get a grade and actionable recommendations.",
-    accent: "text-[hsl(var(--warning))]",
-    accentBg: "bg-[hsl(var(--warning))]/10",
+    accent: "text-[hsl(var(--chart-4))]",
+    accentBg: "bg-[hsl(var(--chart-4))]/10",
   },
   {
     href: "/readiness",
@@ -45,18 +54,18 @@ const tools = [
 const steps = [
   {
     number: "01",
-    title: "Enter Your Data",
-    description: "Fill in your agency's financial metrics, book details, and operational profile.",
+    title: "Get a Quick Estimate",
+    description: "Start with our 60-second Quick Valuation to see a ballpark range for your agency.",
   },
   {
     number: "02",
-    title: "Get Your Valuation",
-    description: "Our weighted scorecard analyzes 7 risk categories to calculate a data-driven multiple.",
+    title: "Go Deeper",
+    description: "Run the full 7-category valuation calculator with risk audit and deal structure simulator.",
   },
   {
     number: "03",
-    title: "Plan Your Exit",
-    description: "Use the deal simulator, risk audit, and readiness tools to prepare for a successful sale.",
+    title: "Prepare to Sell",
+    description: "Use the readiness quiz and seller scorecard to make sure you are truly ready for a deal.",
   },
 ]
 
@@ -88,13 +97,13 @@ export default function HomePage() {
 
           <div className="mt-10 flex flex-col gap-4 sm:flex-row">
             <Button asChild size="lg" className="gap-2">
-              <Link href="/calculator">
-                Start Your Valuation
+              <Link href="/quick-value">
+                Get a Quick Estimate
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
             <Button asChild variant="outline" size="lg">
-              <Link href="/quiz">Take the Readiness Quiz</Link>
+              <Link href="/calculator">Full Valuation Calculator</Link>
             </Button>
           </div>
 
@@ -127,7 +136,7 @@ export default function HomePage() {
           </p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {tools.map((tool) => (
             <Link key={tool.href} href={tool.href} className="group">
               <Card className="h-full border-border bg-card transition-colors hover:border-primary/40">
@@ -199,12 +208,17 @@ export default function HomePage() {
                 Join hundreds of agency owners who have used our tools to understand
                 their true market value before entering negotiations.
               </p>
-              <Button asChild size="lg" className="mt-8 gap-2">
-                <Link href="/calculator">
-                  Start Free Valuation
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
+              <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+                <Button asChild size="lg" className="gap-2">
+                  <Link href="/quick-value">
+                    Start With a Quick Estimate
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="lg">
+                  <Link href="/calculator">Full Valuation Calculator</Link>
+                </Button>
+              </div>
             </div>
           </div>
         </div>

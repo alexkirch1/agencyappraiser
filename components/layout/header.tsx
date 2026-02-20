@@ -4,13 +4,15 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
-import { Menu, X, TrendingUp } from "lucide-react"
+import { Menu, X, TrendingUp, Sun, Moon } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useTheme } from "@/components/theme-provider"
 
 const navItems = [
   { href: "/", label: "Home" },
-  { href: "/calculator", label: "Valuation Calculator" },
-  { href: "/carrier", label: "Carrier Calculator" },
+  { href: "/quick-value", label: "Quick Value" },
+  { href: "/calculator", label: "Full Valuation" },
+  { href: "/carrier", label: "Carrier Calc" },
   { href: "/quiz", label: "Readiness Quiz" },
   { href: "/readiness", label: "Seller Scorecard" },
 ]
@@ -18,6 +20,7 @@ const navItems = [
 export function Header() {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { theme, toggleTheme } = useTheme()
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
@@ -48,15 +51,27 @@ export function Header() {
           ))}
         </nav>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="lg:hidden"
-          onClick={() => setMobileOpen(!mobileOpen)}
-          aria-label="Toggle navigation"
-        >
-          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            aria-label="Toggle theme"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label="Toggle navigation"
+          >
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
+        </div>
       </div>
 
       {mobileOpen && (
