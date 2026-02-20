@@ -44,14 +44,14 @@ export function ValuationDisclaimerModal({ onContinue }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <Card className="w-full max-w-md border-border bg-card shadow-2xl overflow-hidden">
         <CardContent className="flex flex-col items-center p-8 text-center">
-          {/* Animated Mountain Goat */}
+          {/* Mountain Goat */}
           <div
             className="relative mb-6"
             style={{
-              animation: ready ? "none" : "goat-bounce 1s ease-in-out infinite",
+              animation: ready ? "none" : "goat-bob 2s ease-in-out infinite",
             }}
           >
-            <div className="relative h-36 w-36 overflow-hidden rounded-2xl border-2 border-primary/30 bg-secondary shadow-lg">
+            <div className="relative h-28 w-28 overflow-hidden rounded-xl border border-border bg-secondary">
               <Image
                 src="/images/mountain-goat.jpg"
                 alt="Mountain goat mascot"
@@ -60,12 +60,6 @@ export function ValuationDisclaimerModal({ onContinue }: Props) {
                 priority
               />
             </div>
-            {/* Glow pulse behind the goat while loading */}
-            {!ready && (
-              <div className="absolute inset-0 -z-10 rounded-2xl bg-primary/20 blur-xl"
-                style={{ animation: "goat-glow 2s ease-in-out infinite" }}
-              />
-            )}
           </div>
 
           {/* Progress bar and message */}
@@ -108,13 +102,9 @@ export function ValuationDisclaimerModal({ onContinue }: Props) {
 
       {/* Keyframe animations */}
       <style jsx>{`
-        @keyframes goat-bounce {
+        @keyframes goat-bob {
           0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-12px); }
-        }
-        @keyframes goat-glow {
-          0%, 100% { opacity: 0.3; transform: scale(1); }
-          50% { opacity: 0.7; transform: scale(1.1); }
+          50% { transform: translateY(-6px); }
         }
         @keyframes fade-up {
           0% { opacity: 0; transform: translateY(12px); }

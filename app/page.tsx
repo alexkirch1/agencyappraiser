@@ -1,5 +1,14 @@
 import Link from "next/link"
-import { ArrowRight, Calculator, BarChart3, ClipboardCheck, CheckCircle2, Shield, Target, Zap } from "lucide-react"
+import {
+  ArrowRight,
+  Calculator,
+  BarChart3,
+  ClipboardCheck,
+  CheckCircle2,
+  Shield,
+  Target,
+  Zap,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 
@@ -8,64 +17,46 @@ const tools = [
     href: "/quick-value",
     icon: Zap,
     title: "Quick Valuation",
-    description:
-      "Get a fast ballpark estimate in 60 seconds. Answer 3 questions, adjust the revenue multiplier, and see an instant range.",
+    description: "Get a ballpark estimate in 60 seconds with just a few inputs and an adjustable multiplier.",
     accent: "text-[hsl(var(--warning))]",
     accentBg: "bg-[hsl(var(--warning))]/10",
+    tag: "Start Here",
   },
   {
     href: "/calculator",
     icon: Calculator,
-    title: "Full Valuation Calculator",
-    description:
-      "Our in-depth 7-category weighted scorecard analyzes revenue, retention, risk, and more to determine your true market multiple.",
+    title: "Full Valuation",
+    description: "Our 7-category weighted scorecard covering revenue, retention, risk, operations, and more.",
     accent: "text-primary",
     accentBg: "bg-primary/10",
+    tag: "Most Popular",
   },
   {
     href: "/carrier",
     icon: BarChart3,
-    title: "Carrier Book Calculator",
-    description:
-      "Value a specific carrier book of business. Supports Progressive, Safeco, Hartford, Travelers, and MSA with carrier-specific metrics.",
+    title: "Carrier Book Calc",
+    description: "Value a specific carrier book. Supports Progressive, Safeco, Hartford, Travelers, and MSA.",
     accent: "text-[hsl(var(--success))]",
     accentBg: "bg-[hsl(var(--success))]/10",
+    tag: null,
   },
   {
     href: "/quiz",
     icon: Target,
     title: "Readiness Quiz",
-    description:
-      "Take a 10-question scored assessment to see if you and your agency are truly ready for an exit. Get a grade and actionable recommendations.",
+    description: "10-question scored assessment to evaluate if you and your agency are ready for an exit.",
     accent: "text-[hsl(var(--chart-4))]",
     accentBg: "bg-[hsl(var(--chart-4))]/10",
+    tag: null,
   },
   {
     href: "/readiness",
     icon: ClipboardCheck,
     title: "Seller Scorecard",
-    description:
-      "Walk through a comprehensive preparation checklist covering financials, legal, operations, and transition planning before you go to market.",
+    description: "Comprehensive checklist covering financials, legal, operations, and transition planning.",
     accent: "text-[hsl(var(--chart-5))]",
     accentBg: "bg-[hsl(var(--chart-5))]/10",
-  },
-]
-
-const steps = [
-  {
-    number: "01",
-    title: "Get a Quick Estimate",
-    description: "Start with our 60-second Quick Valuation to see a ballpark range for your agency.",
-  },
-  {
-    number: "02",
-    title: "Go Deeper",
-    description: "Run the full 7-category valuation calculator with risk audit and deal structure simulator.",
-  },
-  {
-    number: "03",
-    title: "Prepare to Sell",
-    description: "Use the readiness quiz and seller scorecard to make sure you are truly ready for a deal.",
+    tag: null,
   },
 ]
 
@@ -73,29 +64,23 @@ export default function HomePage() {
   return (
     <div className="flex flex-col">
       {/* Hero */}
-      <section className="relative overflow-hidden border-b border-border">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,hsl(var(--primary)/0.08),transparent_60%)]" />
-        <div className="relative mx-auto flex max-w-7xl flex-col items-center px-4 py-24 text-center lg:px-8 lg:py-36">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-secondary/50 px-4 py-1.5">
+      <section className="relative border-b border-border">
+        <div className="mx-auto flex max-w-5xl flex-col items-center px-4 py-20 text-center lg:px-8 lg:py-28">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5">
             <Shield className="h-4 w-4 text-primary" />
-            <span className="text-xs font-medium text-muted-foreground">
-              Insurance M&A Valuation Tools
-            </span>
+            <span className="text-xs font-medium text-muted-foreground">Insurance Agency M&A Tools</span>
           </div>
 
-          <h1 className="max-w-4xl text-balance text-4xl font-bold leading-tight tracking-tight text-foreground md:text-5xl lg:text-6xl">
-            Know Your Agency&apos;s{" "}
-            <span className="text-primary">True Value</span>
+          <h1 className="max-w-3xl text-balance text-4xl font-bold tracking-tight text-foreground md:text-5xl lg:text-6xl">
+            Know Your Agency&apos;s <span className="text-primary">True Value</span>
           </h1>
 
-          <p className="mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-muted-foreground">
-            Our proprietary valuation model goes beyond simple revenue multiples.
-            We analyze retention, book quality, legal risk, and operational
-            efficiency to give you a data-driven estimate of what buyers will
-            actually pay.
+          <p className="mt-5 max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground md:text-lg">
+            Go beyond simple revenue multiples. Our valuation model analyzes retention,
+            book quality, risk, and operations to estimate what buyers will actually pay.
           </p>
 
-          <div className="mt-10 flex flex-col gap-4 sm:flex-row">
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg" className="gap-2">
               <Link href="/quick-value">
                 Get a Quick Estimate
@@ -107,54 +92,72 @@ export default function HomePage() {
             </Button>
           </div>
 
-          <div className="mt-16 flex flex-wrap items-center justify-center gap-x-12 gap-y-4 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-[hsl(var(--success))]" />
-              <span>7-Category Scorecard</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-[hsl(var(--success))]" />
-              <span>Deal Structure Simulator</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-[hsl(var(--success))]" />
-              <span>14-Point Risk Audit</span>
-            </div>
+          <div className="mt-12 flex flex-wrap items-center justify-center gap-x-10 gap-y-3 text-sm text-muted-foreground">
+            {["7-Category Scorecard", "Deal Structure Simulator", "14-Point Risk Audit"].map((item) => (
+              <div key={item} className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-[hsl(var(--success))]" />
+                <span>{item}</span>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Tools Grid */}
-      <section className="mx-auto max-w-7xl px-4 py-20 lg:px-8">
-        <div className="mb-12 text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-foreground">
-            Powerful Tools for Agency M&A
-          </h2>
-          <p className="mt-3 text-muted-foreground">
-            Everything you need to value, evaluate, and prepare your agency for a
-            successful transaction.
-          </p>
+      {/* Tools */}
+      <section className="mx-auto w-full max-w-5xl px-4 py-16 lg:px-8">
+        <h2 className="mb-2 text-center text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+          Valuation &amp; Readiness Tools
+        </h2>
+        <p className="mx-auto mb-10 max-w-xl text-center text-sm text-muted-foreground">
+          Everything you need to value, evaluate, and prepare your agency for a successful transaction.
+        </p>
+
+        {/* Top 2 featured cards */}
+        <div className="grid gap-4 md:grid-cols-2">
+          {tools.slice(0, 2).map((tool) => (
+            <Link key={tool.href} href={tool.href} className="group">
+              <Card className="h-full border border-border bg-card transition-colors hover:border-primary/50">
+                <CardContent className="flex flex-col gap-3 p-6">
+                  <div className="flex items-center justify-between">
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${tool.accentBg}`}>
+                      <tool.icon className={`h-5 w-5 ${tool.accent}`} />
+                    </div>
+                    {tool.tag && (
+                      <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                        {tool.tag}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
+                    {tool.title}
+                  </h3>
+                  <p className="text-sm leading-relaxed text-muted-foreground">{tool.description}</p>
+                  <div className="mt-auto flex items-center gap-1 pt-1 text-sm font-medium text-primary">
+                    <span>Get started</span>
+                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {tools.map((tool) => (
+        {/* Bottom 3 cards */}
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          {tools.slice(2).map((tool) => (
             <Link key={tool.href} href={tool.href} className="group">
-              <Card className="h-full border-border bg-card transition-colors hover:border-primary/40">
-                <CardContent className="flex flex-col gap-4 p-6">
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${tool.accentBg}`}>
-                    <tool.icon className={`h-6 w-6 ${tool.accent}`} />
+              <Card className="h-full border border-border bg-card transition-colors hover:border-primary/50">
+                <CardContent className="flex flex-col gap-3 p-5">
+                  <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${tool.accentBg}`}>
+                    <tool.icon className={`h-4 w-4 ${tool.accent}`} />
                   </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
-                      {tool.title}
-                    </h3>
-                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                      {tool.description}
-                    </p>
-                  </div>
-                  <div className="mt-auto flex items-center gap-1 text-sm font-medium text-primary">
+                  <h3 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
+                    {tool.title}
+                  </h3>
+                  <p className="text-sm leading-relaxed text-muted-foreground">{tool.description}</p>
+                  <div className="mt-auto flex items-center gap-1 pt-1 text-sm font-medium text-primary">
                     <span>Get started</span>
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
                   </div>
                 </CardContent>
               </Card>
@@ -164,31 +167,21 @@ export default function HomePage() {
       </section>
 
       {/* How It Works */}
-      <section className="border-t border-border bg-card/50">
-        <div className="mx-auto max-w-7xl px-4 py-20 lg:px-8">
-          <div className="mb-12 text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-foreground">
-              How It Works
-            </h2>
-            <p className="mt-3 text-muted-foreground">
-              Three steps to a data-driven agency valuation.
-            </p>
-          </div>
-
+      <section className="border-t border-border">
+        <div className="mx-auto max-w-5xl px-4 py-16 lg:px-8">
+          <h2 className="mb-8 text-center text-2xl font-bold tracking-tight text-foreground">How It Works</h2>
           <div className="grid gap-8 md:grid-cols-3">
-            {steps.map((step) => (
-              <div key={step.number} className="flex flex-col items-center text-center">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-primary/30 bg-primary/5">
-                  <span className="text-2xl font-bold text-primary">
-                    {step.number}
-                  </span>
+            {[
+              { n: "1", title: "Quick Estimate", desc: "Start with our 60-second Quick Valuation to see a ballpark range." },
+              { n: "2", title: "Go Deeper", desc: "Run the full 7-category calculator with risk audit and deal simulator." },
+              { n: "3", title: "Prepare to Sell", desc: "Use the readiness quiz and scorecard to get deal-ready." },
+            ].map((step) => (
+              <div key={step.n} className="flex flex-col items-center text-center">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-primary/30 bg-primary/5 text-xl font-bold text-primary">
+                  {step.n}
                 </div>
-                <h3 className="text-lg font-semibold text-foreground">
-                  {step.title}
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  {step.description}
-                </p>
+                <h3 className="text-base font-semibold text-foreground">{step.title}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{step.desc}</p>
               </div>
             ))}
           </div>
@@ -197,18 +190,16 @@ export default function HomePage() {
 
       {/* CTA */}
       <section className="border-t border-border">
-        <div className="mx-auto max-w-7xl px-4 py-20 lg:px-8">
-          <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-8 md:p-12">
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,hsl(var(--primary)/0.06),transparent_60%)]" />
-            <div className="relative flex flex-col items-center text-center">
-              <h2 className="text-balance text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+        <div className="mx-auto max-w-5xl px-4 py-16 lg:px-8">
+          <Card className="border border-border bg-card">
+            <CardContent className="flex flex-col items-center p-8 text-center md:p-12">
+              <h2 className="text-balance text-2xl font-bold tracking-tight text-foreground md:text-3xl">
                 Ready to Find Out What Your Agency Is Worth?
               </h2>
-              <p className="mt-4 max-w-xl text-pretty text-muted-foreground">
-                Join hundreds of agency owners who have used our tools to understand
-                their true market value before entering negotiations.
+              <p className="mt-3 max-w-lg text-sm text-muted-foreground">
+                Join agency owners who use our tools to understand their true market value before entering negotiations.
               </p>
-              <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <Button asChild size="lg" className="gap-2">
                   <Link href="/quick-value">
                     Start With a Quick Estimate
@@ -216,11 +207,11 @@ export default function HomePage() {
                   </Link>
                 </Button>
                 <Button asChild variant="outline" size="lg">
-                  <Link href="/calculator">Full Valuation Calculator</Link>
+                  <Link href="/calculator">Full Calculator</Link>
                 </Button>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       </section>
     </div>
