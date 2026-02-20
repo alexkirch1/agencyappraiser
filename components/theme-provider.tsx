@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useState, useCallback } from "react"
 
 type Theme = "dark" | "light"
 
@@ -16,29 +16,30 @@ const ThemeContext = createContext<ThemeContextType>({
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>("dark")
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    const stored = localStorage.getItem("theme") as Theme | null
+    const stored = localStorage.getItem("agency-appraiser-theme") as Theme | null
     if (stored === "light" || stored === "dark") {
       setTheme(stored)
     }
+    setMounted(true)
   }, [])
 
   useEffect(() => {
+    if (!mounted) return
     const root = document.documentElement
     if (theme === "dark") {
       root.classList.add("dark")
-      root.classList.remove("light")
     } else {
       root.classList.remove("dark")
-      root.classList.add("light")
     }
-    localStorage.setItem("theme", theme)
-  }, [theme])
+    localStorage.setItem("agency-appraiser-theme", theme)
+  }, [theme, mounted])
 
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     setTheme((prev) => (prev === "dark" ? "light" : "dark"))
-  }
+  }, [])
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
