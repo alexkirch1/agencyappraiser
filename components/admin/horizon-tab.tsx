@@ -291,6 +291,109 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
     [log]
   )
 
+  // ----- Parse a single PDF row for commission data -----
+  function parsePdfRow(lineStr: string, pageNum: number, fileDate: string, fileName: string): CommItem | null {
+    if (lineStr.length < 10) return null
+    // Skip header-like rows
+    const lower = lineStr.toLowerCase()
+    if (
+      lower.includes("page ") && lower.includes(" of ") ||
+      lower.includes("statement date") ||
+      lower.includes("commission rate") && lower.includes("policy number") ||
+      /^(total|subtotal|grand total)/i.test(lineStr.trim())
+    ) return null
+
+    // Find all money values (amounts with decimals like 1,234.56)
+    const moneyPattern = /[(-]?\$?\s*(\d{1,3}(?:[,\s]?\d{3})*)\.\d{2}\s*[)CR-]*/gi
+    const moneyMatches = [...lineStr.matchAll(moneyPattern)]
+    const moneyCandidates = moneyMatches
+      .map((match) => ({
+        val: cleanNum(match[0]),
+        raw: match[0],
+        abs: Math.abs(cleanNum(match[0])),
+        index: match.index ?? 0,
+      }))
+      .filter((m) => m.val !== 0 && m.abs < 500000 && m.abs >= 0.01)
+
+    if (moneyCandidates.length === 0) return null
+
+    // Commission is typically the last or smallest money amount on the line
+    // If there are multiple amounts, the last one tends to be the commission
+    // (premium comes first, then commission)
+    let commAmount: typeof moneyCandidates[0]
+    let premAmount: typeof moneyCandidates[0] | null = null
+
+    if (moneyCandidates.length >= 2) {
+      // Sort by position in line (left to right)
+      const sorted = [...moneyCandidates].sort((a, b) => a.index - b.index)
+      // Last money value is usually commission, first is usually premium
+      commAmount = sorted[sorted.length - 1]
+      premAmount = sorted[0]
+      // Unless the last one is bigger (then it's premium and the smaller one is commission)
+      if (commAmount.abs > premAmount.abs * 3 && premAmount.abs > 0) {
+        const temp = commAmount
+        commAmount = premAmount
+        premAmount = temp
+      }
+    } else {
+      commAmount = moneyCandidates[0]
+    }
+
+    // Extract policy number - look for alphanumeric tokens that look like policy numbers
+    let cleanLine = lineStr
+    moneyCandidates.forEach((m) => {
+      cleanLine = cleanLine.replace(m.raw, " __MONEY__ ")
+    })
+    const tokens = cleanLine.split(/\s+/).filter(t => t !== "__MONEY__" && t.trim())
+
+    let foundPol: string | null = null
+    let foundName = ""
+    const nameTokens: string[] = []
+
+    for (const t of tokens) {
+      const tClean = t.replace(/^[.,\-:()]+|[.,\-:()]+$/g, "")
+      if (!tClean) continue
+
+      const hasDigit = /\d/.test(tClean)
+      const hasLetter = /[a-zA-Z]/.test(tClean)
+      // Skip pure dates like 01/15/2024 or 2024-01-15
+      const isDate = /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(tClean) ||
+                     /^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(tClean)
+      // Skip pure percentages like 15% or 0.15
+      const isPercent = /^\d+\.?\d*%$/.test(tClean)
+      // Skip short pure numbers (ages, counts etc)
+      const isPureShortNum = /^\d{1,3}$/.test(tClean)
+
+      if (isDate || isPercent || isPureShortNum) continue
+
+      // A policy number typically has digits and is 4+ chars, often mixed with letters
+      if (!foundPol && tClean.length >= 4 && hasDigit && (hasLetter || tClean.length >= 6)) {
+        foundPol = normalizePolicy(tClean)
+      } else if (hasLetter && !hasDigit && tClean.length >= 2) {
+        nameTokens.push(tClean)
+      }
+    }
+
+    foundName = nameTokens.slice(0, 4).join(" ")
+
+    if (!foundPol || commAmount.val === 0) return null
+
+    return {
+      id: `${foundPol}_${commAmount.val.toFixed(2)}_${pageNum}`,
+      policy_number: foundPol,
+      commission: commAmount.val,
+      month: fileDate,
+      file: fileName,
+      client_name: foundName,
+      raw_line: lineStr,
+      producer: "-",
+      carrier: "-",
+      lob: "-",
+      trans_type: "-",
+      premium: premAmount ? premAmount.val : 0,
+    }
+  }
+
   // ----- Handle Commission Upload -----
   const handleCommUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -305,9 +408,11 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
       for (const file of files) {
         log(`Scanning ${file.name}...`)
         let fileTotal = 0
+        let parsedRows = 0
+        let skippedRows = 0
         const fileDate = extractDateFromFilename(file.name) || "Unknown"
 
-        if (file.name.endsWith(".pdf")) {
+        if (file.name.toLowerCase().endsWith(".pdf")) {
           // PDF parsing via pdfjs-dist
           try {
             const pdfjsLib = await import("pdfjs-dist")
@@ -315,23 +420,33 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
 
             const ab = await file.arrayBuffer()
             const pdf = await pdfjsLib.getDocument(new Uint8Array(ab)).promise
+            log(`  PDF has ${pdf.numPages} page(s)`)
 
             for (let i = 1; i <= pdf.numPages; i++) {
               const page = await pdf.getPage(i)
               const textContent = await page.getTextContent()
-              const rows: Record<number, typeof textContent.items> = {}
 
+              // Group text items into rows by Y coordinate
+              const rows: Record<number, typeof textContent.items> = {}
               textContent.items.forEach((item) => {
                 if (!("transform" in item)) return
-                const y = Math.floor(item.transform[5])
+                const y = Math.round(item.transform[5])
+                // Cluster nearby Y values (within 4px)
                 const foundKey = Object.keys(rows).find(
-                  (key) => Math.abs(Number(key) - y) <= 8
+                  (key) => Math.abs(Number(key) - y) <= 4
                 )
                 if (foundKey) rows[Number(foundKey)].push(item)
                 else rows[y] = [item]
               })
 
-              Object.values(rows).forEach((rowItems) => {
+              // Sort rows top-to-bottom (highest Y = top of page)
+              const sortedYs = Object.keys(rows)
+                .map(Number)
+                .sort((a, b) => b - a)
+
+              for (const yKey of sortedYs) {
+                const rowItems = rows[yKey]
+                // Sort items left to right by X coordinate
                 rowItems.sort((a, b) => {
                   const ax = "transform" in a ? a.transform[4] : 0
                   const bx = "transform" in b ? b.transform[4] : 0
@@ -340,65 +455,22 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
 
                 const lineStr = rowItems
                   .map((item) => ("str" in item ? item.str : ""))
-                  .join(" ")
+                  .join("  ")
+                  .replace(/\s{3,}/g, "  ")
                   .trim()
 
-                // Find money
-                const moneyPattern = /[(-]?\$?\s*(\d{1,3}(?:[,\s]?\d{3})*)\s*\.\s*(\d{2})\s*[)CR-]*/gi
-                const moneyMatches = [...lineStr.matchAll(moneyPattern)]
-                const moneyCandidates = moneyMatches
-                  .map((match) => ({
-                    val: cleanNum(match[0]),
-                    raw: match[0],
-                    abs: Math.abs(cleanNum(match[0])),
-                  }))
-                  .filter((m) => m.val !== 0 && m.abs < 500000)
-
-                if (moneyCandidates.length === 0) return
-                moneyCandidates.sort((a, b) => a.abs - b.abs)
-                const foundMoney = moneyCandidates[0].val
-
-                // Find policy number
-                let cleanLine = lineStr
-                moneyCandidates.forEach((m) => {
-                  cleanLine = cleanLine.replace(m.raw, " ")
-                })
-                const tokens = cleanLine.split(/\s+/)
-                let foundPol: string | null = null
-
-                for (const t of tokens) {
-                  const tClean = t.replace(/^[.,\-:()]+|[.,\-:()]+$/g, "")
-                  const hasDigit = /\d/.test(tClean)
-                  const isDate = tClean.includes("/") || (tClean.includes("-") && tClean.length >= 8)
-                  if (tClean.length >= 4 && hasDigit && !isDate) {
-                    foundPol = normalizePolicy(tClean)
-                    break
-                  }
+                const parsed = parsePdfRow(lineStr, i, fileDate, file.name)
+                if (parsed && !newSeen.has(parsed.id)) {
+                  newCommData.push(parsed)
+                  newSeen.add(parsed.id)
+                  fileTotal += parsed.commission
+                  parsedRows++
+                } else if (lineStr.length >= 10) {
+                  skippedRows++
                 }
-
-                if (foundPol && foundMoney !== 0) {
-                  const uID = `${foundPol}_${foundMoney}_${i}`
-                  if (!newSeen.has(uID)) {
-                    newCommData.push({
-                      id: uID,
-                      policy_number: foundPol,
-                      commission: foundMoney,
-                      month: fileDate,
-                      file: file.name,
-                      client_name: "",
-                      raw_line: lineStr,
-                      producer: "-",
-                      carrier: "-",
-                      lob: "-",
-                      trans_type: "-",
-                      premium: 0,
-                    })
-                    newSeen.add(uID)
-                    fileTotal += foundMoney
-                  }
-                }
-              })
+              }
             }
+            log(`  Found ${parsedRows} commission records (${skippedRows} rows skipped)`)
           } catch (err) {
             log(`Error parsing PDF: ${(err as Error).message}`)
           }
@@ -407,57 +479,106 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
           try {
             const ab = await file.arrayBuffer()
             const wb = XLSX.read(ab, { type: "array" })
-            const ws = wb.Sheets[wb.SheetNames[0]]
-            const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws)
 
-            data.forEach((row, idx) => {
-              const keys = Object.keys(row)
-              const kPol = keys.find((k) => /pol/i.test(k) && !/type/i.test(k))
-              const kAmt = keys.find((k) => {
-                const s = k.toLowerCase()
-                return (
-                  /commission|comm|split|net|revenue/.test(s) ||
-                  (/amount|amt|pay|bonus/.test(s) &&
-                    !s.includes("premium") &&
-                    !s.includes("basis"))
-                )
-              })
+            // Try each sheet
+            for (const sheetName of wb.SheetNames) {
+              const ws = wb.Sheets[sheetName]
+              const rawData = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: "" })
 
-              if (kPol && kAmt) {
-                const p = normalizePolicy(row[kPol])
-                const val = cleanNum(row[kAmt])
-                if (Math.abs(val) > 50000 || val === 0) return
+              // Find the header row -- look for rows with commission-like keywords
+              let headerIdx = 0
+              for (let i = 0; i < Math.min(20, rawData.length); i++) {
+                const rowStr = JSON.stringify(rawData[i]).toLowerCase()
+                if (
+                  (rowStr.includes("commission") || rowStr.includes("comm") || rowStr.includes("revenue") || rowStr.includes("amount")) &&
+                  (rowStr.includes("poli") || rowStr.includes("number") || rowStr.includes("insured") || rowStr.includes("name"))
+                ) {
+                  headerIdx = i
+                  break
+                }
+              }
 
-                const kName = keys.find((k) => /name|insured|client|account|customer/i.test(k))
-                const uID = `${p}_${val}_${idx}`
+              const headers = (rawData[headerIdx] as string[]).map(String)
+              const dataRows = rawData.slice(headerIdx + 1)
 
+              // Auto-detect column indices for commission data
+              const commColKeywords: Record<string, string[]> = {
+                policy: ["policy", "pol#", "pol #", "number", "policy no", "policyno"],
+                commission: ["commission", "comm", "comm amt", "comm $", "revenue", "net", "split", "pay", "earned", "agent comm"],
+                premium: ["premium", "prem", "written", "annualized", "gross"],
+                name: ["insured", "name", "account", "client", "customer", "policyholder"],
+                carrier: ["carrier", "company", "master", "insurer"],
+                lob: ["lob", "line", "coverage", "class", "type"],
+                producer: ["producer", "agent", "csr", "writer"],
+                transType: ["trans", "type", "status", "action"],
+              }
+
+              const colMap: Record<string, number> = {}
+              for (const [key, keywords] of Object.entries(commColKeywords)) {
+                for (const kw of keywords) {
+                  const idx = headers.findIndex(h =>
+                    h.toLowerCase().includes(kw.toLowerCase())
+                  )
+                  if (idx !== -1 && colMap[key] === undefined) {
+                    colMap[key] = idx
+                    break
+                  }
+                }
+              }
+
+              // Need at minimum a commission column
+              if (colMap.commission === undefined) {
+                log(`  Sheet "${sheetName}": No commission column found in headers.`)
+                continue
+              }
+
+              log(`  Sheet "${sheetName}": Mapped cols - pol:${colMap.policy ?? "?"} comm:${colMap.commission ?? "?"} prem:${colMap.premium ?? "?"} name:${colMap.name ?? "?"}`)
+
+              for (let idx = 0; idx < dataRows.length; idx++) {
+                const row = (dataRows[idx] as string[]).map(String)
+                const val = cleanNum(row[colMap.commission])
+                if (val === 0 || Math.abs(val) > 500000) continue
+
+                const polNum = colMap.policy !== undefined ? normalizePolicy(row[colMap.policy]) : `ROW${idx}`
+                const clientName = colMap.name !== undefined ? row[colMap.name] : ""
+                const premium = colMap.premium !== undefined ? cleanNum(row[colMap.premium]) : 0
+                const carrier = colMap.carrier !== undefined ? row[colMap.carrier] : "-"
+                const lob = colMap.lob !== undefined ? row[colMap.lob] : "-"
+                const producer = colMap.producer !== undefined ? row[colMap.producer] : "-"
+                const transType = colMap.transType !== undefined ? row[colMap.transType] : "-"
+
+                const uID = `${polNum}_${val.toFixed(2)}_${idx}_${sheetName}`
                 if (!newSeen.has(uID)) {
                   newCommData.push({
                     id: uID,
-                    policy_number: p,
+                    policy_number: polNum,
                     commission: val,
                     month: fileDate,
                     file: file.name,
-                    client_name: kName ? String(row[kName]) : "",
-                    raw_line: Object.values(row).join(" | "),
-                    producer: "-",
-                    carrier: "-",
-                    lob: "-",
-                    trans_type: "-",
-                    premium: 0,
+                    client_name: clientName,
+                    raw_line: row.join(" | "),
+                    producer,
+                    carrier,
+                    lob,
+                    trans_type: transType,
+                    premium,
                   })
                   newSeen.add(uID)
                   fileTotal += val
+                  parsedRows++
                 }
               }
-            })
+
+              if (parsedRows > 0) break // found data in this sheet
+            }
+            log(`  Found ${parsedRows} commission records from Excel`)
           } catch (err) {
             log(`Error parsing Excel: ${(err as Error).message}`)
           }
         }
 
         newFiles[file.name] = fileTotal
-        log(`Scanned ${file.name}: ${formatCurrency(fileTotal)}`)
+        log(`Scanned ${file.name}: ${formatCurrency(fileTotal)} total from ${parsedRows} records`)
       }
 
       setComm({
@@ -817,6 +938,93 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                     <span className="font-bold text-primary">{formatCurrency(total)}</span>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Commission Data Table */}
+            {comm.loaded && comm.data.length > 0 && (
+              <div className="mt-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-xs font-bold text-muted-foreground">
+                    Parsed Commission Records ({comm.data.length})
+                  </p>
+                  {policy.loaded && (
+                    <p className="text-xs text-muted-foreground">
+                      Matched to policies: {(() => {
+                        const polIdx = columnMap.policy ?? -1
+                        if (polIdx === -1) return "N/A"
+                        const policySet = new Set<string>()
+                        policy.data.forEach((row, i) => {
+                          if (!policy.excludedIndices.has(i)) {
+                            const pNorm = normalizePolicy(row[polIdx])
+                            if (pNorm) policySet.add(pNorm)
+                          }
+                        })
+                        const matched = comm.data.filter(c => policySet.has(normalizePolicy(c.policy_number))).length
+                        return `${matched} / ${comm.data.length}`
+                      })()}
+                    </p>
+                  )}
+                </div>
+                <div className="max-h-72 overflow-auto rounded-lg border border-border">
+                  <table className="w-full min-w-[700px] text-xs">
+                    <thead>
+                      <tr>
+                        {policy.loaded && (
+                          <th className="sticky top-0 border-b-2 border-border bg-secondary px-2 py-2 text-left font-semibold text-muted-foreground">Match</th>
+                        )}
+                        <th className="sticky top-0 border-b-2 border-border bg-secondary px-2 py-2 text-left font-semibold text-muted-foreground">Policy #</th>
+                        <th className="sticky top-0 border-b-2 border-border bg-secondary px-2 py-2 text-left font-semibold text-muted-foreground">Client</th>
+                        <th className="sticky top-0 border-b-2 border-border bg-secondary px-2 py-2 text-right font-semibold text-muted-foreground">Commission</th>
+                        <th className="sticky top-0 border-b-2 border-border bg-secondary px-2 py-2 text-right font-semibold text-muted-foreground">Premium</th>
+                        <th className="sticky top-0 border-b-2 border-border bg-secondary px-2 py-2 text-left font-semibold text-muted-foreground">Month</th>
+                        <th className="sticky top-0 border-b-2 border-border bg-secondary px-2 py-2 text-left font-semibold text-muted-foreground">File</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {comm.data.slice(0, 200).map((c) => {
+                        const polIdx = columnMap.policy ?? -1
+                        let isMatched = false
+                        if (policy.loaded && polIdx >= 0) {
+                          const normPol = normalizePolicy(c.policy_number)
+                          isMatched = policy.data.some((row, i) =>
+                            !policy.excludedIndices.has(i) && normalizePolicy(row[polIdx]) === normPol
+                          )
+                        }
+                        return (
+                          <tr key={c.id} className={cn(
+                            "border-b border-border",
+                            isMatched ? "bg-success/5" : ""
+                          )}>
+                            {policy.loaded && (
+                              <td className="px-2 py-1.5 text-center">
+                                {isMatched
+                                  ? <span className="text-success font-bold">Yes</span>
+                                  : <span className="text-muted-foreground">No</span>
+                                }
+                              </td>
+                            )}
+                            <td className="px-2 py-1.5 font-mono text-foreground">{c.policy_number}</td>
+                            <td className="px-2 py-1.5 text-foreground">{c.client_name || "-"}</td>
+                            <td className={cn("px-2 py-1.5 text-right font-mono font-semibold", c.commission >= 0 ? "text-success" : "text-destructive")}>
+                              {formatCurrency(c.commission)}
+                            </td>
+                            <td className="px-2 py-1.5 text-right font-mono text-muted-foreground">
+                              {c.premium > 0 ? formatCurrency(c.premium) : "-"}
+                            </td>
+                            <td className="px-2 py-1.5 text-muted-foreground">{c.month}</td>
+                            <td className="px-2 py-1.5 text-muted-foreground truncate max-w-[120px]">{c.file}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {comm.data.length > 200 && (
+                  <p className="mt-1 text-center text-xs text-muted-foreground">
+                    Showing first 200 of {comm.data.length} records
+                  </p>
+                )}
               </div>
             )}
 
