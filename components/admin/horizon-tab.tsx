@@ -4,7 +4,7 @@ import { useState, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
-import { Plus, Upload, FileText, Search, ChevronLeft, FolderKanban } from "lucide-react"
+import { Plus, Upload, FileText, Search, ChevronLeft, ChevronRight, FolderKanban, BarChart3 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Deal } from "./admin-dashboard"
 import { ValuationReport } from "./valuation-report"
@@ -145,6 +145,10 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
     seen: new Set(),
   })
   const [logMessages, setLogMessages] = useState<string[]>(["Waiting for files..."])
+  const [policyPage, setPolicyPage] = useState(0)
+  const [commPage, setCommPage] = useState(0)
+  const [commFileFilter, setCommFileFilter] = useState<string | null>(null)
+  const ROWS_PER_PAGE = 100
 
   // --- Financial inputs ---
   const [finRevenue, setFinRevenue] = useState(0)
@@ -803,83 +807,113 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
             />
 
             {/* Policy Table Preview */}
-            {policy.loaded && policy.data.length > 0 && (
-              <div className="mt-4">
-                <div className="mb-2 flex items-center gap-2">
-                  <Search className="h-4 w-4 text-muted-foreground" />
-                  <Input
-                    value={policySearch}
-                    onChange={(e) => setPolicySearch(e.target.value)}
-                    placeholder="Search policies..."
-                    className="h-9 text-sm"
-                  />
-                </div>
-                <div className="max-h-72 overflow-auto rounded-lg border border-border">
-                  <table className="w-full min-w-[600px] text-xs">
-                    <thead>
-                      <tr>
-                        <th className="sticky top-0 border-b-2 border-border bg-secondary px-3 py-2 text-left font-semibold text-muted-foreground">
-                          Use
-                        </th>
-                        {policy.headers.slice(0, 6).map((h, i) => (
-                          <th
-                            key={i}
-                            className="sticky top-0 whitespace-nowrap border-b-2 border-border bg-secondary px-3 py-2 text-left font-semibold text-muted-foreground"
-                          >
-                            {h}
+            {policy.loaded && policy.data.length > 0 && (() => {
+              const totalPolicyPages = Math.ceil(filteredPolicies.length / ROWS_PER_PAGE)
+              const policySlice = filteredPolicies.slice(policyPage * ROWS_PER_PAGE, (policyPage + 1) * ROWS_PER_PAGE)
+              return (
+                <div className="mt-4">
+                  <div className="mb-2 flex items-center gap-2">
+                    <Search className="h-4 w-4 text-muted-foreground" />
+                    <Input
+                      value={policySearch}
+                      onChange={(e) => { setPolicySearch(e.target.value); setPolicyPage(0) }}
+                      placeholder="Search policies..."
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div className="max-h-[420px] overflow-auto rounded-lg border border-border">
+                    <table className="w-full min-w-[600px] text-xs">
+                      <thead>
+                        <tr>
+                          <th className="sticky top-0 z-10 border-b-2 border-border bg-secondary px-3 py-2 text-left font-semibold text-muted-foreground">
+                            Use
                           </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredPolicies.slice(0, 100).map((row, idx) => {
-                        const origIdx = policy.data.indexOf(row)
-                        const excluded = policy.excludedIndices.has(origIdx)
-                        return (
-                          <tr
-                            key={origIdx}
-                            className={cn(
-                              "border-b border-border transition-colors",
-                              excluded && "opacity-30 line-through",
-                              !excluded && "hover:bg-secondary/50"
-                            )}
-                          >
-                            <td className="px-3 py-1.5">
-                              <input
-                                type="checkbox"
-                                checked={!excluded}
-                                onChange={() => {
-                                  const next = new Set(policy.excludedIndices)
-                                  if (excluded) next.delete(origIdx)
-                                  else next.add(origIdx)
-                                  setPolicy((prev) => ({
-                                    ...prev,
-                                    excludedIndices: next,
-                                  }))
-                                }}
-                              />
-                            </td>
-                            {row.slice(0, 6).map((cell, ci) => (
-                              <td
-                                key={ci}
-                                className="whitespace-nowrap px-3 py-1.5 text-foreground"
-                              >
-                                {cell || ""}
+                          {policy.headers.slice(0, 6).map((h, i) => (
+                            <th
+                              key={i}
+                              className="sticky top-0 z-10 whitespace-nowrap border-b-2 border-border bg-secondary px-3 py-2 text-left font-semibold text-muted-foreground"
+                            >
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {policySlice.map((row) => {
+                          const origIdx = policy.data.indexOf(row)
+                          const excluded = policy.excludedIndices.has(origIdx)
+                          return (
+                            <tr
+                              key={origIdx}
+                              className={cn(
+                                "border-b border-border transition-colors",
+                                excluded && "opacity-30 line-through",
+                                !excluded && "hover:bg-secondary/50"
+                              )}
+                            >
+                              <td className="px-3 py-1.5">
+                                <input
+                                  type="checkbox"
+                                  checked={!excluded}
+                                  onChange={() => {
+                                    const next = new Set(policy.excludedIndices)
+                                    if (excluded) next.delete(origIdx)
+                                    else next.add(origIdx)
+                                    setPolicy((prev) => ({
+                                      ...prev,
+                                      excludedIndices: next,
+                                    }))
+                                  }}
+                                />
                               </td>
-                            ))}
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
+                              {row.slice(0, 6).map((cell, ci) => (
+                                <td
+                                  key={ci}
+                                  className="whitespace-nowrap px-3 py-1.5 text-foreground"
+                                >
+                                  {cell || ""}
+                                </td>
+                              ))}
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {/* Pagination */}
+                  <div className="mt-2 flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">
+                      {policyPage * ROWS_PER_PAGE + 1}--{Math.min((policyPage + 1) * ROWS_PER_PAGE, filteredPolicies.length)} of {filteredPolicies.length} policies
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        disabled={policyPage === 0}
+                        onClick={() => setPolicyPage(p => p - 1)}
+                      >
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                        Prev
+                      </Button>
+                      <span className="px-2 text-xs text-muted-foreground">
+                        {policyPage + 1} / {totalPolicyPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        disabled={policyPage >= totalPolicyPages - 1}
+                        onClick={() => setPolicyPage(p => p + 1)}
+                      >
+                        Next
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                {policy.data.length > 100 && (
-                  <p className="mt-1 text-center text-xs text-muted-foreground">
-                    Showing first 100 of {policy.data.length} rows
-                  </p>
-                )}
-              </div>
-            )}
+              )
+            })()}
           </div>
 
           {/* Step 3: Upload Commission Statements */}
@@ -923,110 +957,265 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
               onChange={handleCommUpload}
             />
 
-            {/* Commission Files List */}
+            {/* Commission Files List -- clickable to filter */}
             {Object.keys(comm.files).length > 0 && (
               <div className="mt-4 rounded-lg border border-border bg-secondary/30 p-3">
                 <p className="mb-2 text-xs font-bold text-muted-foreground">
-                  Uploaded Commission Files:
+                  Uploaded Commission Files (click to filter):
                 </p>
+                <button
+                  onClick={() => { setCommFileFilter(null); setCommPage(0) }}
+                  className={cn(
+                    "mb-1 flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs transition-colors",
+                    commFileFilter === null ? "bg-primary/10 text-primary font-bold" : "text-foreground hover:bg-secondary"
+                  )}
+                >
+                  <span>All Files</span>
+                  <span className="font-mono">{formatCurrency(Object.values(comm.files).reduce((s, t) => s + t, 0))}</span>
+                </button>
                 {Object.entries(comm.files).map(([fname, total]) => (
-                  <div
+                  <button
                     key={fname}
-                    className="flex items-center justify-between border-b border-border py-1.5 text-xs last:border-b-0"
+                    onClick={() => { setCommFileFilter(fname); setCommPage(0) }}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs transition-colors",
+                      commFileFilter === fname ? "bg-primary/10 text-primary font-bold" : "text-foreground hover:bg-secondary"
+                    )}
                   >
-                    <span className="text-foreground">{fname}</span>
-                    <span className="font-bold text-primary">{formatCurrency(total)}</span>
-                  </div>
+                    <span className="truncate text-left">{fname}</span>
+                    <span className="ml-2 shrink-0 font-mono font-bold">{formatCurrency(total)}</span>
+                  </button>
                 ))}
               </div>
             )}
 
-            {/* Commission Data Table */}
-            {comm.loaded && comm.data.length > 0 && (
-              <div className="mt-4">
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-xs font-bold text-muted-foreground">
-                    Parsed Commission Records ({comm.data.length})
-                  </p>
-                  {policy.loaded && (
-                    <p className="text-xs text-muted-foreground">
-                      Matched to policies: {(() => {
-                        const polIdx = columnMap.policy ?? -1
-                        if (polIdx === -1) return "N/A"
-                        const policySet = new Set<string>()
-                        policy.data.forEach((row, i) => {
-                          if (!policy.excludedIndices.has(i)) {
-                            const pNorm = normalizePolicy(row[polIdx])
-                            if (pNorm) policySet.add(pNorm)
-                          }
-                        })
-                        const matched = comm.data.filter(c => policySet.has(normalizePolicy(c.policy_number))).length
-                        return `${matched} / ${comm.data.length}`
-                      })()}
+            {/* Stats Panel */}
+            {comm.loaded && comm.data.length > 0 && policy.loaded && (() => {
+              const polIdx = columnMap.policy ?? -1
+              const premIdx = columnMap.premium ?? -1
+              const effIdx = columnMap.effective ?? -1
+              const expIdx = columnMap.expiration ?? -1
+              const typeIdx = columnMap.type ?? -1
+
+              // Build policy set
+              const policyNumbers = new Set<string>()
+              const activePolicies: string[][] = []
+              policy.data.forEach((row, i) => {
+                if (!policy.excludedIndices.has(i)) {
+                  const pNorm = polIdx >= 0 ? normalizePolicy(row[polIdx]) : ""
+                  if (pNorm) policyNumbers.add(pNorm)
+                  activePolicies.push(row)
+                }
+              })
+
+              // Build comm policy set
+              const commPolicySet = new Set<string>()
+              let matchedCommTotal = 0
+              let unmatchedCommTotal = 0
+              comm.data.forEach(c => {
+                const normP = normalizePolicy(c.policy_number)
+                commPolicySet.add(normP)
+                if (policyNumbers.has(normP)) matchedCommTotal += c.commission
+                else unmatchedCommTotal += c.commission
+              })
+
+              const matchedPolicies = [...policyNumbers].filter(p => commPolicySet.has(p)).length
+              const unmatchedPolicies = policyNumbers.size - matchedPolicies
+              const matchRate = policyNumbers.size > 0 ? ((matchedPolicies / policyNumbers.size) * 100) : 0
+
+              // Retention: policies with type containing "renew" or effective date in past
+              let renewals = 0
+              let newBiz = 0
+              activePolicies.forEach(row => {
+                const typeStr = typeIdx >= 0 ? String(row[typeIdx]).toLowerCase() : ""
+                if (typeStr.includes("renew") || typeStr.includes("ren") || typeStr.includes("renewal")) {
+                  renewals++
+                } else if (typeStr.includes("new") || typeStr.includes("nb") || typeStr.includes("new business")) {
+                  newBiz++
+                }
+              })
+              // If no type data, estimate from effective dates
+              if (renewals === 0 && newBiz === 0 && effIdx >= 0) {
+                const now = new Date()
+                const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
+                activePolicies.forEach(row => {
+                  const effDate = new Date(row[effIdx])
+                  if (!isNaN(effDate.getTime())) {
+                    if (effDate > oneYearAgo) newBiz++
+                    else renewals++
+                  }
+                })
+              }
+              const retentionRate = (renewals + newBiz) > 0 ? ((renewals / (renewals + newBiz)) * 100) : 0
+              const newPolicyRate = (renewals + newBiz) > 0 ? ((newBiz / (renewals + newBiz)) * 100) : 0
+
+              // Total premium
+              let totalPrem = 0
+              if (premIdx >= 0) {
+                activePolicies.forEach(row => { totalPrem += cleanNum(row[premIdx]) })
+              }
+
+              // Commission match $ stats
+              const totalCommission = comm.data.reduce((s, c) => s + c.commission, 0)
+
+              return (
+                <div className="mt-4">
+                  <div className="mb-2 flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-primary" />
+                    <p className="text-xs font-bold text-foreground">Book Analytics</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                    <div className="rounded-lg border border-border bg-card p-3 text-center">
+                      <p className="text-lg font-extrabold text-primary">{matchedPolicies}</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground">Matched Policies</p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-card p-3 text-center">
+                      <p className="text-lg font-extrabold text-warning">{unmatchedPolicies}</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground">Unmatched Policies</p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-card p-3 text-center">
+                      <p className="text-lg font-extrabold text-success">{matchRate.toFixed(1)}%</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground">Match Rate</p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-card p-3 text-center">
+                      <p className="text-lg font-extrabold text-foreground">{retentionRate > 0 ? retentionRate.toFixed(1) + "%" : "N/A"}</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground">Retention Rate</p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-card p-3 text-center">
+                      <p className="text-lg font-extrabold text-foreground">{newPolicyRate > 0 ? newPolicyRate.toFixed(1) + "%" : "N/A"}</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground">New Policy Rate</p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-card p-3 text-center">
+                      <p className="text-lg font-extrabold text-success">{formatCurrency(matchedCommTotal)}</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground">Matched Comm $</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    <div className="rounded-lg border border-border bg-card p-3 text-center">
+                      <p className="text-lg font-extrabold text-foreground">{formatCurrency(totalCommission)}</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground">Total Commission</p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-card p-3 text-center">
+                      <p className="text-lg font-extrabold text-warning">{formatCurrency(unmatchedCommTotal)}</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground">Unmatched Comm $</p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-card p-3 text-center">
+                      <p className="text-lg font-extrabold text-foreground">{formatCurrency(totalPrem)}</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground">Total Premium</p>
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Commission Data Table with pagination */}
+            {comm.loaded && comm.data.length > 0 && (() => {
+              const filteredComm = commFileFilter
+                ? comm.data.filter(c => c.file === commFileFilter)
+                : comm.data
+              const totalCommPages = Math.ceil(filteredComm.length / ROWS_PER_PAGE)
+              const commSlice = filteredComm.slice(commPage * ROWS_PER_PAGE, (commPage + 1) * ROWS_PER_PAGE)
+
+              // Pre-build policy lookup set
+              const polIdx = columnMap.policy ?? -1
+              const policySet = new Set<string>()
+              if (policy.loaded && polIdx >= 0) {
+                policy.data.forEach((row, i) => {
+                  if (!policy.excludedIndices.has(i)) {
+                    const pNorm = normalizePolicy(row[polIdx])
+                    if (pNorm) policySet.add(pNorm)
+                  }
+                })
+              }
+
+              return (
+                <div className="mt-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-xs font-bold text-muted-foreground">
+                      Commission Records ({filteredComm.length}{commFileFilter ? ` from ${commFileFilter}` : ""})
                     </p>
-                  )}
-                </div>
-                <div className="max-h-72 overflow-auto rounded-lg border border-border">
-                  <table className="w-full min-w-[700px] text-xs">
-                    <thead>
-                      <tr>
-                        {policy.loaded && (
-                          <th className="sticky top-0 border-b-2 border-border bg-secondary px-2 py-2 text-left font-semibold text-muted-foreground">Match</th>
-                        )}
-                        <th className="sticky top-0 border-b-2 border-border bg-secondary px-2 py-2 text-left font-semibold text-muted-foreground">Policy #</th>
-                        <th className="sticky top-0 border-b-2 border-border bg-secondary px-2 py-2 text-left font-semibold text-muted-foreground">Client</th>
-                        <th className="sticky top-0 border-b-2 border-border bg-secondary px-2 py-2 text-right font-semibold text-muted-foreground">Commission</th>
-                        <th className="sticky top-0 border-b-2 border-border bg-secondary px-2 py-2 text-right font-semibold text-muted-foreground">Premium</th>
-                        <th className="sticky top-0 border-b-2 border-border bg-secondary px-2 py-2 text-left font-semibold text-muted-foreground">Month</th>
-                        <th className="sticky top-0 border-b-2 border-border bg-secondary px-2 py-2 text-left font-semibold text-muted-foreground">File</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {comm.data.slice(0, 200).map((c) => {
-                        const polIdx = columnMap.policy ?? -1
-                        let isMatched = false
-                        if (policy.loaded && polIdx >= 0) {
-                          const normPol = normalizePolicy(c.policy_number)
-                          isMatched = policy.data.some((row, i) =>
-                            !policy.excludedIndices.has(i) && normalizePolicy(row[polIdx]) === normPol
-                          )
-                        }
-                        return (
-                          <tr key={c.id} className={cn(
-                            "border-b border-border",
-                            isMatched ? "bg-success/5" : ""
-                          )}>
-                            {policy.loaded && (
-                              <td className="px-2 py-1.5 text-center">
-                                {isMatched
-                                  ? <span className="text-success font-bold">Yes</span>
-                                  : <span className="text-muted-foreground">No</span>
-                                }
+                  </div>
+                  <div className="max-h-[420px] overflow-auto rounded-lg border border-border">
+                    <table className="w-full min-w-[700px] text-xs">
+                      <thead>
+                        <tr>
+                          {policy.loaded && (
+                            <th className="sticky top-0 z-10 border-b-2 border-border bg-secondary px-2 py-2 text-left font-semibold text-muted-foreground">Match</th>
+                          )}
+                          <th className="sticky top-0 z-10 border-b-2 border-border bg-secondary px-2 py-2 text-left font-semibold text-muted-foreground">Policy #</th>
+                          <th className="sticky top-0 z-10 border-b-2 border-border bg-secondary px-2 py-2 text-left font-semibold text-muted-foreground">Client</th>
+                          <th className="sticky top-0 z-10 border-b-2 border-border bg-secondary px-2 py-2 text-right font-semibold text-muted-foreground">Commission</th>
+                          <th className="sticky top-0 z-10 border-b-2 border-border bg-secondary px-2 py-2 text-right font-semibold text-muted-foreground">Premium</th>
+                          <th className="sticky top-0 z-10 border-b-2 border-border bg-secondary px-2 py-2 text-left font-semibold text-muted-foreground">Month</th>
+                          <th className="sticky top-0 z-10 border-b-2 border-border bg-secondary px-2 py-2 text-left font-semibold text-muted-foreground">File</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {commSlice.map((c) => {
+                          const isMatched = policy.loaded && polIdx >= 0 && policySet.has(normalizePolicy(c.policy_number))
+                          return (
+                            <tr key={c.id} className={cn(
+                              "border-b border-border",
+                              isMatched ? "bg-success/5" : ""
+                            )}>
+                              {policy.loaded && (
+                                <td className="px-2 py-1.5 text-center">
+                                  {isMatched
+                                    ? <span className="text-success font-bold">Yes</span>
+                                    : <span className="text-muted-foreground">No</span>
+                                  }
+                                </td>
+                              )}
+                              <td className="px-2 py-1.5 font-mono text-foreground">{c.policy_number}</td>
+                              <td className="px-2 py-1.5 text-foreground">{c.client_name || "-"}</td>
+                              <td className={cn("px-2 py-1.5 text-right font-mono font-semibold", c.commission >= 0 ? "text-success" : "text-destructive")}>
+                                {formatCurrency(c.commission)}
                               </td>
-                            )}
-                            <td className="px-2 py-1.5 font-mono text-foreground">{c.policy_number}</td>
-                            <td className="px-2 py-1.5 text-foreground">{c.client_name || "-"}</td>
-                            <td className={cn("px-2 py-1.5 text-right font-mono font-semibold", c.commission >= 0 ? "text-success" : "text-destructive")}>
-                              {formatCurrency(c.commission)}
-                            </td>
-                            <td className="px-2 py-1.5 text-right font-mono text-muted-foreground">
-                              {c.premium > 0 ? formatCurrency(c.premium) : "-"}
-                            </td>
-                            <td className="px-2 py-1.5 text-muted-foreground">{c.month}</td>
-                            <td className="px-2 py-1.5 text-muted-foreground truncate max-w-[120px]">{c.file}</td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
+                              <td className="px-2 py-1.5 text-right font-mono text-muted-foreground">
+                                {c.premium > 0 ? formatCurrency(c.premium) : "-"}
+                              </td>
+                              <td className="px-2 py-1.5 text-muted-foreground">{c.month}</td>
+                              <td className="px-2 py-1.5 text-muted-foreground truncate max-w-[120px]">{c.file}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {/* Pagination */}
+                  <div className="mt-2 flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">
+                      {commPage * ROWS_PER_PAGE + 1}--{Math.min((commPage + 1) * ROWS_PER_PAGE, filteredComm.length)} of {filteredComm.length} records
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        disabled={commPage === 0}
+                        onClick={() => setCommPage(p => p - 1)}
+                      >
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                        Prev
+                      </Button>
+                      <span className="px-2 text-xs text-muted-foreground">
+                        {commPage + 1} / {totalCommPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        disabled={commPage >= totalCommPages - 1}
+                        onClick={() => setCommPage(p => p + 1)}
+                      >
+                        Next
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                {comm.data.length > 200 && (
-                  <p className="mt-1 text-center text-xs text-muted-foreground">
-                    Showing first 200 of {comm.data.length} records
-                  </p>
-                )}
-              </div>
-            )}
+              )
+            })()}
 
             {/* System Log */}
             <div className="mt-4 max-h-36 overflow-y-auto rounded-lg bg-[#1e293b] p-3 font-mono text-xs text-[#cbd5e1]">
