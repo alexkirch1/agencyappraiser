@@ -8,6 +8,17 @@ import { Plus, Upload, FileText, Search, ChevronLeft, ChevronRight, FolderKanban
 import { cn } from "@/lib/utils"
 import type { Deal } from "./admin-dashboard"
 import { ValuationReport } from "./valuation-report"
+import {
+  cleanNum as sharedCleanNum,
+  normalizePolicy as sharedNormalizePolicy,
+  formatCurrency as sharedFormatCurrency,
+  extractDateFromFilename as sharedExtractDateFromFilename,
+  parsePdfCommissionRow,
+  scoreCommissionRow,
+  scorePolicyParse,
+  type ParseConfidence,
+  type ConfidenceLevel,
+} from "@/lib/parse-utils"
 
 // ----- Type definitions -----
 interface CommItem {
@@ -23,6 +34,7 @@ interface CommItem {
   lob: string
   trans_type: string
   premium: number
+  confidence: ParseConfidence
 }
 
 interface PolicyState {
@@ -40,50 +52,22 @@ interface CommState {
   seen: Set<string>
 }
 
-// ----- Utilities (ported from PHP) -----
-function cleanNum(val: unknown): number {
-  if (typeof val === "number") return val
-  let s = String(val || "").trim()
-  if (!s) return 0
-  let isNeg = false
-  if (s.includes("(") && s.includes(")")) isNeg = true
-  if (s.endsWith("-")) isNeg = true
-  if (s.startsWith("-")) isNeg = true
-  s = s.replace(/\s+/g, "").replace(/[^0-9.]/g, "")
-  const num = parseFloat(s)
-  if (isNaN(num)) return 0
-  if (num > 500000) return 0
-  return isNeg ? -num : num
+// ----- Re-export shared utilities for local use -----
+const cleanNum = sharedCleanNum
+const normalizePolicy = sharedNormalizePolicy
+const formatCurrency = sharedFormatCurrency
+const extractDateFromFilename = sharedExtractDateFromFilename
+
+function confidenceBadge(conf: ParseConfidence): string {
+  if (conf.level === "high") return "H"
+  if (conf.level === "medium") return "M"
+  return "L"
 }
 
-function normalizePolicy(val: unknown): string {
-  let s = String(val || "").trim().toUpperCase()
-  s = s.replace(/[^A-Z0-9]/g, "")
-  s = s.replace(/^0+/, "")
-  return s
-}
-
-function formatCurrency(num: number): string {
-  return "$" + num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function extractDateFromFilename(filename: string): string | null {
-  const match = filename.match(
-    /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s\-_]*20[2-3]\d|20[2-3]\d[\s\-_]*(?:0[1-9]|1[0-2])/i
-  )
-  if (match) {
-    const d = new Date(match[0])
-    if (!isNaN(d.getTime())) {
-      const y = d.getUTCFullYear()
-      const m = d.getUTCMonth() + 1
-      return `${y}-${String(m).padStart(2, "0")}`
-    }
-  }
-  const yearFirst = filename.match(/(20[2-3]\d)[.\-_](0[1-9]|1[0-2])/)
-  if (yearFirst) return `${yearFirst[1]}-${yearFirst[2]}`
-  const simpleMatch = filename.match(/(0[1-9]|1[0-2])[.\-_](20[2-3]\d)/)
-  if (simpleMatch) return `${simpleMatch[2]}-${simpleMatch[1]}`
-  return null
+function confidenceColor(level: ConfidenceLevel): string {
+  if (level === "high") return "text-success"
+  if (level === "medium") return "text-warning"
+  return "text-destructive"
 }
 
 // ----- Auto-map columns -----
@@ -285,7 +269,15 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
           setColumnMap(mapping)
           setFinRevenue(0) // will be calculated from comm data
 
-          log(`Loaded ${data.length} policies from ${file.name}.`)
+          const mappedCount = Object.values(mapping).filter(v => v >= 0).length
+          const polParse = scorePolicyParse({
+            totalRows: data.length,
+            mappedColumns: mappedCount,
+            totalPossibleColumns: Object.keys(mapping).length,
+            hasPolicyCol: (mapping.policy ?? -1) >= 0,
+            hasPremiumCol: (mapping.premium ?? -1) >= 0,
+          })
+          log(`Loaded ${data.length} policies from ${file.name}. Parse confidence: ${polParse.score}/100 (${polParse.level})`)
         } catch (err) {
           alert("Error parsing file: " + (err as Error).message)
         }
@@ -294,109 +286,6 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
     },
     [log]
   )
-
-  // ----- Parse a single PDF row for commission data -----
-  function parsePdfRow(lineStr: string, pageNum: number, fileDate: string, fileName: string): CommItem | null {
-    if (lineStr.length < 10) return null
-    // Skip header-like rows
-    const lower = lineStr.toLowerCase()
-    if (
-      lower.includes("page ") && lower.includes(" of ") ||
-      lower.includes("statement date") ||
-      lower.includes("commission rate") && lower.includes("policy number") ||
-      /^(total|subtotal|grand total)/i.test(lineStr.trim())
-    ) return null
-
-    // Find all money values (amounts with decimals like 1,234.56)
-    const moneyPattern = /[(-]?\$?\s*(\d{1,3}(?:[,\s]?\d{3})*)\.\d{2}\s*[)CR-]*/gi
-    const moneyMatches = [...lineStr.matchAll(moneyPattern)]
-    const moneyCandidates = moneyMatches
-      .map((match) => ({
-        val: cleanNum(match[0]),
-        raw: match[0],
-        abs: Math.abs(cleanNum(match[0])),
-        index: match.index ?? 0,
-      }))
-      .filter((m) => m.val !== 0 && m.abs < 500000 && m.abs >= 0.01)
-
-    if (moneyCandidates.length === 0) return null
-
-    // Commission is typically the last or smallest money amount on the line
-    // If there are multiple amounts, the last one tends to be the commission
-    // (premium comes first, then commission)
-    let commAmount: typeof moneyCandidates[0]
-    let premAmount: typeof moneyCandidates[0] | null = null
-
-    if (moneyCandidates.length >= 2) {
-      // Sort by position in line (left to right)
-      const sorted = [...moneyCandidates].sort((a, b) => a.index - b.index)
-      // Last money value is usually commission, first is usually premium
-      commAmount = sorted[sorted.length - 1]
-      premAmount = sorted[0]
-      // Unless the last one is bigger (then it's premium and the smaller one is commission)
-      if (commAmount.abs > premAmount.abs * 3 && premAmount.abs > 0) {
-        const temp = commAmount
-        commAmount = premAmount
-        premAmount = temp
-      }
-    } else {
-      commAmount = moneyCandidates[0]
-    }
-
-    // Extract policy number - look for alphanumeric tokens that look like policy numbers
-    let cleanLine = lineStr
-    moneyCandidates.forEach((m) => {
-      cleanLine = cleanLine.replace(m.raw, " __MONEY__ ")
-    })
-    const tokens = cleanLine.split(/\s+/).filter(t => t !== "__MONEY__" && t.trim())
-
-    let foundPol: string | null = null
-    let foundName = ""
-    const nameTokens: string[] = []
-
-    for (const t of tokens) {
-      const tClean = t.replace(/^[.,\-:()]+|[.,\-:()]+$/g, "")
-      if (!tClean) continue
-
-      const hasDigit = /\d/.test(tClean)
-      const hasLetter = /[a-zA-Z]/.test(tClean)
-      // Skip pure dates like 01/15/2024 or 2024-01-15
-      const isDate = /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(tClean) ||
-                     /^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(tClean)
-      // Skip pure percentages like 15% or 0.15
-      const isPercent = /^\d+\.?\d*%$/.test(tClean)
-      // Skip short pure numbers (ages, counts etc)
-      const isPureShortNum = /^\d{1,3}$/.test(tClean)
-
-      if (isDate || isPercent || isPureShortNum) continue
-
-      // A policy number typically has digits and is 4+ chars, often mixed with letters
-      if (!foundPol && tClean.length >= 4 && hasDigit && (hasLetter || tClean.length >= 6)) {
-        foundPol = normalizePolicy(tClean)
-      } else if (hasLetter && !hasDigit && tClean.length >= 2) {
-        nameTokens.push(tClean)
-      }
-    }
-
-    foundName = nameTokens.slice(0, 4).join(" ")
-
-    if (!foundPol || commAmount.val === 0) return null
-
-    return {
-      id: `${foundPol}_${commAmount.val.toFixed(2)}_${pageNum}`,
-      policy_number: foundPol,
-      commission: commAmount.val,
-      month: fileDate,
-      file: fileName,
-      client_name: foundName,
-      raw_line: lineStr,
-      producer: "-",
-      carrier: "-",
-      lob: "-",
-      trans_type: "-",
-      premium: premAmount ? premAmount.val : 0,
-    }
-  }
 
   // ----- Handle Commission Upload -----
   const handleCommUpload = useCallback(
@@ -463,12 +352,20 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                   .replace(/\s{3,}/g, "  ")
                   .trim()
 
-                const parsed = parsePdfRow(lineStr, i, fileDate, file.name)
-                if (parsed && !newSeen.has(parsed.id)) {
-                  newCommData.push(parsed)
-                  newSeen.add(parsed.id)
-                  fileTotal += parsed.commission
-                  parsedRows++
+                const parsed = parsePdfCommissionRow(lineStr, i, fileDate, file.name)
+                if (parsed) {
+                  const conf = scoreCommissionRow(parsed)
+                  const uid = `${parsed.policy_number}_${parsed.commission.toFixed(2)}_${i}`
+                  if (!newSeen.has(uid)) {
+                    newCommData.push({
+                      id: uid,
+                      ...parsed,
+                      confidence: conf,
+                    })
+                    newSeen.add(uid)
+                    fileTotal += parsed.commission
+                    parsedRows++
+                  }
                 } else if (lineStr.length >= 10) {
                   skippedRows++
                 }
@@ -553,6 +450,14 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
 
                 const uID = `${polNum}_${val.toFixed(2)}_${idx}_${sheetName}`
                 if (!newSeen.has(uID)) {
+                  const conf = scoreCommissionRow({
+                    policy_number: polNum,
+                    commission: val,
+                    premium,
+                    client_name: clientName,
+                    raw_line: row.join(" | "),
+                    policyConfidence: colMap.policy !== undefined ? 85 : 20,
+                  })
                   newCommData.push({
                     id: uID,
                     policy_number: polNum,
@@ -566,6 +471,7 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                     lob,
                     trans_type: transType,
                     premium,
+                    confidence: conf,
                   })
                   newSeen.add(uID)
                   fileTotal += val
@@ -603,7 +509,6 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
 
   // ----- Save Deal -----
   const handleSave = () => {
-    console.log("[v0] handleSave triggered, dealName:", dealName, "valuation:", currentValuation)
     if (!dealName.trim()) {
       alert("Please enter a deal name.")
       return
@@ -1091,7 +996,7 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                       <p className="text-[10px] font-semibold text-muted-foreground">Matched Comm $</p>
                     </div>
                   </div>
-                  <div className="mt-2 grid grid-cols-3 gap-2">
+                  <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <div className="rounded-lg border border-border bg-card p-3 text-center">
                       <p className="text-lg font-extrabold text-foreground">{formatCurrency(totalCommission)}</p>
                       <p className="text-[10px] font-semibold text-muted-foreground">Total Commission</p>
@@ -1104,6 +1009,18 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                       <p className="text-lg font-extrabold text-foreground">{formatCurrency(totalPrem)}</p>
                       <p className="text-[10px] font-semibold text-muted-foreground">Total Premium</p>
                     </div>
+                    {(() => {
+                      const avgConf = comm.data.length > 0
+                        ? Math.round(comm.data.reduce((s, c) => s + (c.confidence?.score ?? 50), 0) / comm.data.length)
+                        : 0
+                      const confLevel: ConfidenceLevel = avgConf >= 70 ? "high" : avgConf >= 45 ? "medium" : "low"
+                      return (
+                        <div className="rounded-lg border border-border bg-card p-3 text-center">
+                          <p className={cn("text-lg font-extrabold", confidenceColor(confLevel))}>{avgConf}/100</p>
+                          <p className="text-[10px] font-semibold text-muted-foreground">Avg Parse Confidence</p>
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
               )
@@ -1143,6 +1060,7 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                           {policy.loaded && (
                             <th className="sticky top-0 z-10 border-b-2 border-border bg-secondary px-2 py-2 text-left font-semibold text-muted-foreground">Match</th>
                           )}
+                          <th className="sticky top-0 z-10 border-b-2 border-border bg-secondary px-2 py-2 text-center font-semibold text-muted-foreground">Conf</th>
                           <th className="sticky top-0 z-10 border-b-2 border-border bg-secondary px-2 py-2 text-left font-semibold text-muted-foreground">Policy #</th>
                           <th className="sticky top-0 z-10 border-b-2 border-border bg-secondary px-2 py-2 text-left font-semibold text-muted-foreground">Client</th>
                           <th className="sticky top-0 z-10 border-b-2 border-border bg-secondary px-2 py-2 text-right font-semibold text-muted-foreground">Commission</th>
@@ -1167,6 +1085,16 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                                   }
                                 </td>
                               )}
+                              <td className="px-2 py-1.5 text-center" title={c.confidence?.reasons?.join(", ") || ""}>
+                                <span className={cn(
+                                  "inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold",
+                                  c.confidence?.level === "high" ? "bg-success/15 text-success" :
+                                  c.confidence?.level === "medium" ? "bg-warning/15 text-warning" :
+                                  "bg-destructive/15 text-destructive"
+                                )}>
+                                  {c.confidence?.score ?? "?"}
+                                </span>
+                              </td>
                               <td className="px-2 py-1.5 font-mono text-foreground">{c.policy_number}</td>
                               <td className="px-2 py-1.5 text-foreground">{c.client_name || "-"}</td>
                               <td className={cn("px-2 py-1.5 text-right font-mono font-semibold", c.commission >= 0 ? "text-success" : "text-destructive")}>

@@ -53,7 +53,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   }, [deals])
 
   const addDeal = (deal: Deal) => {
-    console.log("[v0] addDeal called:", deal.deal_name, deal.valuation)
     setDeals((prev) => [deal, ...prev])
   }
 
