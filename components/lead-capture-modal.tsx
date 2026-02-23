@@ -5,21 +5,40 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Lock, CheckCircle2 } from "lucide-react"
+import { Lock, CheckCircle2, Loader2 } from "lucide-react"
+
+interface LeadData {
+  name: string
+  email: string
+  phone: string
+  agencyName: string
+}
 
 interface Props {
-  onSubmit: (data: { name: string; email: string; phone: string; agencyName: string }) => void
+  onSubmit: (data: LeadData) => void
   onClose?: () => void
   title?: string
   description?: string
+  toolUsed?: string
+  valuationSummary?: string
+  estimatedValue?: number
 }
 
-export function LeadCaptureModal({ onSubmit, onClose, title, description }: Props) {
+export function LeadCaptureModal({
+  onSubmit,
+  onClose,
+  title,
+  description,
+  toolUsed = "Agency Valuation",
+  valuationSummary = "",
+  estimatedValue = 0,
+}: Props) {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
   const [agencyName, setAgencyName] = useState("")
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [submitting, setSubmitting] = useState(false)
 
   const validate = () => {
     const newErrors: Record<string, string> = {}
@@ -30,15 +49,41 @@ export function LeadCaptureModal({ onSubmit, onClose, title, description }: Prop
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (validate()) {
-      onSubmit({ name, email, phone, agencyName })
+    if (!validate()) return
+
+    setSubmitting(true)
+    const leadData: LeadData = { name, email, phone, agencyName }
+
+    // Fire API call to Pipedrive + email (non-blocking for the user)
+    try {
+      await fetch("/api/submit-lead", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...leadData,
+          toolUsed,
+          valuationSummary,
+          estimatedValue,
+        }),
+      })
+    } catch {
+      // Silently fail - don't block the user from seeing their valuation
+      console.error("[v0] Lead API call failed, continuing anyway")
     }
+
+    setSubmitting(false)
+    onSubmit(leadData)
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={(e) => { if (e.target === e.currentTarget && onClose) onClose() }}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && onClose) onClose()
+      }}
+    >
       <Card className="w-full max-w-md border-border bg-card shadow-2xl">
         <CardHeader className="text-center pb-4">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
@@ -54,7 +99,9 @@ export function LeadCaptureModal({ onSubmit, onClose, title, description }: Prop
         <CardContent>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div>
-              <Label htmlFor="lc-name" className="text-sm text-muted-foreground">Full Name *</Label>
+              <Label htmlFor="lc-name" className="text-sm text-muted-foreground">
+                Full Name *
+              </Label>
               <Input
                 id="lc-name"
                 type="text"
@@ -66,7 +113,9 @@ export function LeadCaptureModal({ onSubmit, onClose, title, description }: Prop
               {errors.name && <p className="mt-1 text-xs text-destructive">{errors.name}</p>}
             </div>
             <div>
-              <Label htmlFor="lc-email" className="text-sm text-muted-foreground">Email Address *</Label>
+              <Label htmlFor="lc-email" className="text-sm text-muted-foreground">
+                Email Address *
+              </Label>
               <Input
                 id="lc-email"
                 type="email"
@@ -78,7 +127,9 @@ export function LeadCaptureModal({ onSubmit, onClose, title, description }: Prop
               {errors.email && <p className="mt-1 text-xs text-destructive">{errors.email}</p>}
             </div>
             <div>
-              <Label htmlFor="lc-phone" className="text-sm text-muted-foreground">Phone (Optional)</Label>
+              <Label htmlFor="lc-phone" className="text-sm text-muted-foreground">
+                Phone (Optional)
+              </Label>
               <Input
                 id="lc-phone"
                 type="tel"
@@ -89,7 +140,9 @@ export function LeadCaptureModal({ onSubmit, onClose, title, description }: Prop
               />
             </div>
             <div>
-              <Label htmlFor="lc-agency" className="text-sm text-muted-foreground">Agency Name (Optional)</Label>
+              <Label htmlFor="lc-agency" className="text-sm text-muted-foreground">
+                Agency Name (Optional)
+              </Label>
               <Input
                 id="lc-agency"
                 type="text"
@@ -99,9 +152,18 @@ export function LeadCaptureModal({ onSubmit, onClose, title, description }: Prop
                 className="mt-1"
               />
             </div>
-            <Button type="submit" size="lg" className="mt-2 w-full gap-2">
-              <CheckCircle2 className="h-4 w-4" />
-              View My Valuation
+            <Button type="submit" size="lg" className="mt-2 w-full gap-2" disabled={submitting}>
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-4 w-4" />
+                  View My Valuation
+                </>
+              )}
             </Button>
             <p className="text-center text-xs text-muted-foreground/70">
               Your information is kept private and never shared with third parties.

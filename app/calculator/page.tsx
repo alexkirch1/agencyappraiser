@@ -237,6 +237,9 @@ export default function CalculatorPage() {
           onClose={() => setShowLeadCapture(false)}
           title="Unlock Your Agency Valuation"
           description="Enter your details to view your complete valuation report with risk audit and deal simulator."
+          toolUsed="Full Agency Calculator"
+          valuationSummary={`Revenue (LTM): $${inputs.revenueLTM?.toLocaleString() ?? "N/A"}\nSDE/EBITDA: $${inputs.sdeEbitda?.toLocaleString() ?? "N/A"}\nRetention Rate: ${inputs.retentionRate ?? "N/A"}%\nCommercial Mix: ${inputs.policyMix ?? "N/A"}%\nClient Concentration: ${inputs.clientConcentration ?? "N/A"}%\nCarrier Diversification: ${inputs.carrierDiversification ?? "N/A"}%\nYear Established: ${inputs.yearEstablished ?? "N/A"}\nState: ${inputs.primaryState || "N/A"}\nEmployees: ${inputs.employeeCount ?? "N/A"}`}
+          estimatedValue={inputs.revenueLTM ?? 0}
         />
       )}
       {showDisclaimer && (
