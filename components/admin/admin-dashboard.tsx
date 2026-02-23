@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { LogOut, Sun, Moon, BarChart3, FolderKanban, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/theme-provider"
@@ -34,10 +34,26 @@ type TabId = (typeof tabs)[number]["id"]
 
 export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabId>("overview")
-  const [deals, setDeals] = useState<Deal[]>([])
+  const [deals, setDeals] = useState<Deal[]>(() => {
+    if (typeof window === "undefined") return []
+    try {
+      const stored = localStorage.getItem("admin-deals")
+      return stored ? JSON.parse(stored) : []
+    } catch {
+      return []
+    }
+  })
   const { theme, toggleTheme } = useTheme()
 
+  // Persist deals to localStorage on every change
+  useEffect(() => {
+    try {
+      localStorage.setItem("admin-deals", JSON.stringify(deals))
+    } catch { /* quota exceeded -- ignore */ }
+  }, [deals])
+
   const addDeal = (deal: Deal) => {
+    console.log("[v0] addDeal called:", deal.deal_name, deal.valuation)
     setDeals((prev) => [deal, ...prev])
   }
 

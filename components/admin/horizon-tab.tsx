@@ -603,6 +603,7 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
 
   // ----- Save Deal -----
   const handleSave = () => {
+    console.log("[v0] handleSave triggered, dealName:", dealName, "valuation:", currentValuation)
     if (!dealName.trim()) {
       alert("Please enter a deal name.")
       return
