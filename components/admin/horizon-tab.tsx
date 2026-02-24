@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { SmartInput } from "@/components/ui/smart-input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Plus, Upload, FileText, Search, ChevronLeft, ChevronRight, FolderKanban, BarChart3 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -1172,10 +1173,10 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                   <label className="mb-1 block text-sm font-semibold text-foreground">
                     Base Revenue ($)
                   </label>
-                  <Input
-                    type="number"
-                    value={finRevenue || ""}
-                    onChange={(e) => setFinRevenue(parseFloat(e.target.value) || 0)}
+                  <SmartInput
+                    inputType="currency"
+                    value={finRevenue || null}
+                    onValueChange={(v) => setFinRevenue(v ?? 0)}
                     placeholder="0.00"
                   />
                   <p className="mt-0.5 text-xs text-muted-foreground">
@@ -1186,10 +1187,10 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                   <label className="mb-1 block text-sm font-semibold text-foreground">
                     Annual Operating Expenses
                   </label>
-                  <Input
-                    type="number"
-                    value={finOpex || ""}
-                    onChange={(e) => setFinOpex(parseFloat(e.target.value) || 0)}
+                  <SmartInput
+                    inputType="currency"
+                    value={finOpex || null}
+                    onValueChange={(v) => setFinOpex(v ?? 0)}
                     placeholder="0.00"
                   />
                 </div>
@@ -1197,10 +1198,10 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                   <label className="mb-1 block text-sm font-semibold text-foreground">
                     {"Owner's Compensation (Add-back)"}
                   </label>
-                  <Input
-                    type="number"
-                    value={finOwnerComp || ""}
-                    onChange={(e) => setFinOwnerComp(parseFloat(e.target.value) || 0)}
+                  <SmartInput
+                    inputType="currency"
+                    value={finOwnerComp || null}
+                    onValueChange={(v) => setFinOwnerComp(v ?? 0)}
                     placeholder="0.00"
                   />
                 </div>
@@ -1208,10 +1209,10 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                   <label className="mb-1 block text-sm font-semibold text-foreground">
                     One-Time / Non-Recurring (Add-back)
                   </label>
-                  <Input
-                    type="number"
-                    value={finAddbacks || ""}
-                    onChange={(e) => setFinAddbacks(parseFloat(e.target.value) || 0)}
+                  <SmartInput
+                    inputType="currency"
+                    value={finAddbacks || null}
+                    onValueChange={(v) => setFinAddbacks(v ?? 0)}
                     placeholder="0.00"
                   />
                 </div>

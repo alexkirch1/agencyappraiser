@@ -1,7 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { SmartInput } from "@/components/ui/smart-input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Textarea } from "@/components/ui/textarea"
@@ -85,12 +85,12 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
         </CardHeader>
         <CardContent>
           <Label htmlFor="yearEstablished" className="text-sm text-muted-foreground">Year Established</Label>
-          <Input
+          <SmartInput
             id="yearEstablished"
-            type="number"
+            inputType="year"
             placeholder="e.g. 1998"
-            value={inputs.yearEstablished ?? ""}
-            onChange={(e) => update({ yearEstablished: numOrNull(e.target.value) })}
+            value={inputs.yearEstablished}
+            onValueChange={(v) => update({ yearEstablished: v })}
             className="mt-1.5"
           />
         </CardContent>
@@ -115,7 +115,7 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
           </div>
           <div>
             <Label htmlFor="empCount" className="text-sm text-muted-foreground">Number of Employees</Label>
-            <Input id="empCount" type="number" placeholder="e.g. 5" value={inputs.employeeCount ?? ""} onChange={(e) => update({ employeeCount: numOrNull(e.target.value) })} className="mt-1.5" />
+            <SmartInput id="empCount" inputType="count" placeholder="e.g. 5" value={inputs.employeeCount} onValueChange={(v) => update({ employeeCount: v })} className="mt-1.5" />
           </div>
           <div>
             <Label className="mb-2 block text-sm text-muted-foreground">Office Structure</Label>
@@ -145,7 +145,7 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
         <CardContent className="flex flex-col gap-4">
           <div>
             <Label htmlFor="eoClaims" className="text-sm text-muted-foreground">{"E&O Claims (Past 3 Years)"}</Label>
-            <Input id="eoClaims" type="number" placeholder="0" value={inputs.eoClaims ?? ""} onChange={(e) => update({ eoClaims: numOrNull(e.target.value) ?? 0 })} className="mt-1.5" />
+            <SmartInput id="eoClaims" inputType="count" placeholder="0" value={inputs.eoClaims} onValueChange={(v) => update({ eoClaims: v ?? 0 })} className="mt-1.5" />
           </div>
           <div>
             <Label className="mb-2 block text-sm text-muted-foreground">Producer Agreements</Label>
@@ -175,22 +175,22 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
         <CardContent className="flex flex-col gap-4">
           <div id="field-revenueLTM">
             <Label htmlFor="revLTM" className="text-sm text-muted-foreground">{requiredStar("Annual Revenue (LTM)")}</Label>
-            <Input id="revLTM" type="number" placeholder="e.g. 1500000" value={inputs.revenueLTM ?? ""} onChange={(e) => update({ revenueLTM: numOrNull(e.target.value) })} className={`mt-1.5 ${fieldBorder("revenueLTM")}`} />
+            <SmartInput id="revLTM" inputType="currency" placeholder="e.g. 1500000" value={inputs.revenueLTM} onValueChange={(v) => update({ revenueLTM: v })} className={`mt-1.5 ${fieldBorder("revenueLTM")}`} />
             {isInvalid("revenueLTM") && <p className="mt-1 text-xs text-destructive">Revenue is required for valuation</p>}
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label htmlFor="revY2" className="text-sm text-muted-foreground">Revenue Y-2</Label>
-              <Input id="revY2" type="number" placeholder="Prior year" value={inputs.revenueY2 ?? ""} onChange={(e) => update({ revenueY2: numOrNull(e.target.value) })} className="mt-1.5" />
+              <SmartInput id="revY2" inputType="currency" placeholder="Prior year" value={inputs.revenueY2} onValueChange={(v) => update({ revenueY2: v })} className="mt-1.5" />
             </div>
             <div>
               <Label htmlFor="revY3" className="text-sm text-muted-foreground">Revenue Y-3</Label>
-              <Input id="revY3" type="number" placeholder="2 years ago" value={inputs.revenueY3 ?? ""} onChange={(e) => update({ revenueY3: numOrNull(e.target.value) })} className="mt-1.5" />
+              <SmartInput id="revY3" inputType="currency" placeholder="2 years ago" value={inputs.revenueY3} onValueChange={(v) => update({ revenueY3: v })} className="mt-1.5" />
             </div>
           </div>
           <div id="field-sdeEbitda">
             <Label htmlFor="sde" className="text-sm text-muted-foreground">{requiredStar("SDE / EBITDA")}</Label>
-            <Input id="sde" type="number" placeholder="e.g. 400000" value={inputs.sdeEbitda ?? ""} onChange={(e) => update({ sdeEbitda: numOrNull(e.target.value) })} className={`mt-1.5 ${fieldBorder("sdeEbitda")}`} />
+            <SmartInput id="sde" inputType="currency" placeholder="e.g. 400000" value={inputs.sdeEbitda} onValueChange={(v) => update({ sdeEbitda: v })} className={`mt-1.5 ${fieldBorder("sdeEbitda")}`} />
             <p className="mt-1 text-xs text-muted-foreground/70">
               {"Net Income + Owner Comp + Non-Recurring Expenses + Depreciation"}
             </p>
@@ -209,18 +209,18 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
         <CardContent className="flex flex-col gap-4">
           <div id="field-retentionRate">
             <Label htmlFor="retention" className="text-sm text-muted-foreground">{requiredStar("Retention Rate (%)")}</Label>
-            <Input id="retention" type="number" placeholder="e.g. 92" value={inputs.retentionRate ?? ""} onChange={(e) => update({ retentionRate: numOrNull(e.target.value) })} className={`mt-1.5 ${fieldBorder("retentionRate")}`} />
+            <SmartInput id="retention" inputType="percent" placeholder="e.g. 92" value={inputs.retentionRate} onValueChange={(v) => update({ retentionRate: v })} className={`mt-1.5 ${fieldBorder("retentionRate")}`} />
             {isInvalid("retentionRate") && <p className="mt-1 text-xs text-destructive">Retention rate is required</p>}
           </div>
           <div id="field-policyMix">
             <Label htmlFor="policyMix" className="text-sm text-muted-foreground">{requiredStar("Commercial Lines Mix (%)")}</Label>
-            <Input id="policyMix" type="number" placeholder="e.g. 60" value={inputs.policyMix ?? ""} onChange={(e) => update({ policyMix: numOrNull(e.target.value) })} className={`mt-1.5 ${fieldBorder("policyMix")}`} />
+            <SmartInput id="policyMix" inputType="percent" placeholder="e.g. 60" value={inputs.policyMix} onValueChange={(v) => update({ policyMix: v })} className={`mt-1.5 ${fieldBorder("policyMix")}`} />
             <p className="mt-1 text-xs text-muted-foreground/70">% of premium that is Commercial Lines</p>
             {isInvalid("policyMix") && <p className="mt-0.5 text-xs text-destructive">Policy mix is required</p>}
           </div>
           <div id="field-clientConcentration">
             <Label htmlFor="concentration" className="text-sm text-muted-foreground">{requiredStar("Client Concentration (%)")}</Label>
-            <Input id="concentration" type="number" placeholder="e.g. 15" value={inputs.clientConcentration ?? ""} onChange={(e) => update({ clientConcentration: numOrNull(e.target.value) })} className={`mt-1.5 ${fieldBorder("clientConcentration")}`} />
+            <SmartInput id="concentration" inputType="percent" placeholder="e.g. 15" value={inputs.clientConcentration} onValueChange={(v) => update({ clientConcentration: v })} className={`mt-1.5 ${fieldBorder("clientConcentration")}`} />
             <p className="mt-1 text-xs text-muted-foreground/70">% of revenue from your top 10 clients</p>
             {isInvalid("clientConcentration") && <p className="mt-0.5 text-xs text-destructive">Client concentration is required</p>}
           </div>
@@ -237,12 +237,12 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
         <CardContent className="flex flex-col gap-4">
           <div>
             <Label htmlFor="carrierDiv" className="text-sm text-muted-foreground">Carrier Diversification (%)</Label>
-            <Input id="carrierDiv" type="number" placeholder="% from top carrier" value={inputs.carrierDiversification ?? ""} onChange={(e) => update({ carrierDiversification: numOrNull(e.target.value) })} className="mt-1.5" />
+            <SmartInput id="carrierDiv" inputType="percent" placeholder="% from top carrier" value={inputs.carrierDiversification} onValueChange={(v) => update({ carrierDiversification: v })} className="mt-1.5" />
             <p className="mt-1 text-xs text-muted-foreground/70">% of premium from your single largest carrier</p>
           </div>
           <div>
             <Label htmlFor="rpe" className="text-sm text-muted-foreground">Revenue Per Employee ($)</Label>
-            <Input id="rpe" type="number" placeholder="e.g. 175000" value={inputs.revenuePerEmployee ?? ""} onChange={(e) => update({ revenuePerEmployee: numOrNull(e.target.value) })} className="mt-1.5" />
+            <SmartInput id="rpe" inputType="currency" placeholder="e.g. 175000" value={inputs.revenuePerEmployee} onValueChange={(v) => update({ revenuePerEmployee: v })} className="mt-1.5" />
           </div>
           <div>
             <Label htmlFor="topCarriers" className="text-sm text-muted-foreground">Top 5 Carriers (Optional)</Label>
@@ -279,11 +279,11 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="payroll" className="text-sm text-muted-foreground">Annual Payroll Cost ($)</Label>
-                <Input id="payroll" type="number" placeholder="e.g. 200000" value={inputs.annualPayrollCost ?? ""} onChange={(e) => update({ annualPayrollCost: numOrNull(e.target.value) })} className="mt-1.5" />
+                <SmartInput id="payroll" inputType="currency" placeholder="e.g. 200000" value={inputs.annualPayrollCost} onValueChange={(v) => update({ annualPayrollCost: v })} className="mt-1.5" />
               </div>
               <div>
                 <Label htmlFor="ownerComp" className="text-sm text-muted-foreground">Owner Compensation ($)</Label>
-                <Input id="ownerComp" type="number" placeholder="e.g. 120000" value={inputs.ownerCompensation ?? ""} onChange={(e) => update({ ownerCompensation: numOrNull(e.target.value) })} className="mt-1.5" />
+                <SmartInput id="ownerComp" inputType="currency" placeholder="e.g. 120000" value={inputs.ownerCompensation} onValueChange={(v) => update({ ownerCompensation: v })} className="mt-1.5" />
               </div>
             </div>
             <div>
@@ -304,11 +304,11 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="newBiz" className="text-sm text-muted-foreground">Monthly New Business Value ($)</Label>
-                <Input id="newBiz" type="number" placeholder="e.g. 25000" value={inputs.newBusinessValue ?? ""} onChange={(e) => update({ newBusinessValue: numOrNull(e.target.value) })} className="mt-1.5" />
+                <SmartInput id="newBiz" inputType="currency" placeholder="e.g. 25000" value={inputs.newBusinessValue} onValueChange={(v) => update({ newBusinessValue: v })} className="mt-1.5" />
               </div>
               <div>
                 <Label htmlFor="clientTenure" className="text-sm text-muted-foreground">Avg Client Tenure (years)</Label>
-                <Input id="clientTenure" type="number" placeholder="e.g. 8" value={inputs.avgClientTenure ?? ""} onChange={(e) => update({ avgClientTenure: numOrNull(e.target.value) })} className="mt-1.5" />
+                <SmartInput id="clientTenure" inputType="count" placeholder="e.g. 8" value={inputs.avgClientTenure} onValueChange={(v) => update({ avgClientTenure: v })} className="mt-1.5" max={99} />
               </div>
             </div>
           </CardContent>

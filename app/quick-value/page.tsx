@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { SmartInput } from "@/components/ui/smart-input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -74,15 +74,12 @@ export default function QuickValuePage() {
               <Label htmlFor="quickRevenue" className="text-sm text-muted-foreground">
                 Total Annual Revenue ($)
               </Label>
-              <Input
+              <SmartInput
                 id="quickRevenue"
-                type="number"
+                inputType="currency"
                 placeholder="e.g. 1500000"
-                value={revenue ?? ""}
-                onChange={(e) => {
-                  const val = e.target.value
-                  setRevenue(val === "" ? null : parseFloat(val))
-                }}
+                value={revenue}
+                onValueChange={setRevenue}
                 className="mt-1.5 text-lg"
               />
             </CardContent>
