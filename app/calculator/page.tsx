@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Lock, Unlock, AlertCircle } from "lucide-react"
 
 const defaultInputs: ValuationInputs = {
-  scopeOfSale: 1.0,
+  scopeOfSale: null,
   yearEstablished: null,
   primaryState: "",
   employeeCount: null,
@@ -40,6 +40,7 @@ const defaultInputs: ValuationInputs = {
 }
 
 const REQUIRED_FIELDS: { key: keyof ValuationInputs; label: string }[] = [
+  { key: "scopeOfSale", label: "Scope of Sale" },
   { key: "revenueLTM", label: "Annual Revenue (LTM)" },
   { key: "sdeEbitda", label: "SDE / EBITDA" },
   { key: "retentionRate", label: "Retention Rate" },
@@ -237,9 +238,21 @@ export default function CalculatorPage() {
           onClose={() => setShowLeadCapture(false)}
           title="Unlock Your Agency Valuation"
           description="Enter your details to view your complete valuation report with risk audit and deal simulator."
-          toolUsed="Full Agency Calculator"
+          toolUsed="Agency Valuation Calculator"
           valuationSummary={`Revenue (LTM): $${inputs.revenueLTM?.toLocaleString() ?? "N/A"}\nSDE/EBITDA: $${inputs.sdeEbitda?.toLocaleString() ?? "N/A"}\nRetention Rate: ${inputs.retentionRate ?? "N/A"}%\nCommercial Mix: ${inputs.policyMix ?? "N/A"}%\nClient Concentration: ${inputs.clientConcentration ?? "N/A"}%\nCarrier Diversification: ${inputs.carrierDiversification ?? "N/A"}%\nYear Established: ${inputs.yearEstablished ?? "N/A"}\nState: ${inputs.primaryState || "N/A"}\nEmployees: ${inputs.employeeCount ?? "N/A"}`}
           estimatedValue={inputs.revenueLTM ?? 0}
+          valuationData={{
+            revenueLTM: inputs.revenueLTM,
+            sdeEbitda: inputs.sdeEbitda,
+            retentionRate: inputs.retentionRate,
+            policyMix: inputs.policyMix,
+            clientConcentration: inputs.clientConcentration,
+            carrierDiversification: inputs.carrierDiversification,
+            yearEstablished: inputs.yearEstablished,
+            primaryState: inputs.primaryState,
+            employeeCount: inputs.employeeCount,
+            scopeOfSale: inputs.scopeOfSale,
+          }}
         />
       )}
       {showDisclaimer && (

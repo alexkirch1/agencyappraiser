@@ -3,7 +3,7 @@
 // =====================================================
 
 export interface ValuationInputs {
-  scopeOfSale: number // 1.0 = Full Agency, 0.95 = Book Purchase, 0.9 = Fragmented
+  scopeOfSale: number | null // 1.0 = Full Agency, 0.95 = Book Purchase, 0.9 = Fragmented
   yearEstablished: number | null
   primaryState: string
   employeeCount: number | null
@@ -91,7 +91,7 @@ function analyzeRevenueTrend(revLTM: number, revY2: number | null, revY3: number
 }
 
 export function calculateValuation(inputs: ValuationInputs): ValuationResults | null {
-  const TRANSACTION_MULTIPLIER = inputs.scopeOfSale
+  const TRANSACTION_MULTIPLIER = inputs.scopeOfSale ?? 1.0
   const isFullAgency = TRANSACTION_MULTIPLIER === 1.0
 
   const revLTM = inputs.revenueLTM

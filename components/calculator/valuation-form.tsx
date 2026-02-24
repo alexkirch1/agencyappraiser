@@ -32,7 +32,7 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
     return isNaN(n) ? null : n
   }
 
-  const isFullAgency = inputs.scopeOfSale === 1.0
+  const isFullAgency = inputs.scopeOfSale === 1.0 || inputs.scopeOfSale === null
 
   const isInvalid = (key: string) => invalidFields.includes(key)
 
@@ -53,26 +53,29 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Label className="mb-3 block text-sm text-muted-foreground">Scope of Sale</Label>
+          <Label className="mb-3 block text-sm text-muted-foreground">{requiredStar("Scope of Sale")}</Label>
           <RadioGroup
-            value={String(inputs.scopeOfSale)}
+            value={inputs.scopeOfSale != null ? String(inputs.scopeOfSale) : ""}
             onValueChange={(v) => update({ scopeOfSale: parseFloat(v) })}
             className="flex flex-col gap-2 sm:flex-row sm:gap-4"
           >
             {[
-              { value: "1", label: "Full Agency (1.0x)" },
-              { value: "0.95", label: "Book Purchase (0.95x)" },
-              { value: "0.9", label: "Fragmented (0.9x)" },
+              { value: "1", label: "Full Agency" },
+              { value: "0.95", label: "Book Purchase" },
+              { value: "0.9", label: "Fragmented" },
             ].map((opt) => (
               <label
                 key={opt.value}
-                className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/10"
+                className={`flex cursor-pointer items-center gap-2 rounded-md border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/10 ${
+                  isInvalid("scopeOfSale") ? "border-destructive" : "border-border"
+                }`}
               >
                 <RadioGroupItem value={opt.value} />
                 {opt.label}
               </label>
             ))}
           </RadioGroup>
+          {isInvalid("scopeOfSale") && <p className="mt-1 text-xs text-destructive">Please select a scope of sale</p>}
         </CardContent>
       </Card>
 

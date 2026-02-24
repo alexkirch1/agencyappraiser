@@ -22,6 +22,7 @@ interface Props {
   toolUsed?: string
   valuationSummary?: string
   estimatedValue?: number
+  valuationData?: Record<string, unknown>
 }
 
 export function LeadCaptureModal({
@@ -32,6 +33,7 @@ export function LeadCaptureModal({
   toolUsed = "Agency Valuation",
   valuationSummary = "",
   estimatedValue = 0,
+  valuationData,
 }: Props) {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -66,6 +68,7 @@ export function LeadCaptureModal({
           toolUsed,
           valuationSummary,
           estimatedValue,
+          valuationData,
         }),
       })
     } catch {
