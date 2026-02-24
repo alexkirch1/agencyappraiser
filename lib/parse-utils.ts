@@ -349,40 +349,48 @@ export function parsePdfCommissionRow(
 
     // Check if any word in this segment is a policy number
     let segHasPolicy = false
-    if (!foundPol) {
-      for (const w of words) {
-        const wClean = w.replace(/^[.,\-:()]+|[.,\-:()]+$/g, "")
+    const remainingWords: string[] = []
+    for (const w of words) {
+      const wClean = w.replace(/^[.,\-:()]+|[.,\-:()]+$/g, "")
+      if (!foundPol) {
         const { likely, confidence } = isLikelyPolicyNumber(wClean)
         if (likely) {
           foundPol = normalizePolicy(wClean)
           polConfidence = confidence
           segHasPolicy = true
-          break
+          continue // skip this word but keep processing others in same segment
         }
       }
+      remainingWords.push(w)
     }
 
-    // Skip this segment if it was the policy number
-    if (segHasPolicy && words.length === 1) continue
+    // If the segment was ONLY a policy number, skip it entirely
+    if (segHasPolicy && remainingWords.length === 0) continue
+
+    // Use remaining words if we stripped the policy out of a multi-word segment
+    const segToUse = segHasPolicy ? remainingWords.join(" ") : seg
+    const wordsToCheck = segToUse.split(/\s+/)
 
     // Skip date-only segments
-    const isDateSeg = words.every(w =>
+    const isDateSeg = wordsToCheck.every(w =>
       /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(w) ||
       /^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(w) ||
       /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(w)
     )
     if (isDateSeg) continue
 
-    // Skip segments that are just a percentage
-    if (words.every(w => /^\d+\.?\d*%?$/.test(w))) continue
+    // Skip segments that are just numbers or percentages
+    if (wordsToCheck.every(w => /^\d+\.?\d*%?$/.test(w))) continue
 
     // This segment is a candidate for the client name
-    candidateNameSegments.push(seg)
+    if (segToUse.trim()) candidateNameSegments.push(segToUse.trim())
   }
 
   // --- 4. Pick the best client name ---
-  // The client name is typically the longest segment that is mostly alpha words.
-  // Score each candidate: prefer segments with 2-4 words, all alphabetic, longer total length.
+  // Strategy: score each candidate segment. The client name is typically the
+  // segment with the most alphabetic words in the 2-4 word "First Last" or
+  // "Last, First" pattern. We keep all the original words (not just filtered
+  // alpha words) to preserve names like "O'Brien" or "St. James".
   let bestName = ""
   let bestScore = -1
 
@@ -390,25 +398,37 @@ export function parsePdfCommissionRow(
     const words = seg.split(/\s+/)
     const alphaWords = words.filter(w => isLikelyNameWord(w))
 
-    // If most words in this segment are name-like, it's probably a name
     if (alphaWords.length === 0) continue
-    const nameRatio = alphaWords.length / words.length
 
     let score = 0
-    // Prefer segments where most/all words look like names
-    score += nameRatio * 40
-    // Prefer 2-4 word names (typical "First Last" or "Last, First MI")
-    if (alphaWords.length >= 2 && alphaWords.length <= 4) score += 30
-    else if (alphaWords.length === 1) score += 10
-    // Prefer longer total character count (real names vs abbreviations)
-    score += Math.min(alphaWords.join(" ").length, 30)
-    // Bonus for comma (often "Last, First" format)
-    if (seg.includes(",")) score += 10
+    const nameRatio = alphaWords.length / words.length
+
+    // High ratio of name-like words = likely a name field
+    score += nameRatio * 30
+
+    // Sweet spot: 2-4 words is ideal for a person/business name
+    if (alphaWords.length >= 2 && alphaWords.length <= 4) score += 35
+    else if (alphaWords.length === 1 && alphaWords[0].length >= 3) score += 15
+    else if (alphaWords.length > 4) score += 10
+
+    // Prefer longer text (full names vs single abbreviations)
+    score += Math.min(seg.length, 25)
+
+    // Comma pattern bonus ("Last, First")
+    if (seg.includes(",")) score += 15
+
+    // Penalize segments with LOB/carrier jargon
+    const lowerSeg = seg.toLowerCase()
+    const jargonHits = ["auto", "home", "fire", "bop", "gl", "wc", "liability",
+      "property", "umbrella", "dwelling", "flood", "commercial", "personal"]
+      .filter(j => lowerSeg.includes(j)).length
+    score -= jargonHits * 8
 
     if (score > bestScore) {
       bestScore = score
-      // Use the alpha words only (strips any stray non-name word mixed in)
-      bestName = alphaWords.slice(0, 4).join(" ")
+      // Keep the original segment text (preserving formatting like commas,
+      // apostrophes, etc.) but cap at 4 words
+      bestName = words.slice(0, 4).join(" ")
     }
   }
 

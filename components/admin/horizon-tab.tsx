@@ -380,17 +380,45 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                   return ax - bx
                 })
 
-                const lineStr = rowItems
-                  .map((item) => ("str" in item ? item.str : ""))
-                  .join("  ")
-                  .replace(/\s{3,}/g, "  ")
-                  .trim()
+                // Build the line string using X-coordinate gaps to determine
+                // field boundaries.  A gap > 15px between the end of one item
+                // and the start of the next means a new column/field.
+                let lineStr = ""
+                for (let ri = 0; ri < rowItems.length; ri++) {
+                  const item = rowItems[ri]
+                  const str = "str" in item ? item.str : ""
+                  if (!str) continue
+
+                  if (ri > 0) {
+                    const prevItem = rowItems[ri - 1]
+                    const prevX = "transform" in prevItem ? prevItem.transform[4] : 0
+                    const prevW = "width" in prevItem ? (prevItem as { width: number }).width : 0
+                    const prevEnd = prevX + prevW
+                    const curX = "transform" in item ? item.transform[4] : 0
+                    const gap = curX - prevEnd
+
+                    if (gap > 15) {
+                      // Big gap = field separator (use tab so parser can split on it)
+                      lineStr += "\t"
+                    } else if (gap > 3) {
+                      // Small gap = word separator within a field
+                      lineStr += " "
+                    }
+                    // Very small or no gap = same word, just concatenate
+                  }
+                  lineStr += str
+                }
+                lineStr = lineStr.trim()
 
                 const parsed = parsePdfCommissionRow(lineStr, i, fileDate, file.name)
                 if (parsed) {
                   const conf = scoreCommissionRow(parsed)
                   const uid = `${parsed.policy_number}_${parsed.commission.toFixed(2)}_${i}`
                   if (!newSeen.has(uid)) {
+                    // Log first 5 parsed rows for debugging
+                    if (parsedRows < 5) {
+                      console.log(`[v0] PDF row ${parsedRows}: pol="${parsed.policy_number}" name="${parsed.client_name}" comm=${parsed.commission} raw="${lineStr.substring(0, 120)}"`)
+                    }
                     newCommData.push({
                       id: uid,
                       ...parsed,
@@ -462,13 +490,15 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
               }
 
               const colMap: Record<string, number> = {}
+              const usedCommCols = new Set<number>()
               for (const [key, keywords] of Object.entries(commColKeywords)) {
                 for (const kw of keywords) {
-                  const idx = headers.findIndex(h =>
-                    h.toLowerCase().includes(kw.toLowerCase())
+                  const idx = headers.findIndex((h, i) =>
+                    !usedCommCols.has(i) && h.toLowerCase().includes(kw.toLowerCase())
                   )
                   if (idx !== -1 && colMap[key] === undefined) {
                     colMap[key] = idx
+                    usedCommCols.add(idx)
                     break
                   }
                 }
@@ -480,7 +510,10 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                 continue
               }
 
-              log(`  Sheet "${sheetName}": Mapped cols - pol:${colMap.policy ?? "?"} comm:${colMap.commission ?? "?"} prem:${colMap.premium ?? "?"} name:${colMap.name ?? "?"}`)
+              const mappedCommCols = Object.entries(colMap)
+                .map(([key, idx]) => `${key}→col${idx}("${headers[idx] ?? "?"}")`)
+                .join(", ")
+              log(`  Sheet "${sheetName}": ${mappedCommCols}`)
 
               for (let idx = 0; idx < dataRows.length; idx++) {
                 const row = (dataRows[idx] as string[]).map(String)
