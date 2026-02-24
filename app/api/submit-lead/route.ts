@@ -69,9 +69,13 @@ async function createPipedrivePerson(data: {
   }
 }
 
-// Cache for Pipedrive custom field keys (fetched once)
+// Cache for Pipedrive custom field keys (fetched once per cold start)
 let cachedFieldMap: Record<string, string> | null = null
 
+/**
+ * Fetch all Pipedrive deal fields and build a logical-name → field-key mapping.
+ * Uses multiple matching strategies per logical field (exact phrase, then partial).
+ */
 async function getPipedriveCustomFields(): Promise<Record<string, string>> {
   if (cachedFieldMap) return cachedFieldMap
   try {
@@ -79,26 +83,57 @@ async function getPipedriveCustomFields(): Promise<Record<string, string>> {
       `https://${PIPEDRIVE_DOMAIN}.pipedrive.com/api/v1/dealFields?api_token=${PIPEDRIVE_TOKEN}`
     )
     const json = await res.json()
-    if (!json.success || !json.data) return {}
-    const map: Record<string, string> = {}
-    for (const field of json.data) {
-      // Map common field names to their API keys
-      const name = (field.name || "").toLowerCase()
-      if (name.includes("revenue") && !name.includes("per")) map.revenue = field.key
-      else if (name.includes("sde") || name.includes("ebitda")) map.sde = field.key
-      else if (name.includes("retention")) map.retention = field.key
-      else if (name.includes("commercial") && name.includes("mix")) map.policyMix = field.key
-      else if (name.includes("concentration")) map.concentration = field.key
-      else if (name.includes("state") && !name.includes("status")) map.state = field.key
-      else if (name.includes("employee")) map.employees = field.key
-      else if (name.includes("carrier") && name.includes("div")) map.carrierDiv = field.key
-      else if (name.includes("scope")) map.scope = field.key
-      else if (name.includes("year") && name.includes("est")) map.yearEstablished = field.key
-      else if (name.includes("tool") || name.includes("source")) map.source = field.key
+    if (!json.success || !json.data) {
+      console.log("[v0] Pipedrive dealFields response:", JSON.stringify(json).slice(0, 500))
+      return {}
     }
+
+    const map: Record<string, string> = {}
+    const fields: { key: string; name: string; type: string }[] = json.data
+
+    // Build a helper to find a field by trying multiple patterns in order
+    function findField(patterns: string[]): string | null {
+      for (const pattern of patterns) {
+        const match = fields.find(f => {
+          const n = f.name.toLowerCase()
+          return n === pattern.toLowerCase() || n.includes(pattern.toLowerCase())
+        })
+        if (match) return match.key
+      }
+      return null
+    }
+
+    // Map each logical key with multiple search patterns (most specific first)
+    const mappings: [string, string[]][] = [
+      ["revenue", ["annual revenue", "revenue ltm", "revenue", "total revenue"]],
+      ["sde", ["sde", "ebitda", "sde / ebitda", "sde/ebitda", "seller discretionary"]],
+      ["retention", ["retention rate", "retention %", "retention"]],
+      ["policyMix", ["commercial lines mix", "commercial mix", "policy mix", "commercial %"]],
+      ["concentration", ["client concentration", "concentration", "top client %"]],
+      ["state", ["primary state", "state", "location"]],
+      ["employees", ["employee count", "employees", "number of employees", "staff"]],
+      ["carrierDiv", ["carrier diversification", "carrier div", "top carrier %"]],
+      ["scope", ["scope of sale", "scope", "sale type", "deal type"]],
+      ["yearEstablished", ["year established", "year est", "founded", "established"]],
+      ["source", ["lead source", "source", "tool used", "origin"]],
+    ]
+
+    for (const [logicalKey, patterns] of mappings) {
+      const key = findField(patterns)
+      if (key) map[logicalKey] = key
+    }
+
+    console.log("[v0] Pipedrive field mapping result:", JSON.stringify(map))
+    console.log("[v0] Available custom fields:", fields
+      .filter(f => /^[a-f0-9]{40}$/.test(f.key))
+      .map(f => `${f.name} (${f.key})`)
+      .join(", ")
+    )
+
     cachedFieldMap = map
     return map
-  } catch {
+  } catch (err) {
+    console.error("[v0] Failed to fetch Pipedrive fields:", err)
     return {}
   }
 }
@@ -134,6 +169,8 @@ async function createPipedriveDeal(params: {
       }
     }
 
+    console.log("[v0] Creating Pipedrive deal with body:", JSON.stringify(dealBody))
+
     const res = await fetch(
       `https://${PIPEDRIVE_DOMAIN}.pipedrive.com/api/v1/deals?api_token=${PIPEDRIVE_TOKEN}`,
       {
@@ -143,7 +180,10 @@ async function createPipedriveDeal(params: {
       }
     )
     const json = await res.json()
-    if (!json.success || !json.data?.id) return null
+    if (!json.success || !json.data?.id) {
+      console.log("[v0] Pipedrive deal creation failed:", JSON.stringify(json).slice(0, 500))
+      return null
+    }
     const dealId = json.data.id
 
     // Attach note with valuation details
@@ -260,23 +300,35 @@ export async function POST(req: Request) {
         const dealTitle = agencyName ? `${agencyName} - ${name}` : name
 
         // Build custom field values from structured data
+        // Numbers must be sent as actual numbers, strings as strings
         const customFields: Record<string, string | number | null> = {}
         if (valuationData) {
-          if (valuationData.revenueLTM) customFields.revenue = valuationData.revenueLTM
-          if (valuationData.sdeEbitda) customFields.sde = valuationData.sdeEbitda
-          if (valuationData.retentionRate) customFields.retention = valuationData.retentionRate
-          if (valuationData.policyMix) customFields.policyMix = valuationData.policyMix
-          if (valuationData.clientConcentration) customFields.concentration = valuationData.clientConcentration
-          if (valuationData.primaryState) customFields.state = valuationData.primaryState
-          if (valuationData.employeeCount) customFields.employees = valuationData.employeeCount
-          if (valuationData.carrierDiversification) customFields.carrierDiv = valuationData.carrierDiversification
-          if (valuationData.yearEstablished) customFields.yearEstablished = valuationData.yearEstablished
+          const num = (v: unknown) => (v != null && v !== "" ? Number(v) : null)
+          const revenueLTM = num(valuationData.revenueLTM)
+          const sdeEbitda = num(valuationData.sdeEbitda)
+          const retentionRate = num(valuationData.retentionRate)
+          const policyMix = num(valuationData.policyMix)
+          const clientConcentration = num(valuationData.clientConcentration)
+          const employeeCount = num(valuationData.employeeCount)
+          const carrierDiv = num(valuationData.carrierDiversification)
+          const yearEstablished = num(valuationData.yearEstablished)
+
+          if (revenueLTM) customFields.revenue = revenueLTM
+          if (sdeEbitda) customFields.sde = sdeEbitda
+          if (retentionRate) customFields.retention = retentionRate
+          if (policyMix) customFields.policyMix = policyMix
+          if (clientConcentration) customFields.concentration = clientConcentration
+          if (valuationData.primaryState) customFields.state = String(valuationData.primaryState)
+          if (employeeCount) customFields.employees = employeeCount
+          if (carrierDiv) customFields.carrierDiv = carrierDiv
+          if (yearEstablished) customFields.yearEstablished = yearEstablished
           if (valuationData.scopeOfSale != null) {
             const scopeLabels: Record<number, string> = { 1: "Full Agency", 0.95: "Book Purchase", 0.9: "Fragmented" }
-            customFields.scope = scopeLabels[valuationData.scopeOfSale] || String(valuationData.scopeOfSale)
+            customFields.scope = scopeLabels[Number(valuationData.scopeOfSale)] || String(valuationData.scopeOfSale)
           }
           customFields.source = toolUsed || "Agency Valuation"
         }
+        console.log("[v0] Custom fields to send:", JSON.stringify(customFields))
 
         const dealId = await createPipedriveDeal({
           title: dealTitle,

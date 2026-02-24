@@ -73,21 +73,47 @@ function confidenceColor(level: ConfidenceLevel): string {
 
 // ----- Auto-map columns -----
 function autoMapColumns(headers: string[]): Record<string, number> {
+  // Each rule is an ordered list of matchers -- first match wins.
+  // Use exact-ish phrases first to avoid false matches (e.g. "number" matching "Phone Number").
   const mapRules: Record<string, string[]> = {
-    policy: ["Policy Data Policy Number", "policy", "pol#", "number", "ref"],
-    premium: ["Policy Data Premium - Annualized", "premium", "annualized", "prem"],
-    carrier: ["Policy Data Master Company", "carrier", "company", "insurer"],
-    account: ["Applicant Data Account Name", "insured", "account", "name", "client"],
-    effective: ["Policy Data Effective Date", "eff", "start", "inception"],
-    expiration: ["Policy Expiration Date", "exp", "end", "term"],
-    type: ["Policy Type", "status", "trans", "type"],
+    policy: [
+      "Policy Data Policy Number", "policy number", "policy no", "policyno",
+      "pol#", "pol #", "policy #", "policy num", "policy",
+    ],
+    premium: [
+      "Policy Data Premium - Annualized", "annualized premium", "premium",
+      "annualized", "prem", "written premium", "total premium",
+    ],
+    carrier: [
+      "Policy Data Master Company", "carrier", "company name", "insurer",
+      "master company", "writing company",
+    ],
+    account: [
+      "Applicant Data Account Name", "account name", "insured name",
+      "insured", "account", "client name", "client", "named insured",
+      "policyholder", "customer",
+    ],
+    effective: [
+      "Policy Data Effective Date", "effective date", "eff date", "eff",
+      "inception", "start date",
+    ],
+    expiration: [
+      "Policy Expiration Date", "expiration date", "exp date", "exp",
+      "end date", "term date",
+    ],
+    type: [
+      "Policy Type", "trans type", "transaction type", "status",
+      "policy status", "trans", "type",
+    ],
   }
   const result: Record<string, number> = {}
+  const usedIndices = new Set<number>()
+
   for (const [key, keywords] of Object.entries(mapRules)) {
     let foundIndex = -1
-    for (const k of keywords) {
+    for (const kw of keywords) {
       const idx = headers.findIndex(
-        (h) => h && h.toString().toLowerCase().includes(k.toLowerCase())
+        (h, i) => !usedIndices.has(i) && h && h.toString().toLowerCase().includes(kw.toLowerCase())
       )
       if (idx !== -1) {
         foundIndex = idx
@@ -95,6 +121,7 @@ function autoMapColumns(headers: string[]): Record<string, number> {
       }
     }
     result[key] = foundIndex
+    if (foundIndex !== -1) usedIndices.add(foundIndex)
   }
   return result
 }
@@ -250,6 +277,12 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
             (row as string[]).map(String)
           )
           const mapping = autoMapColumns(headers)
+          // Log column mapping for debugging
+          const mappedNames = Object.entries(mapping)
+            .filter(([, idx]) => idx >= 0)
+            .map(([key, idx]) => `${key}→col${idx}("${headers[idx]}")`)
+            .join(", ")
+          log(`Column mapping: ${mappedNames || "No columns mapped"}`)
 
           // Calculate total premium
           let totalPrem = 0
@@ -405,14 +438,27 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
 
               // Auto-detect column indices for commission data
               const commColKeywords: Record<string, string[]> = {
-                policy: ["policy", "pol#", "pol #", "number", "policy no", "policyno"],
-                commission: ["commission", "comm", "comm amt", "comm $", "revenue", "net", "split", "pay", "earned", "agent comm"],
-                premium: ["premium", "prem", "written", "annualized", "gross"],
-                name: ["insured", "name", "account", "client", "customer", "policyholder"],
-                carrier: ["carrier", "company", "master", "insurer"],
-                lob: ["lob", "line", "coverage", "class", "type"],
-                producer: ["producer", "agent", "csr", "writer"],
-                transType: ["trans", "type", "status", "action"],
+                policy: [
+                  "policy number", "policy no", "policyno", "policy #", "pol#", "pol #",
+                  "policy num", "policy", "certificate",
+                ],
+                commission: [
+                  "commission", "comm amt", "comm $", "agent comm", "comm",
+                  "net amount", "split", "earned", "pay amount",
+                ],
+                premium: [
+                  "written premium", "annualized premium", "premium", "prem",
+                  "annualized", "gross premium",
+                ],
+                name: [
+                  "insured name", "named insured", "insured", "account name",
+                  "client name", "customer name", "policyholder",
+                  "account", "client", "customer",
+                ],
+                carrier: ["carrier", "company", "master company", "insurer", "writing company"],
+                lob: ["lob", "line of business", "coverage", "class code", "coverage type"],
+                producer: ["producer", "agent", "csr", "writer", "writing agent"],
+                transType: ["trans type", "transaction", "trans", "action", "status"],
               }
 
               const colMap: Record<string, number> = {}

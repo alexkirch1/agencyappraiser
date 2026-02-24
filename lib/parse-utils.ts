@@ -20,12 +20,18 @@ export function cleanNum(val: unknown): number {
 }
 
 // ----- Policy number normalization -----
+// We keep leading zeros in a controlled way: if the string is pure digits we
+// strip leading zeros for matching consistency, but if it starts with letters
+// followed by zeros (e.g. "CPP0012345") we keep them so the prefix is intact.
 export function normalizePolicy(val: unknown): string {
   let s = String(val || "").trim().toUpperCase()
-  // Strip everything except letters and digits
+  // Strip everything except letters, digits
   s = s.replace(/[^A-Z0-9]/g, "")
-  // Remove leading zeros
-  s = s.replace(/^0+/, "")
+  // Only strip leading zeros on pure-digit strings (so "00987654" → "987654")
+  // but keep "CPP0012345" intact
+  if (/^\d+$/.test(s)) {
+    s = s.replace(/^0+/, "") || "0"
+  }
   return s
 }
 
@@ -127,31 +133,38 @@ export function isLikelyPolicyNumber(token: string): { likely: boolean; confiden
   const hasDigit = /\d/.test(tClean)
   const hasLetter = /[a-zA-Z]/.test(tClean)
 
-  // Skip dates
+  // Skip dates  (e.g. 01/15/2024, 2024-01-15, 1/5/24)
   if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(tClean)) return { likely: false, confidence: 0 }
   if (/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(tClean)) return { likely: false, confidence: 0 }
   // Skip percentages
   if (/^\d+\.?\d*%$/.test(tClean)) return { likely: false, confidence: 0 }
-  // Skip pure short numbers (1-4 digits with no letters)
-  if (/^\d{1,4}$/.test(tClean)) return { likely: false, confidence: 0 }
+  // Skip very short pure numbers (1-3 digits only -- ages, counts, page numbers)
+  if (/^\d{1,3}$/.test(tClean)) return { likely: false, confidence: 0 }
+  // Skip 4-digit numbers that look like years (19xx, 20xx)
+  if (/^(19|20)\d{2}$/.test(tClean)) return { likely: false, confidence: 0 }
 
   if (!hasDigit) return { likely: false, confidence: 0 }
 
-  let conf = 50
+  let conf = 40
 
   // Mixed alphanumeric = very likely a policy number
   if (hasLetter && hasDigit) conf += 30
 
+  // Pure digits: 4 digits okay (lower conf), 5+ digits = strong signal
+  if (!hasLetter && /^\d{4}$/.test(tClean)) conf += 15   // 4-digit pure number (not year)
+  if (!hasLetter && tClean.length >= 5) conf += 25        // 5+ digit pure number
+  if (!hasLetter && tClean.length >= 7) conf += 10        // 7+ digit pure number = very strong
+
   // Longer = more confident
-  if (tClean.length >= 6) conf += 10
+  if (tClean.length >= 6) conf += 5
   if (tClean.length >= 8) conf += 5
   if (tClean.length >= 10) conf += 5
 
-  // Starts with 1-3 letters then digits = common policy format (e.g., BOP1234567)
-  if (/^[A-Za-z]{1,4}\d+/.test(tClean)) conf += 10
+  // Starts with 1-4 letters then digits = common policy format (e.g., BOP1234567, HO12345)
+  if (/^[A-Za-z]{1,4}\d+/.test(tClean)) conf += 15
 
-  // Pure digits 5+ long
-  if (!hasLetter && tClean.length >= 5) conf += 15
+  // Contains a dash in the original token (common in policy numbers like "CPP-001234")
+  if (token.includes("-") && hasDigit) conf += 5
 
   return { likely: conf >= 50, confidence: Math.min(conf, 100) }
 }
