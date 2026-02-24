@@ -69,45 +69,31 @@ export interface ParseConfidence {
 }
 
 /**
- * Common words found on commission statements that are NOT client names.
- * Includes producer titles, carrier names, LOB codes, transaction types, etc.
+ * Words that are definitely NOT client names -- only the most unambiguous ones.
+ * Keeps the list tight to avoid rejecting real surnames like West, Bond, Long, etc.
  */
-const NOISE_WORDS = new Set([
-  // Transaction types
-  "new", "renew", "renewal", "rewrite", "rewritten", "cancel", "cancellation",
-  "endorse", "endorsement", "reinstate", "reinstatement", "audit", "flat",
-  "return", "nb", "ren", "rwrt", "canc", "end", "rein",
-  // LOB / coverage types
-  "auto", "home", "fire", "gl", "bop", "wc", "workers", "comp", "commercial",
-  "personal", "property", "liability", "umbrella", "excess", "inland", "marine",
-  "bond", "surety", "epli", "cyber", "professional", "do", "eo",
-  "homeowners", "dwelling", "condo", "renters", "flood", "earthquake",
-  "package", "mono", "multi", "line", "monoline",
-  // Common carrier abbreviations
-  "progressive", "safeco", "hartford", "travelers", "nationwide", "allstate",
-  "state", "farm", "liberty", "mutual", "usaa", "geico", "erie", "chubb",
-  "aig", "zurich", "hanover", "kemper", "mercury", "bristol", "west",
-  "amtrust", "employers", "guard", "pie", "next", "coterie", "biberk",
-  // Producer / role words
-  "producer", "agent", "agency", "csr", "account", "manager", "executive",
-  "service", "rep", "representative", "assistant", "team", "dept", "department",
-  // Other noise
-  "premium", "commission", "comm", "rate", "total", "subtotal", "balance",
-  "due", "paid", "payment", "amount", "net", "gross", "earned", "written",
-  "effective", "expiration", "inception", "term", "policy", "number",
-  "direct", "bill", "agency", "billed", "company",
+const DEFINITE_NON_NAME = new Set([
+  // Transaction / status codes
+  "new", "renewal", "renew", "rewrite", "cancel", "cancellation", "endorsement",
+  "reinstatement", "audit", "flat", "return", "nb", "ren", "rwrt", "canc",
+  // Industry jargon that is never a person's name
+  "premium", "commission", "subtotal", "total", "balance", "payment",
+  "effective", "expiration", "inception",
+  // Role titles
+  "producer", "agent", "csr",
 ])
 
 /**
- * Check if a token looks like a person name vs a noise word.
- * Names: capitalized, 2+ chars, no digits, not a known noise word.
+ * Check if a token could plausibly be part of a client name.
+ * We only reject tokens that are definitely NOT names -- we err on the side
+ * of inclusion to avoid stripping real client names.
  */
-function isLikelyName(token: string): boolean {
-  const clean = token.replace(/[.,\-:()]/g, "").trim()
+function isLikelyNameWord(token: string): boolean {
+  const clean = token.replace(/[.,\-:;()"']/g, "").trim()
   if (clean.length < 2) return false
   if (/\d/.test(clean)) return false
-  if (NOISE_WORDS.has(clean.toLowerCase())) return false
-  // Single letter (initials) -- not a standalone name but okay as part of a name
+  if (DEFINITE_NON_NAME.has(clean.toLowerCase())) return false
+  // All-caps single-letter abbreviations like "A" "B" -- skip
   if (clean.length === 1) return false
   return true
 }
@@ -277,6 +263,16 @@ export function scorePolicyParse(opts: {
 
 /**
  * Parse a single PDF text row and extract commission data.
+ *
+ * Strategy:
+ *  1. Find all money amounts and mark their positions.
+ *  2. Find the best policy-number candidate and mark its position.
+ *  3. Find all date tokens and mark their positions.
+ *  4. Everything that remains (not money, not policy#, not date) is candidate
+ *     name text.  We take the longest contiguous run of alpha-only words as
+ *     the client name -- this avoids grabbing LOB codes, carrier abbrevs, etc.
+ *     that tend to be single short tokens.
+ *
  * Returns null if the row doesn't contain commission data.
  */
 export function parsePdfCommissionRow(
@@ -287,18 +283,18 @@ export function parsePdfCommissionRow(
 ): (Omit<CommissionRow, "id"> & { policyConfidence: number }) | null {
   if (lineStr.length < 10) return null
 
-  // Skip header-like rows, totals, page footers
+  // --- Skip headers, totals, footers ---
   const lower = lineStr.toLowerCase()
   if (
     (lower.includes("page ") && lower.includes(" of ")) ||
     lower.includes("statement date") ||
     (lower.includes("commission") && lower.includes("policy") && lower.includes("premium")) ||
     /^(total|subtotal|grand total|sum|net total)/i.test(lineStr.trim()) ||
-    lower.startsWith("report") && lower.includes("date") ||
-    /^\s*[-=]+\s*$/.test(lineStr)
+    (lower.startsWith("report") && lower.includes("date")) ||
+    /^\s*[-=]{3,}\s*$/.test(lineStr)
   ) return null
 
-  // Find all money values
+  // --- 1. Find money amounts ---
   const moneyPattern = /[(-]?\$?\s*(\d{1,3}(?:[,\s]?\d{3})*)\.\d{2}\s*[)CR-]*/gi
   const moneyMatches = [...lineStr.matchAll(moneyPattern)]
   const moneyCandidates = moneyMatches
@@ -306,21 +302,20 @@ export function parsePdfCommissionRow(
       val: cleanNum(match[0]),
       raw: match[0],
       abs: Math.abs(cleanNum(match[0])),
-      index: match.index ?? 0,
+      start: match.index ?? 0,
+      end: (match.index ?? 0) + match[0].length,
     }))
     .filter((m) => m.val !== 0 && m.abs < 500000 && m.abs >= 0.01)
 
   if (moneyCandidates.length === 0) return null
 
-  // Commission = last money value, premium = first (if multiple)
+  // Commission heuristic: last amount on line. Premium: first (if 2+).
   let commAmount = moneyCandidates[moneyCandidates.length - 1]
   let premAmount: typeof moneyCandidates[0] | null = null
-
   if (moneyCandidates.length >= 2) {
-    const sorted = [...moneyCandidates].sort((a, b) => a.index - b.index)
+    const sorted = [...moneyCandidates].sort((a, b) => a.start - b.start)
     commAmount = sorted[sorted.length - 1]
     premAmount = sorted[0]
-    // If last is much bigger than first, swap (commission should be smaller)
     if (commAmount.abs > premAmount.abs * 3 && premAmount.abs > 0) {
       const temp = commAmount
       commAmount = premAmount
@@ -328,61 +323,94 @@ export function parsePdfCommissionRow(
     }
   }
 
-  // Remove money values from line to analyze remaining tokens
-  let cleanLine = lineStr
-  moneyCandidates.forEach((m) => {
-    cleanLine = cleanLine.replace(m.raw, "  ")
-  })
+  // Build a "used positions" map to blank out money from the line
+  const usedRanges: [number, number][] = moneyCandidates.map(m => [m.start, m.end])
 
-  // Split into tokens
-  const tokens = cleanLine.split(/\s{2,}|\t/).map(t => t.trim()).filter(Boolean)
+  // --- 2. Blank out money, then split into whitespace-separated segments ---
+  let workLine = lineStr
+  // Replace money spans with spaces (preserve positions)
+  for (const [s, e] of usedRanges) {
+    workLine = workLine.substring(0, s) + " ".repeat(e - s) + workLine.substring(e)
+  }
 
-  // First pass: find policy number candidates
+  // Split into segments by 2+ spaces or tabs (preserves multi-word groups)
+  const segments = workLine
+    .split(/\s{2,}|\t/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0)
+
+  // --- 3. Classify each segment ---
   let foundPol: string | null = null
   let polConfidence = 0
-  const nonPolicyTokens: string[] = []
+  const candidateNameSegments: string[] = []
 
-  for (const token of tokens) {
-    // A token might be multi-word (like "John Smith") from double-space splitting
-    const subTokens = token.split(/\s+/)
+  for (const seg of segments) {
+    const words = seg.split(/\s+/)
 
-    for (const t of subTokens) {
-      const tClean = t.replace(/^[.,\-:()]+|[.,\-:()]+$/g, "")
-      if (!tClean) continue
-
-      if (!foundPol) {
-        const { likely, confidence } = isLikelyPolicyNumber(tClean)
+    // Check if any word in this segment is a policy number
+    let segHasPolicy = false
+    if (!foundPol) {
+      for (const w of words) {
+        const wClean = w.replace(/^[.,\-:()]+|[.,\-:()]+$/g, "")
+        const { likely, confidence } = isLikelyPolicyNumber(wClean)
         if (likely) {
-          foundPol = normalizePolicy(tClean)
+          foundPol = normalizePolicy(wClean)
           polConfidence = confidence
-          continue
+          segHasPolicy = true
+          break
         }
       }
     }
 
-    // Collect the full token (may be multi-word) for name extraction
-    if (!foundPol || token !== tokens.find(t => t.includes(foundPol || "__NEVER__"))) {
-      nonPolicyTokens.push(token)
-    }
+    // Skip this segment if it was the policy number
+    if (segHasPolicy && words.length === 1) continue
+
+    // Skip date-only segments
+    const isDateSeg = words.every(w =>
+      /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(w) ||
+      /^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(w) ||
+      /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(w)
+    )
+    if (isDateSeg) continue
+
+    // Skip segments that are just a percentage
+    if (words.every(w => /^\d+\.?\d*%?$/.test(w))) continue
+
+    // This segment is a candidate for the client name
+    candidateNameSegments.push(seg)
   }
 
-  // Second pass on non-policy tokens: extract client name (skip noise words)
-  const nameTokens: string[] = []
-  for (const token of nonPolicyTokens) {
-    const words = token.split(/\s+/)
-    for (const w of words) {
-      if (isLikelyName(w)) {
-        nameTokens.push(w)
-      }
-    }
-    // If this token looks like "Last, First" or "First Last" (2-3 words, all alpha)
-    if (words.length >= 2 && words.length <= 4 && words.every(w => isLikelyName(w))) {
-      // This is very likely a client name -- use as-is and stop
-      break
+  // --- 4. Pick the best client name ---
+  // The client name is typically the longest segment that is mostly alpha words.
+  // Score each candidate: prefer segments with 2-4 words, all alphabetic, longer total length.
+  let bestName = ""
+  let bestScore = -1
+
+  for (const seg of candidateNameSegments) {
+    const words = seg.split(/\s+/)
+    const alphaWords = words.filter(w => isLikelyNameWord(w))
+
+    // If most words in this segment are name-like, it's probably a name
+    if (alphaWords.length === 0) continue
+    const nameRatio = alphaWords.length / words.length
+
+    let score = 0
+    // Prefer segments where most/all words look like names
+    score += nameRatio * 40
+    // Prefer 2-4 word names (typical "First Last" or "Last, First MI")
+    if (alphaWords.length >= 2 && alphaWords.length <= 4) score += 30
+    else if (alphaWords.length === 1) score += 10
+    // Prefer longer total character count (real names vs abbreviations)
+    score += Math.min(alphaWords.join(" ").length, 30)
+    // Bonus for comma (often "Last, First" format)
+    if (seg.includes(",")) score += 10
+
+    if (score > bestScore) {
+      bestScore = score
+      // Use the alpha words only (strips any stray non-name word mixed in)
+      bestName = alphaWords.slice(0, 4).join(" ")
     }
   }
-
-  const foundName = nameTokens.slice(0, 3).join(" ")
 
   if (!foundPol || commAmount.val === 0) return null
 
@@ -390,7 +418,7 @@ export function parsePdfCommissionRow(
     policy_number: foundPol,
     commission: commAmount.val,
     premium: premAmount ? premAmount.val : 0,
-    client_name: foundName,
+    client_name: bestName,
     month: fileDate,
     file: fileName,
     raw_line: lineStr,
