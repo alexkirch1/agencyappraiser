@@ -20,9 +20,9 @@ export function cleanNum(val: unknown): number {
 }
 
 // ----- Policy number normalization -----
-// We keep leading zeros in a controlled way: if the string is pure digits we
-// strip leading zeros for matching consistency, but if it starts with letters
-// followed by zeros (e.g. "CPP0012345") we keep them so the prefix is intact.
+// Handles policy numbers that may contain spaces, dashes, or dots.
+// Examples: "BOP 1234567" → "BOP1234567", "CPP-001234" → "CPP001234",
+//           "00987654" → "987654"
 export function normalizePolicy(val: unknown): string {
   let s = String(val || "").trim().toUpperCase()
   // Strip everything except letters, digits
@@ -33,6 +33,59 @@ export function normalizePolicy(val: unknown): string {
     s = s.replace(/^0+/, "") || "0"
   }
   return s
+}
+
+/**
+ * Try to merge adjacent words that together form a policy number.
+ * Common patterns:
+ *   "BOP 1234567"  → "BOP1234567"
+ *   "HO 12345"     → "HO12345"
+ *   "CPP 001234"   → "CPP001234"
+ *   "BA 12 345 67" → "BA1234567" (multiple fragments)
+ *
+ * Returns a new list of words where policy-number fragments are merged.
+ */
+function mergeSpacedPolicyTokens(words: string[]): string[] {
+  if (words.length < 2) return words
+
+  const result: string[] = []
+  let i = 0
+
+  while (i < words.length) {
+    const cur = words[i].replace(/^[.,\-:()]+|[.,\-:()]+$/g, "")
+
+    // Check if current word is 1-4 letters (potential policy prefix)
+    if (/^[A-Za-z]{1,4}$/.test(cur) && i + 1 < words.length) {
+      const next = words[i + 1].replace(/^[.,\-:()]+|[.,\-:()]+$/g, "")
+      // Next word starts with or is all digits
+      if (/^\d/.test(next)) {
+        // This looks like "BOP 1234567" -- merge them
+        let merged = cur + next
+        let j = i + 2
+        // Keep merging if more digit-only fragments follow
+        while (j < words.length) {
+          const frag = words[j].replace(/^[.,\-:()]+|[.,\-:()]+$/g, "")
+          if (/^\d+$/.test(frag) && frag.length <= 4) {
+            merged += frag
+            j++
+          } else {
+            break
+          }
+        }
+        result.push(merged)
+        i = j
+        continue
+      }
+    }
+
+    // Check if current word is digits and next word is also digits (fragmented number)
+    // e.g. "12 345 67" → "1234567" -- but only if surrounded by a letter prefix we already merged,
+    // or if the total looks like a policy number
+    result.push(words[i])
+    i++
+  }
+
+  return result
 }
 
 export function formatCurrency(num: number): string {
@@ -339,27 +392,40 @@ export function parsePdfCommissionRow(
     .map(s => s.trim())
     .filter(s => s.length > 0)
 
-  // --- 3. First pass: find ALL policy number candidates across all segments ---
+  // --- 3. First pass: merge spaced policy tokens, then find ALL candidates ---
   interface PolCandidate {
     normalized: string
     confidence: number
     segIndex: number
     wordIndex: number
+    /** How many original words this candidate consumed (1 for normal, 2+ for merged) */
+    wordSpan: number
   }
   const polCandidates: PolCandidate[] = []
 
+  // Pre-process: for each segment, merge spaced policy tokens
+  const mergedSegments: { original: string; mergedWords: string[]; originalWords: string[] }[] = []
   for (let si = 0; si < segments.length; si++) {
-    const words = segments[si].split(/\s+/)
-    for (let wi = 0; wi < words.length; wi++) {
-      const wClean = words[wi].replace(/^[.,\-:()]+|[.,\-:()]+$/g, "")
+    const originalWords = segments[si].split(/\s+/)
+    const mergedWords = mergeSpacedPolicyTokens(originalWords)
+    mergedSegments.push({ original: segments[si], mergedWords, originalWords })
+  }
+
+  for (let si = 0; si < mergedSegments.length; si++) {
+    const { mergedWords } = mergedSegments[si]
+    for (let wi = 0; wi < mergedWords.length; wi++) {
+      const wClean = mergedWords[wi].replace(/^[.,\-:()]+|[.,\-:()]+$/g, "")
       if (!wClean) continue
       const { likely, confidence } = isLikelyPolicyNumber(wClean)
       if (likely) {
+        // Determine how many original words this merged token spans
+        const wasMerged = !mergedSegments[si].originalWords.includes(mergedWords[wi])
         polCandidates.push({
           normalized: normalizePolicy(wClean),
-          confidence,
+          confidence: wasMerged ? confidence + 5 : confidence, // bonus for merged (more likely real)
           segIndex: si,
           wordIndex: wi,
+          wordSpan: wasMerged ? 2 : 1, // approximate
         })
       }
     }
@@ -374,14 +440,13 @@ export function parsePdfCommissionRow(
   // --- 4. Second pass: collect name candidates (skip policy segment, dates, numbers) ---
   const candidateNameSegments: string[] = []
 
-  for (let si = 0; si < segments.length; si++) {
-    const seg = segments[si]
-    const words = seg.split(/\s+/)
+  for (let si = 0; si < mergedSegments.length; si++) {
+    const { mergedWords } = mergedSegments[si]
 
     // If this segment contained the winning policy number, strip that word out
-    let segWords = words
+    let segWords = mergedWords
     if (bestPol && bestPol.segIndex === si) {
-      segWords = words.filter((_, wi) => wi !== bestPol.wordIndex)
+      segWords = mergedWords.filter((_, wi) => wi !== bestPol.wordIndex)
       if (segWords.length === 0) continue
     }
 

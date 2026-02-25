@@ -424,11 +424,11 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                   const conf = scoreCommissionRow(parsed)
                   const uid = `${parsed.policy_number}_${parsed.commission.toFixed(2)}_${i}`
                   if (!newSeen.has(uid)) {
-                    // Log first 8 parsed rows for debugging
-                    if (parsedRows < 8) {
-                      const segments = lineStr.split("\t").map((s: string) => s.trim()).filter(Boolean)
-                      console.log(`[v0] PDF row ${parsedRows}: pol="${parsed.policy_number}" name="${parsed.client_name}" comm=${parsed.commission}`)
-                      console.log(`[v0]   segments: ${JSON.stringify(segments)}`)
+                    // Log first 5 parsed rows for debugging
+                    if (parsedRows < 5) {
+                      const segs = lineStr.split("\t").map((s: string) => s.trim()).filter(Boolean)
+                      console.log(`[v0] PDF row ${parsedRows}: pol="${parsed.policy_number}" name="${parsed.client_name}" comm=${parsed.commission} prem=${parsed.premium}`)
+                      console.log(`[v0]   tab-segments(${segs.length}): ${JSON.stringify(segs)}`)
                     }
                     newCommData.push({
                       id: uid,
