@@ -339,40 +339,57 @@ export function parsePdfCommissionRow(
     .map(s => s.trim())
     .filter(s => s.length > 0)
 
-  // --- 3. Classify each segment ---
-  let foundPol: string | null = null
-  let polConfidence = 0
+  // --- 3. First pass: find ALL policy number candidates across all segments ---
+  interface PolCandidate {
+    normalized: string
+    confidence: number
+    segIndex: number
+    wordIndex: number
+  }
+  const polCandidates: PolCandidate[] = []
+
+  for (let si = 0; si < segments.length; si++) {
+    const words = segments[si].split(/\s+/)
+    for (let wi = 0; wi < words.length; wi++) {
+      const wClean = words[wi].replace(/^[.,\-:()]+|[.,\-:()]+$/g, "")
+      if (!wClean) continue
+      const { likely, confidence } = isLikelyPolicyNumber(wClean)
+      if (likely) {
+        polCandidates.push({
+          normalized: normalizePolicy(wClean),
+          confidence,
+          segIndex: si,
+          wordIndex: wi,
+        })
+      }
+    }
+  }
+
+  // Pick the best policy candidate (highest confidence)
+  polCandidates.sort((a, b) => b.confidence - a.confidence)
+  const bestPol = polCandidates.length > 0 ? polCandidates[0] : null
+  const foundPol = bestPol?.normalized ?? null
+  const polConfidence = bestPol?.confidence ?? 0
+
+  // --- 4. Second pass: collect name candidates (skip policy segment, dates, numbers) ---
   const candidateNameSegments: string[] = []
 
-  for (const seg of segments) {
+  for (let si = 0; si < segments.length; si++) {
+    const seg = segments[si]
     const words = seg.split(/\s+/)
 
-    // Check if any word in this segment is a policy number
-    let segHasPolicy = false
-    const remainingWords: string[] = []
-    for (const w of words) {
-      const wClean = w.replace(/^[.,\-:()]+|[.,\-:()]+$/g, "")
-      if (!foundPol) {
-        const { likely, confidence } = isLikelyPolicyNumber(wClean)
-        if (likely) {
-          foundPol = normalizePolicy(wClean)
-          polConfidence = confidence
-          segHasPolicy = true
-          continue // skip this word but keep processing others in same segment
-        }
-      }
-      remainingWords.push(w)
+    // If this segment contained the winning policy number, strip that word out
+    let segWords = words
+    if (bestPol && bestPol.segIndex === si) {
+      segWords = words.filter((_, wi) => wi !== bestPol.wordIndex)
+      if (segWords.length === 0) continue
     }
 
-    // If the segment was ONLY a policy number, skip it entirely
-    if (segHasPolicy && remainingWords.length === 0) continue
-
-    // Use remaining words if we stripped the policy out of a multi-word segment
-    const segToUse = segHasPolicy ? remainingWords.join(" ") : seg
-    const wordsToCheck = segToUse.split(/\s+/)
+    const segToUse = segWords.join(" ").trim()
+    if (!segToUse) continue
 
     // Skip date-only segments
-    const isDateSeg = wordsToCheck.every(w =>
+    const isDateSeg = segWords.every(w =>
       /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(w) ||
       /^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(w) ||
       /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(w)
@@ -380,10 +397,9 @@ export function parsePdfCommissionRow(
     if (isDateSeg) continue
 
     // Skip segments that are just numbers or percentages
-    if (wordsToCheck.every(w => /^\d+\.?\d*%?$/.test(w))) continue
+    if (segWords.every(w => /^\d+\.?\d*%?$/.test(w))) continue
 
-    // This segment is a candidate for the client name
-    if (segToUse.trim()) candidateNameSegments.push(segToUse.trim())
+    candidateNameSegments.push(segToUse)
   }
 
   // --- 4. Pick the best client name ---

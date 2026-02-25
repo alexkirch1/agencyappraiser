@@ -381,8 +381,14 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                 })
 
                 // Build the line string using X-coordinate gaps to determine
-                // field boundaries.  A gap > 15px between the end of one item
-                // and the start of the next means a new column/field.
+                // field boundaries.
+                //
+                // pdfjs text items don't have a `width` property, so we
+                // estimate it:  width ≈ str.length * fontSize * 0.5
+                // (rough average for proportional fonts at that size).
+                // A gap between the estimated end of one item and the start
+                // of the next > avgCharWidth*3 → field separator (tab).
+                // A gap > avgCharWidth*0.5 → word separator (space).
                 let lineStr = ""
                 for (let ri = 0; ri < rowItems.length; ri++) {
                   const item = rowItems[ri]
@@ -391,20 +397,23 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
 
                   if (ri > 0) {
                     const prevItem = rowItems[ri - 1]
+                    const prevStr = "str" in prevItem ? prevItem.str : ""
                     const prevX = "transform" in prevItem ? prevItem.transform[4] : 0
-                    const prevW = "width" in prevItem ? (prevItem as { width: number }).width : 0
-                    const prevEnd = prevX + prevW
+                    // Estimate font size from the transform scale (transform[0] is scaleX)
+                    const prevFontSize = "transform" in prevItem ? Math.abs(prevItem.transform[0]) : 10
+                    const avgCharW = prevFontSize * 0.52
+                    const estimatedPrevEnd = prevX + prevStr.length * avgCharW
                     const curX = "transform" in item ? item.transform[4] : 0
-                    const gap = curX - prevEnd
+                    const gap = curX - estimatedPrevEnd
 
-                    if (gap > 15) {
-                      // Big gap = field separator (use tab so parser can split on it)
+                    if (gap > avgCharW * 3) {
+                      // Big gap = field/column separator
                       lineStr += "\t"
-                    } else if (gap > 3) {
+                    } else if (gap > avgCharW * 0.3) {
                       // Small gap = word separator within a field
                       lineStr += " "
                     }
-                    // Very small or no gap = same word, just concatenate
+                    // Tiny/negative gap = same word, just concatenate
                   }
                   lineStr += str
                 }
@@ -415,9 +424,11 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                   const conf = scoreCommissionRow(parsed)
                   const uid = `${parsed.policy_number}_${parsed.commission.toFixed(2)}_${i}`
                   if (!newSeen.has(uid)) {
-                    // Log first 5 parsed rows for debugging
-                    if (parsedRows < 5) {
-                      console.log(`[v0] PDF row ${parsedRows}: pol="${parsed.policy_number}" name="${parsed.client_name}" comm=${parsed.commission} raw="${lineStr.substring(0, 120)}"`)
+                    // Log first 8 parsed rows for debugging
+                    if (parsedRows < 8) {
+                      const segments = lineStr.split("\t").map((s: string) => s.trim()).filter(Boolean)
+                      console.log(`[v0] PDF row ${parsedRows}: pol="${parsed.policy_number}" name="${parsed.client_name}" comm=${parsed.commission}`)
+                      console.log(`[v0]   segments: ${JSON.stringify(segments)}`)
                     }
                     newCommData.push({
                       id: uid,
