@@ -393,7 +393,7 @@ export function parsePdfCommissionRow(
     .filter(s => s.length > 0)
 
   // --- 3. First pass: merge spaced policy tokens, then find ALL candidates ---
-  interface PolCandidate {
+  type PolCandidate = {
     normalized: string
     confidence: number
     segIndex: number
