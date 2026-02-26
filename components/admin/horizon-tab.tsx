@@ -488,43 +488,36 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
             }
 
             if (headerRowIdx < 0) {
-              log(`  No header found in ${allRows.length} rows. First 3 rows:`)
-              for (let ri = 0; ri < Math.min(3, allRows.length); ri++) {
-                log(`    Row ${ri}: "${allRows[ri].items.map(it => it.str).join(" | ")}"`)
+              log(`  No header found in ${allRows.length} rows`)
+              // Log all rows that had at least 2 column matches for debugging
+              for (let ri = 0; ri < Math.min(allRows.length, 100); ri++) {
+                const row = allRows[ri]
+                const rowItems = row.items.map(it => it.str.toLowerCase().trim())
+                const hasPolicy = rowItems.some(t => t.includes("policy"))
+                const hasComm = rowItems.some(t => t.includes("comm"))
+                const hasPrem = rowItems.some(t => t.includes("prem"))
+                if (hasPolicy || (hasComm && hasPrem)) {
+                  console.log(`[v0] Near-match row ${ri}: "${row.items.map(it => it.str).join(" | ")}"`)
+                }
               }
             }
 
-            // ── Step 2: Build column ranges from boundaries ──
-            // Sort columns left to right by X position.
-            // Each column's range: from midpoint between prev column's center and this column's center,
-            // to midpoint between this column's center and next column's center.
+            // ── Step 2: Build column anchors ──
+            // Sort left to right by the LEFT EDGE of each header item.
+            // Data items are assigned to the column whose header X is closest.
             colBoundaries.sort((a, b) => a.x - b.x)
 
-            type ColRange = { name: string; xMin: number; xMax: number }
-            const colRanges: ColRange[] = []
-            for (let ci = 0; ci < colBoundaries.length; ci++) {
-              const thisCenter = colBoundaries[ci].x + colBoundaries[ci].estimatedWidth / 2
-              const prevCenter = ci > 0
-                ? colBoundaries[ci - 1].x + colBoundaries[ci - 1].estimatedWidth / 2
-                : 0
-              const nextCenter = ci < colBoundaries.length - 1
-                ? colBoundaries[ci + 1].x + colBoundaries[ci + 1].estimatedWidth / 2
-                : 9999
-              colRanges.push({
-                name: colBoundaries[ci].name,
-                xMin: (prevCenter + thisCenter) / 2,
-                xMax: (thisCenter + nextCenter) / 2,
-              })
-            }
+            // Build sorted anchor list: each column's left-edge X
+            type ColAnchor = { name: string; x: number }
+            const colAnchors: ColAnchor[] = colBoundaries.map(c => ({ name: c.name, x: c.x }))
 
-            if (colRanges.length > 0) {
-              log(`  Column ranges: ${colRanges.map(c => `${c.name}:[${Math.round(c.xMin)}-${Math.round(c.xMax)}]`).join(", ")}`)
+            if (colAnchors.length > 0) {
+              log(`  Column anchors: ${colAnchors.map(c => `${c.name}@x${Math.round(c.x)}`).join(", ")}`)
             }
 
             // ── Step 3: If no header found, fall back to heuristic parsing ──
-            if (headerRowIdx < 0 || colRanges.length < 2) {
+            if (headerRowIdx < 0 || colAnchors.length < 2) {
               log(`  No column headers detected -- falling back to heuristic parsing`)
-              // Fall back: join items with spaces and use the old parsePdfCommissionRow
               for (const row of allRows) {
                 const lineStr = row.items.map(it => it.str).join("  ").trim()
                 const parsed = parsePdfCommissionRow(lineStr, 0, fileDate, file.name)
@@ -543,19 +536,18 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
               }
             } else {
               // ── Step 4: Extract data from each row after the header ──
-              const assignToColumn = (item: PdfTextItem): string | null => {
-                // Find the column whose range contains this item's X
-                for (const col of colRanges) {
-                  if (item.x >= col.xMin && item.x < col.xMax) return col.name
+              // Assign an item to the column with the nearest X anchor
+              const assignToColumn = (item: PdfTextItem): string => {
+                let best = colAnchors[0]
+                let bestDist = Math.abs(item.x - best.x)
+                for (let ci = 1; ci < colAnchors.length; ci++) {
+                  const dist = Math.abs(item.x - colAnchors[ci].x)
+                  if (dist < bestDist) {
+                    best = colAnchors[ci]
+                    bestDist = dist
+                  }
                 }
-                // If outside all ranges, find the closest column
-                let closest = colRanges[0]
-                let minDist = Math.abs(item.x - (closest.xMin + closest.xMax) / 2)
-                for (const col of colRanges) {
-                  const dist = Math.abs(item.x - (col.xMin + col.xMax) / 2)
-                  if (dist < minDist) { closest = col; minDist = dist }
-                }
-                return closest.name
+                return best.name
               }
 
               for (let ri = headerRowIdx + 1; ri < allRows.length; ri++) {
@@ -564,11 +556,10 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                 // Skip very short rows (likely footers, page numbers)
                 if (row.items.length < 2) continue
 
-                // Assign each text item to a column
+                // Assign each text item to the nearest column anchor
                 const colValues: Record<string, string> = {}
                 for (const item of row.items) {
                   const colName = assignToColumn(item)
-                  if (!colName) continue
                   if (colValues[colName]) {
                     colValues[colName] += " " + item.str
                   } else {
@@ -659,6 +650,11 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
             }
 
             log(`  Found ${parsedRows} commission records (${skippedRows} rows skipped)`)
+            // Log sample of first 3 parsed records
+            const sample = newCommData.slice(0, 3)
+            for (const s of sample) {
+              console.log(`[v0] Sample: pol="${s.policy_number}" name="${s.client_name}" comm=${s.commission} carrier="${s.carrier}"`)
+            }
           } catch (err) {
             log(`Error parsing PDF: ${(err as Error).message}`)
           }
