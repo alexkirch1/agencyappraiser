@@ -417,12 +417,6 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
             }
 
             // ── Step 1: Find the header row ──
-            // Log first 20 rows with individual items so we can see the structure
-            for (let ri = 0; ri < Math.min(allRows.length, 20); ri++) {
-              const items = allRows[ri].items.map(it => `"${it.str}"@x${Math.round(it.x)}`).join(", ")
-              console.log(`[v0] PDF row ${ri} (${allRows[ri].items.length} items): [${items}]`)
-            }
-
             type ColBoundary = { name: string; x: number; estimatedWidth: number }
             let colBoundaries: ColBoundary[] = []
             let headerRowIdx = -1
@@ -476,13 +470,19 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                 }
               }
 
-              // Need at least 3 column matches to be confident it's a header
-              // (e.g. policy + premium + commission, or account + premium + comm)
-              if (matched.length >= 3) {
+              // We need the DETAIL header (with policy numbers and client names),
+              // not a summary header. Require "policy" column + at least one of
+              // name/premium/commission columns. Summary headers (e.g. "Carrier | Premium* | Split Comm")
+              // won't have a "policy" column.
+              const colNames = new Set(matched.map(c => c.name))
+              const hasPolicy = colNames.has("policy")
+              const hasNameOrComm = colNames.has("name") || colNames.has("commission") || colNames.has("splitComm")
+
+              if (matched.length >= 3 && hasPolicy && hasNameOrComm) {
                 colBoundaries = matched
                 headerRowIdx = ri
-                const colNames = matched.map(c => `${c.name}(x=${Math.round(c.x)})`).join(", ")
-                log(`  Header detected at row ${ri}: columns=[${colNames}]`)
+                const colDesc = matched.map(c => `${c.name}(x=${Math.round(c.x)})`).join(", ")
+                log(`  Header detected at row ${ri}: columns=[${colDesc}]`)
                 break
               }
             }
@@ -518,7 +518,7 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
             }
 
             if (colRanges.length > 0) {
-              console.log(`[v0] Column ranges: ${colRanges.map(c => `${c.name}:[${Math.round(c.xMin)}-${Math.round(c.xMax)}]`).join(", ")}`)
+              log(`  Column ranges: ${colRanges.map(c => `${c.name}:[${Math.round(c.xMin)}-${Math.round(c.xMax)}]`).join(", ")}`)
             }
 
             // ── Step 3: If no header found, fall back to heuristic parsing ──
@@ -576,15 +576,42 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                   }
                 }
 
-                // Skip header-like rows that repeat on new pages, totals, footers
+                // Skip header-like rows, totals, page footers, summary sections
                 const rawRowText = row.items.map(it => it.str).join(" ").toLowerCase()
+                const firstItemText = row.items[0]?.str.toLowerCase() || ""
                 if (
+                  // Repeat headers
                   (rawRowText.includes("policy") && (rawRowText.includes("premium") || rawRowText.includes("comm"))) ||
                   (rawRowText.includes("producer") && rawRowText.includes("account")) ||
+                  // Summary/title rows
                   rawRowText.includes("statement date") ||
-                  /^(total|subtotal|grand total|page\s+\d)/i.test(rawRowText.trim()) ||
+                  rawRowText.includes("commission summary") ||
+                  rawRowText.includes("commission detail") ||
+                  rawRowText.includes("financial summary") ||
+                  rawRowText.includes("balance register") ||
+                  rawRowText.includes("totals by") ||
+                  rawRowText.includes("total records") ||
+                  rawRowText.includes("overall branch") ||
+                  rawRowText.includes("1099 earnings") ||
+                  rawRowText.includes("agency total") ||
+                  // Total/subtotal lines
+                  /^(total|subtotal|grand total)/i.test(firstItemText.trim()) ||
+                  // Page footers
+                  /^page\s+\d+/i.test(firstItemText.trim()) ||
                   (rawRowText.includes("page ") && rawRowText.includes(" of "))
                 ) continue
+
+                // Handle merged name+carrier text items.
+                // When a name is truncated in the PDF, it can merge with the carrier:
+                // e.g. "AMANDA & MATTHEW CUD... Allied" -- split on "..." or "…"
+                if (colValues["name"] && !colValues["carrier"]) {
+                  const nameVal = colValues["name"]
+                  const ellipsisMatch = nameVal.match(/^(.+?)\.\.\.\s*(.+)$/) || nameVal.match(/^(.+?)\u2026\s*(.+)$/)
+                  if (ellipsisMatch) {
+                    colValues["name"] = ellipsisMatch[1].trim()
+                    colValues["carrier"] = ellipsisMatch[2].trim()
+                  }
+                }
 
                 // Extract fields from column values
                 const rawPolicy = colValues["policy"] || ""
@@ -600,24 +627,13 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                 // Normalize policy -- merge spaced fragments like "BOP 1234567"
                 const policyNorm = normalizePolicy(rawPolicy)
 
-                // Log first 5 skipped rows to understand what's being rejected
                 if (!commission || !policyNorm) {
-                  if (skippedRows < 5 && (rawPolicy || rawComm)) {
-                    console.log(`[v0] Skipped row ${ri}: rawPol="${rawPolicy}" rawComm="${rawComm}" policyNorm="${policyNorm}" comm=${commission}`)
-                    console.log(`[v0]   all colValues: ${JSON.stringify(colValues)}`)
-                  }
                   skippedRows++
                   continue
                 }
 
                 const uid = `${policyNorm}_${commission.toFixed(2)}_${ri}`
                 if (newSeen.has(uid)) continue
-
-                // Log first 5 rows for debugging
-                if (parsedRows < 5) {
-                  console.log(`[v0] PDF row ${parsedRows}: pol="${policyNorm}" name="${rawName.trim()}" comm=${commission} prem=${premium}`)
-                  console.log(`[v0]   colValues: ${JSON.stringify(colValues)}`)
-                }
 
                 const parsed = {
                   policy_number: policyNorm,
