@@ -404,57 +404,76 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                 else rowMap[item.y] = [item]
               }
 
-              for (const [yStr, rowItems] of Object.entries(rowMap)) {
-                rowItems.sort((a, b) => a.x - b.x)
-                allRows.push({ y: Number(yStr), items: rowItems })
-              }
+              // Sort rows top-to-bottom within this page (higher Y = top of page = first in reading order)
+              const pageRows = Object.entries(rowMap)
+                .map(([yStr, rowItems]) => {
+                  rowItems.sort((a, b) => a.x - b.x)
+                  return { y: Number(yStr), items: rowItems }
+                })
+                .sort((a, b) => b.y - a.y) // descending Y = top first
+              allRows.push(...pageRows)
             }
 
-            // Sort all rows top-to-bottom (higher Y = higher on page, but across pages
-            // we process in order so this is fine per page)
-            // Actually we need them in reading order -- we already pushed in page order,
-            // and within each page highest Y = top. Let's keep original push order.
-
             // ── Step 1: Find the header row ──
-            // The header row is the first row whose concatenated text matches 2+ column keywords.
+            // Log first 15 rows so we can see what the PDF contains
+            for (let ri = 0; ri < Math.min(allRows.length, 15); ri++) {
+              const rowText = allRows[ri].items.map(it => it.str).join(" | ")
+              console.log(`[v0] PDF row ${ri}: "${rowText}"`)
+            }
+
             type ColBoundary = { name: string; xMid: number }
             let colBoundaries: ColBoundary[] = []
             let headerRowIdx = -1
 
             for (let ri = 0; ri < allRows.length; ri++) {
               const row = allRows[ri]
+              // Join all text on the row into one string for keyword matching
               const rowText = row.items.map(it => it.str).join(" ").toLowerCase()
 
-              // Count how many column definitions match
               let matchCount = 0
               const matched: ColBoundary[] = []
+              const usedColNames = new Set<string>()
 
               for (const [colName, keywords] of COL_DEFS) {
-                // Try to find a keyword in this row
+                if (usedColNames.has(colName)) continue
                 for (const kw of keywords) {
-                  if (rowText.includes(kw.toLowerCase())) {
-                    // Find which item(s) contain this keyword
-                    for (const item of row.items) {
-                      if (item.str.toLowerCase().includes(kw.toLowerCase())) {
-                        const estimatedWidth = item.str.length * item.fontSize * 0.5
-                        matched.push({ name: colName, xMid: item.x + estimatedWidth / 2 })
-                        matchCount++
-                        break
-                      }
+                  if (!rowText.includes(kw.toLowerCase())) continue
+
+                  // Keyword matched in the full row text.
+                  // Now find the X position. The keyword might span multiple text items
+                  // (e.g. "Policy" + "Number" as separate items).
+                  // Strategy: find the first item that contains at least the first word of the keyword.
+                  const kwFirstWord = kw.split(" ")[0].toLowerCase()
+                  let bestItem: PdfTextItem | null = null
+                  for (const item of row.items) {
+                    if (item.str.toLowerCase().includes(kwFirstWord)) {
+                      bestItem = item
+                      break
                     }
-                    break
                   }
+                  if (bestItem) {
+                    const estimatedWidth = bestItem.str.length * bestItem.fontSize * 0.5
+                    matched.push({ name: colName, xMid: bestItem.x + estimatedWidth / 2 })
+                    usedColNames.add(colName)
+                    matchCount++
+                  }
+                  break // stop trying more keywords for this column
                 }
               }
 
-              // Need at least 2 column matches (policy+commission, or premium+name, etc.)
+              // Need at least 2 column matches to consider it a header
               if (matchCount >= 2) {
                 colBoundaries = matched
                 headerRowIdx = ri
-                const colNames = matched.map(c => c.name).join(", ")
+                const colNames = matched.map(c => `${c.name}(x=${Math.round(c.xMid)})`).join(", ")
                 log(`  Header detected at row ${ri}: columns=[${colNames}]`)
+                console.log(`[v0] Header row text: "${rowText}"`)
                 break
               }
+            }
+
+            if (headerRowIdx < 0) {
+              log(`  No header found. First row: "${allRows[0]?.items.map(it => it.str).join(" ") || "empty"}"`)
             }
 
             // ── Step 2: Build column ranges from boundaries ──
@@ -551,8 +570,15 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                 // Normalize policy -- merge spaced fragments like "BOP 1234567"
                 const policyNorm = normalizePolicy(rawPolicy)
 
-                // Skip rows with no commission or no policy
-                if (!commission || !policyNorm) continue
+                // Log first 5 skipped rows to understand what's being rejected
+                if (!commission || !policyNorm) {
+                  if (skippedRows < 5 && (rawPolicy || rawComm)) {
+                    console.log(`[v0] Skipped row ${ri}: rawPol="${rawPolicy}" rawComm="${rawComm}" policyNorm="${policyNorm}" comm=${commission}`)
+                    console.log(`[v0]   all colValues: ${JSON.stringify(colValues)}`)
+                  }
+                  skippedRows++
+                  continue
+                }
 
                 const uid = `${policyNorm}_${commission.toFixed(2)}_${ri}`
                 if (newSeen.has(uid)) continue
