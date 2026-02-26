@@ -361,17 +361,19 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
             type PdfRow = { y: number; items: PdfTextItem[] }
 
             // ── Column definition ──
-            // Each entry: [logicalName, [...keywords to match in header]]
+            // Each entry: [logicalName, [...keywords to match individual text items in header]]
+            // These match against individual pdfjs text items (NOT the joined row text)
             const COL_DEFS: [string, string[]][] = [
-              ["policy", ["policy number", "policy no", "policy #", "policy num", "policy", "pol #", "pol#"]],
-              ["name", ["insured name", "named insured", "insured", "account name", "client name", "client", "account", "name"]],
-              ["premium", ["written premium", "annualized premium", "premium", "ann. prem", "prem"]],
-              ["commission", ["commission", "comm amt", "comm amount", "agent comm", "comm"]],
-              ["carrier", ["carrier", "company", "master company", "insurer", "writing co"]],
-              ["effective", ["effective", "eff date", "eff"]],
-              ["expiration", ["expiration", "exp date", "exp"]],
-              ["lob", ["lob", "line of business", "coverage", "cov"]],
-              ["transType", ["trans type", "transaction", "trans", "type", "action"]],
+              ["policy", ["policy number", "policy no", "policy #", "policy num", "policy"]],
+              ["name", ["insured name", "named insured", "insured", "account name", "client name", "client", "account"]],
+              ["premium", ["written premium", "annualized premium", "premium", "premium*", "prem"]],
+              ["splitComm", ["split comm", "split commission"]],
+              ["commission", ["commission", "comm amt", "comm"]],
+              ["carrier", ["carrier", "master company", "company", "insurer", "writing co"]],
+              ["effective", ["eff date", "effective", "eff"]],
+              ["expiration", ["exp date", "expiration", "exp"]],
+              ["lob", ["lob", "line of business", "coverage"]],
+              ["transType", ["trans type", "transaction", "trx", "trans"]],
               ["producer", ["producer", "agent", "writer"]],
             ]
 
@@ -415,82 +417,108 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
             }
 
             // ── Step 1: Find the header row ──
-            // Log first 15 rows so we can see what the PDF contains
-            for (let ri = 0; ri < Math.min(allRows.length, 15); ri++) {
-              const rowText = allRows[ri].items.map(it => it.str).join(" | ")
-              console.log(`[v0] PDF row ${ri}: "${rowText}"`)
+            // Log first 20 rows with individual items so we can see the structure
+            for (let ri = 0; ri < Math.min(allRows.length, 20); ri++) {
+              const items = allRows[ri].items.map(it => `"${it.str}"@x${Math.round(it.x)}`).join(", ")
+              console.log(`[v0] PDF row ${ri} (${allRows[ri].items.length} items): [${items}]`)
             }
 
-            type ColBoundary = { name: string; xMid: number }
+            type ColBoundary = { name: string; x: number; estimatedWidth: number }
             let colBoundaries: ColBoundary[] = []
             let headerRowIdx = -1
 
             for (let ri = 0; ri < allRows.length; ri++) {
               const row = allRows[ri]
-              // Join all text on the row into one string for keyword matching
-              const rowText = row.items.map(it => it.str).join(" ").toLowerCase()
+              if (row.items.length < 3) continue // header row should have multiple items
 
-              let matchCount = 0
+              // Match each text item against column definitions
               const matched: ColBoundary[] = []
               const usedColNames = new Set<string>()
+              const usedItemIdxs = new Set<number>()
 
               for (const [colName, keywords] of COL_DEFS) {
                 if (usedColNames.has(colName)) continue
-                for (const kw of keywords) {
-                  if (!rowText.includes(kw.toLowerCase())) continue
 
-                  // Keyword matched in the full row text.
-                  // Now find the X position. The keyword might span multiple text items
-                  // (e.g. "Policy" + "Number" as separate items).
-                  // Strategy: find the first item that contains at least the first word of the keyword.
-                  const kwFirstWord = kw.split(" ")[0].toLowerCase()
-                  let bestItem: PdfTextItem | null = null
-                  for (const item of row.items) {
-                    if (item.str.toLowerCase().includes(kwFirstWord)) {
-                      bestItem = item
+                for (const kw of keywords) {
+                  const kwLower = kw.toLowerCase()
+
+                  // Try to match against individual items
+                  for (let ii = 0; ii < row.items.length; ii++) {
+                    if (usedItemIdxs.has(ii)) continue
+                    const itemText = row.items[ii].str.toLowerCase().trim()
+
+                    // Check: item text matches or contains the keyword
+                    // Also check if item + next item together match (for "Eff Date" split as "Eff" + "Date")
+                    let isMatch = false
+                    let matchItem = row.items[ii]
+
+                    if (itemText === kwLower || itemText.includes(kwLower)) {
+                      isMatch = true
+                    } else if (kwLower.includes(" ") && ii + 1 < row.items.length) {
+                      // Multi-word keyword: try joining with next item
+                      const combined = itemText + " " + row.items[ii + 1].str.toLowerCase().trim()
+                      if (combined.includes(kwLower)) {
+                        isMatch = true
+                        // Use the first item's position
+                      }
+                    }
+
+                    if (isMatch) {
+                      const estW = matchItem.str.length * matchItem.fontSize * 0.5
+                      matched.push({ name: colName, x: matchItem.x, estimatedWidth: estW })
+                      usedColNames.add(colName)
+                      usedItemIdxs.add(ii)
                       break
                     }
                   }
-                  if (bestItem) {
-                    const estimatedWidth = bestItem.str.length * bestItem.fontSize * 0.5
-                    matched.push({ name: colName, xMid: bestItem.x + estimatedWidth / 2 })
-                    usedColNames.add(colName)
-                    matchCount++
-                  }
-                  break // stop trying more keywords for this column
+
+                  if (usedColNames.has(colName)) break // found it, stop trying keywords
                 }
               }
 
-              // Need at least 2 column matches to consider it a header
-              if (matchCount >= 2) {
+              // Need at least 3 column matches to be confident it's a header
+              // (e.g. policy + premium + commission, or account + premium + comm)
+              if (matched.length >= 3) {
                 colBoundaries = matched
                 headerRowIdx = ri
-                const colNames = matched.map(c => `${c.name}(x=${Math.round(c.xMid)})`).join(", ")
+                const colNames = matched.map(c => `${c.name}(x=${Math.round(c.x)})`).join(", ")
                 log(`  Header detected at row ${ri}: columns=[${colNames}]`)
-                console.log(`[v0] Header row text: "${rowText}"`)
                 break
               }
             }
 
             if (headerRowIdx < 0) {
-              log(`  No header found. First row: "${allRows[0]?.items.map(it => it.str).join(" ") || "empty"}"`)
+              log(`  No header found in ${allRows.length} rows. First 3 rows:`)
+              for (let ri = 0; ri < Math.min(3, allRows.length); ri++) {
+                log(`    Row ${ri}: "${allRows[ri].items.map(it => it.str).join(" | ")}"`)
+              }
             }
 
             // ── Step 2: Build column ranges from boundaries ──
-            // Sort columns left to right, then define each column's range as
-            // [midpoint between prev and this, midpoint between this and next]
-            colBoundaries.sort((a, b) => a.xMid - b.xMid)
+            // Sort columns left to right by X position.
+            // Each column's range: from midpoint between prev column's center and this column's center,
+            // to midpoint between this column's center and next column's center.
+            colBoundaries.sort((a, b) => a.x - b.x)
 
             type ColRange = { name: string; xMin: number; xMax: number }
             const colRanges: ColRange[] = []
             for (let ci = 0; ci < colBoundaries.length; ci++) {
-              const prev = ci > 0 ? colBoundaries[ci - 1].xMid : 0
-              const next = ci < colBoundaries.length - 1 ? colBoundaries[ci + 1].xMid : 9999
+              const thisCenter = colBoundaries[ci].x + colBoundaries[ci].estimatedWidth / 2
+              const prevCenter = ci > 0
+                ? colBoundaries[ci - 1].x + colBoundaries[ci - 1].estimatedWidth / 2
+                : 0
+              const nextCenter = ci < colBoundaries.length - 1
+                ? colBoundaries[ci + 1].x + colBoundaries[ci + 1].estimatedWidth / 2
+                : 9999
               colRanges.push({
                 name: colBoundaries[ci].name,
-                xMin: (prev + colBoundaries[ci].xMid) / 2,
-                xMax: (colBoundaries[ci].xMid + next) / 2,
+                xMin: (prevCenter + thisCenter) / 2,
+                xMax: (thisCenter + nextCenter) / 2,
               })
+            }
+
+            if (colRanges.length > 0) {
+              console.log(`[v0] Column ranges: ${colRanges.map(c => `${c.name}:[${Math.round(c.xMin)}-${Math.round(c.xMax)}]`).join(", ")}`)
             }
 
             // ── Step 3: If no header found, fall back to heuristic parsing ──
@@ -548,20 +576,22 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                   }
                 }
 
-                // Skip header-like rows that repeat on new pages
-                const rowText = Object.values(colValues).join(" ").toLowerCase()
+                // Skip header-like rows that repeat on new pages, totals, footers
+                const rawRowText = row.items.map(it => it.str).join(" ").toLowerCase()
                 if (
-                  (rowText.includes("policy") && rowText.includes("premium")) ||
-                  rowText.includes("statement date") ||
-                  /^(total|subtotal|grand total)/i.test(rowText.trim()) ||
-                  (rowText.includes("page ") && rowText.includes(" of "))
+                  (rawRowText.includes("policy") && (rawRowText.includes("premium") || rawRowText.includes("comm"))) ||
+                  (rawRowText.includes("producer") && rawRowText.includes("account")) ||
+                  rawRowText.includes("statement date") ||
+                  /^(total|subtotal|grand total|page\s+\d)/i.test(rawRowText.trim()) ||
+                  (rawRowText.includes("page ") && rawRowText.includes(" of "))
                 ) continue
 
                 // Extract fields from column values
                 const rawPolicy = colValues["policy"] || ""
                 const rawName = colValues["name"] || ""
                 const rawPremium = colValues["premium"] || ""
-                const rawComm = colValues["commission"] || ""
+                // Prefer Split Comm over Comm (Split Comm is the agent's actual commission)
+                const rawComm = colValues["splitComm"] || colValues["commission"] || ""
 
                 // Parse amounts
                 const commission = cleanNum(rawComm)
