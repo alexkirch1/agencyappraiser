@@ -341,13 +341,9 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
 
         if (file.name.toLowerCase().endsWith(".pdf")) {
           // ── PDF parsing via pdfjs-dist ──
-          // Strategy: column-position-based extraction.
-          //  1. Extract every text item with its X, Y position and string.
-          //  2. Group items into rows by Y coordinate.
-          //  3. Detect the header row (contains keywords like "policy", "premium", "commission").
-          //  4. Record each header keyword's X midpoint to define column boundaries.
-          //  5. For each data row, assign every text item to the nearest column.
-          //  6. Read policy #, client name, premium, commission from the correct columns.
+          // Strategy: extract text items with X/Y positions, group into rows,
+          // reconstruct each row as a string using gap-based spacing, then pass
+          // to parsePdfCommissionRow() which does heuristic field extraction.
           try {
             const pdfjsLib = await import("pdfjs-dist")
             pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
@@ -356,40 +352,17 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
             const pdf = await pdfjsLib.getDocument(new Uint8Array(ab)).promise
             log(`  PDF has ${pdf.numPages} page(s)`)
 
-            // ── Types for positioned text ──
-            type PdfTextItem = { str: string; x: number; y: number; fontSize: number }
-            type PdfRow = { y: number; items: PdfTextItem[] }
-
-            // ── Column definition ──
-            // Each entry: [logicalName, [...keywords to match individual text items in header]]
-            // These match against individual pdfjs text items (NOT the joined row text)
-            const COL_DEFS: [string, string[]][] = [
-              ["policy", ["policy number", "policy no", "policy #", "policy num", "policy"]],
-              ["name", ["insured name", "named insured", "insured", "account name", "client name", "client", "account"]],
-              ["premium", ["written premium", "annualized premium", "premium", "premium*", "prem"]],
-              ["splitComm", ["split comm", "split commission"]],
-              ["commission", ["commission", "comm amt", "comm"]],
-              ["carrier", ["carrier", "master company", "company", "insurer", "writing co"]],
-              ["effective", ["eff date", "effective", "eff"]],
-              ["expiration", ["exp date", "expiration", "exp"]],
-              ["lob", ["lob", "line of business", "coverage"]],
-              ["transType", ["trans type", "transaction", "trx", "trans"]],
-              ["producer", ["producer", "agent", "writer"]],
-            ]
-
-            // ── Across all pages, collect positioned items then process ──
-            const allRows: PdfRow[] = []
-
             for (let pageIdx = 1; pageIdx <= pdf.numPages; pageIdx++) {
               const page = await pdf.getPage(pageIdx)
-              const textContent = await page.getTextContent()
+              const tc = await page.getTextContent()
 
               // Build positioned items
-              const items: PdfTextItem[] = []
-              for (const item of textContent.items) {
+              type TItem = { str: string; x: number; y: number; fontSize: number }
+              const items: TItem[] = []
+              for (const item of tc.items) {
                 if (!("transform" in item) || !("str" in item)) continue
-                const str = item.str.trim()
-                if (!str) continue
+                const str = (item.str ?? "").replace(/\r/g, "")
+                if (!str.trim()) continue
                 items.push({
                   str,
                   x: item.transform[4],
@@ -399,131 +372,53 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
               }
 
               // Group into rows by Y (cluster within 4px)
-              const rowMap: Record<number, PdfTextItem[]> = {}
+              const rowMap: Record<number, TItem[]> = {}
               for (const item of items) {
                 const foundKey = Object.keys(rowMap).find(k => Math.abs(Number(k) - item.y) <= 4)
                 if (foundKey) rowMap[Number(foundKey)].push(item)
                 else rowMap[item.y] = [item]
               }
 
-              // Sort rows top-to-bottom within this page (higher Y = top of page = first in reading order)
-              const pageRows = Object.entries(rowMap)
-                .map(([yStr, rowItems]) => {
-                  rowItems.sort((a, b) => a.x - b.x)
-                  return { y: Number(yStr), items: rowItems }
-                })
-                .sort((a, b) => b.y - a.y) // descending Y = top first
-              allRows.push(...pageRows)
-            }
+              // Sort rows top-to-bottom (higher Y = top of page)
+              const sortedYs = Object.keys(rowMap).map(Number).sort((a, b) => b - a)
 
-            // ── Step 1: Find the header row ──
-            type ColBoundary = { name: string; x: number; estimatedWidth: number }
-            let colBoundaries: ColBoundary[] = []
-            let headerRowIdx = -1
+              for (const yKey of sortedYs) {
+                const rowItems = rowMap[yKey]
+                rowItems.sort((a, b) => a.x - b.x)
 
-            for (let ri = 0; ri < allRows.length; ri++) {
-              const row = allRows[ri]
-              if (row.items.length < 3) continue // header row should have multiple items
+                // Build line string: use gaps between items to insert
+                // tab (big gap = column separator) or space (small gap = word separator).
+                // We use the actual X positions and estimate item widths from
+                // string length * fontSize * 0.5 (rough average char width).
+                let lineStr = ""
+                for (let ri = 0; ri < rowItems.length; ri++) {
+                  const item = rowItems[ri]
+                  if (!item.str) continue
 
-              // Match each text item against column definitions
-              const matched: ColBoundary[] = []
-              const usedColNames = new Set<string>()
-              const usedItemIdxs = new Set<number>()
+                  if (ri > 0) {
+                    const prev = rowItems[ri - 1]
+                    const prevCharW = prev.fontSize * 0.52
+                    const prevEnd = prev.x + prev.str.length * prevCharW
+                    const gap = item.x - prevEnd
 
-              for (const [colName, keywords] of COL_DEFS) {
-                if (usedColNames.has(colName)) continue
-
-                for (const kw of keywords) {
-                  const kwLower = kw.toLowerCase()
-
-                  // Try to match against individual items
-                  for (let ii = 0; ii < row.items.length; ii++) {
-                    if (usedItemIdxs.has(ii)) continue
-                    const itemText = row.items[ii].str.toLowerCase().trim()
-
-                    // Check: item text matches or contains the keyword
-                    // Also check if item + next item together match (for "Eff Date" split as "Eff" + "Date")
-                    let isMatch = false
-                    let matchItem = row.items[ii]
-
-                    if (itemText === kwLower || itemText.includes(kwLower)) {
-                      isMatch = true
-                    } else if (kwLower.includes(" ") && ii + 1 < row.items.length) {
-                      // Multi-word keyword: try joining with next item
-                      const combined = itemText + " " + row.items[ii + 1].str.toLowerCase().trim()
-                      if (combined.includes(kwLower)) {
-                        isMatch = true
-                        // Use the first item's position
-                      }
+                    if (gap > prevCharW * 3) {
+                      // Big gap -> column separator (double space for parsePdfCommissionRow)
+                      lineStr += "  "
+                    } else if (gap > prevCharW * 0.3) {
+                      // Small gap -> word separator
+                      lineStr += " "
                     }
-
-                    if (isMatch) {
-                      const estW = matchItem.str.length * matchItem.fontSize * 0.5
-                      matched.push({ name: colName, x: matchItem.x, estimatedWidth: estW })
-                      usedColNames.add(colName)
-                      usedItemIdxs.add(ii)
-                      break
-                    }
+                    // Tiny/negative gap -> same token, just concatenate
                   }
-
-                  if (usedColNames.has(colName)) break // found it, stop trying keywords
+                  lineStr += item.str
                 }
-              }
+                lineStr = lineStr.trim()
+                if (!lineStr) continue
 
-              // We need the DETAIL header (with policy numbers and client names),
-              // not a summary header. Require "policy" column + at least one of
-              // name/premium/commission columns. Summary headers (e.g. "Carrier | Premium* | Split Comm")
-              // won't have a "policy" column.
-              const colNames = new Set(matched.map(c => c.name))
-              const hasPolicy = colNames.has("policy")
-              const hasNameOrComm = colNames.has("name") || colNames.has("commission") || colNames.has("splitComm")
-
-              if (matched.length >= 3 && hasPolicy && hasNameOrComm) {
-                colBoundaries = matched
-                headerRowIdx = ri
-                const colDesc = matched.map(c => `${c.name}(x=${Math.round(c.x)})`).join(", ")
-                log(`  Header detected at row ${ri}: columns=[${colDesc}]`)
-                break
-              }
-            }
-
-            if (headerRowIdx < 0) {
-              log(`  No header found in ${allRows.length} rows`)
-              // Log all rows that had at least 2 column matches for debugging
-              for (let ri = 0; ri < Math.min(allRows.length, 100); ri++) {
-                const row = allRows[ri]
-                const rowItems = row.items.map(it => it.str.toLowerCase().trim())
-                const hasPolicy = rowItems.some(t => t.includes("policy"))
-                const hasComm = rowItems.some(t => t.includes("comm"))
-                const hasPrem = rowItems.some(t => t.includes("prem"))
-                if (hasPolicy || (hasComm && hasPrem)) {
-                  console.log(`[v0] Near-match row ${ri}: "${row.items.map(it => it.str).join(" | ")}"`)
-                }
-              }
-            }
-
-            // ── Step 2: Build column anchors ──
-            // Sort left to right by the LEFT EDGE of each header item.
-            // Data items are assigned to the column whose header X is closest.
-            colBoundaries.sort((a, b) => a.x - b.x)
-
-            // Build sorted anchor list: each column's left-edge X
-            type ColAnchor = { name: string; x: number }
-            const colAnchors: ColAnchor[] = colBoundaries.map(c => ({ name: c.name, x: c.x }))
-
-            if (colAnchors.length > 0) {
-              log(`  Column anchors: ${colAnchors.map(c => `${c.name}@x${Math.round(c.x)}`).join(", ")}`)
-            }
-
-            // ── Step 3: If no header found, fall back to heuristic parsing ──
-            if (headerRowIdx < 0 || colAnchors.length < 2) {
-              log(`  No column headers detected -- falling back to heuristic parsing`)
-              for (const row of allRows) {
-                const lineStr = row.items.map(it => it.str).join("  ").trim()
-                const parsed = parsePdfCommissionRow(lineStr, 0, fileDate, file.name)
+                const parsed = parsePdfCommissionRow(lineStr, pageIdx, fileDate, file.name)
                 if (parsed) {
                   const conf = scoreCommissionRow(parsed)
-                  const uid = `${parsed.policy_number}_${parsed.commission.toFixed(2)}_${row.y}`
+                  const uid = `${parsed.policy_number}_${parsed.commission.toFixed(2)}_${pageIdx}_${yKey}`
                   if (!newSeen.has(uid)) {
                     newCommData.push({ id: uid, ...parsed, confidence: conf })
                     newSeen.add(uid)
@@ -534,132 +429,9 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                   skippedRows++
                 }
               }
-            } else {
-              // ── Step 4: Extract data from each row after the header ──
-              // Assign an item to the column with the nearest X anchor
-              const assignToColumn = (item: PdfTextItem): string => {
-                let best = colAnchors[0]
-                let bestDist = Math.abs(item.x - best.x)
-                for (let ci = 1; ci < colAnchors.length; ci++) {
-                  const dist = Math.abs(item.x - colAnchors[ci].x)
-                  if (dist < bestDist) {
-                    best = colAnchors[ci]
-                    bestDist = dist
-                  }
-                }
-                return best.name
-              }
-
-              let _debugDataRowCount = 0
-              for (let ri = headerRowIdx + 1; ri < allRows.length; ri++) {
-                const row = allRows[ri]
-
-                // Skip very short rows (likely footers, page numbers)
-                if (row.items.length < 2) continue
-
-                // Assign each text item to the nearest column anchor
-                const colValues: Record<string, string> = {}
-                for (const item of row.items) {
-                  const colName = assignToColumn(item)
-                  if (colValues[colName]) {
-                    colValues[colName] += " " + item.str
-                  } else {
-                    colValues[colName] = item.str
-                  }
-                }
-
-                // Log first 3 data rows with full column assignment
-                if (_debugDataRowCount < 3) {
-                  console.log(`[v0] DataRow ${_debugDataRowCount} (ri=${ri}): ${JSON.stringify(colValues)}`)
-                  _debugDataRowCount++
-                }
-
-                // Skip header-like rows, totals, page footers, summary sections
-                const rawRowText = row.items.map(it => it.str).join(" ").toLowerCase()
-                const firstItemText = row.items[0]?.str.toLowerCase() || ""
-                if (
-                  // Repeat headers
-                  (rawRowText.includes("policy") && (rawRowText.includes("premium") || rawRowText.includes("comm"))) ||
-                  (rawRowText.includes("producer") && rawRowText.includes("account")) ||
-                  // Summary/title rows
-                  rawRowText.includes("statement date") ||
-                  rawRowText.includes("commission summary") ||
-                  rawRowText.includes("commission detail") ||
-                  rawRowText.includes("financial summary") ||
-                  rawRowText.includes("balance register") ||
-                  rawRowText.includes("totals by") ||
-                  rawRowText.includes("total records") ||
-                  rawRowText.includes("overall branch") ||
-                  rawRowText.includes("1099 earnings") ||
-                  rawRowText.includes("agency total") ||
-                  // Total/subtotal lines
-                  /^(total|subtotal|grand total)/i.test(firstItemText.trim()) ||
-                  // Page footers
-                  /^page\s+\d+/i.test(firstItemText.trim()) ||
-                  (rawRowText.includes("page ") && rawRowText.includes(" of "))
-                ) continue
-
-                // Handle merged name+carrier text items.
-                // When a name is truncated in the PDF, it can merge with the carrier:
-                // e.g. "AMANDA & MATTHEW CUD... Allied" -- split on "..." or "…"
-                if (colValues["name"] && !colValues["carrier"]) {
-                  const nameVal = colValues["name"]
-                  const ellipsisMatch = nameVal.match(/^(.+?)\.\.\.\s*(.+)$/) || nameVal.match(/^(.+?)\u2026\s*(.+)$/)
-                  if (ellipsisMatch) {
-                    colValues["name"] = ellipsisMatch[1].trim()
-                    colValues["carrier"] = ellipsisMatch[2].trim()
-                  }
-                }
-
-                // Extract fields from column values
-                const rawPolicy = colValues["policy"] || ""
-                const rawName = colValues["name"] || ""
-                const rawPremium = colValues["premium"] || ""
-                // Prefer Split Comm over Comm (Split Comm is the agent's actual commission)
-                const rawComm = colValues["splitComm"] || colValues["commission"] || ""
-
-                // Parse amounts
-                const commission = cleanNum(rawComm)
-                const premium = cleanNum(rawPremium)
-
-                // Normalize policy -- merge spaced fragments like "BOP 1234567"
-                const policyNorm = normalizePolicy(rawPolicy)
-
-                if (!commission || !policyNorm) {
-                  if (skippedRows < 3) {
-                    console.log(`[v0] SkippedRow ri=${ri}: pol="${rawPolicy}" policyNorm="${policyNorm}" comm="${rawComm}" commNum=${commission}`)
-                  }
-                  skippedRows++
-                  continue
-                }
-
-                const uid = `${policyNorm}_${commission.toFixed(2)}_${ri}`
-                if (newSeen.has(uid)) continue
-
-                const parsed = {
-                  policy_number: policyNorm,
-                  commission,
-                  premium,
-                  client_name: rawName.trim(),
-                  month: fileDate,
-                  file: file.name,
-                  raw_line: row.items.map(it => it.str).join(" "),
-                  producer: (colValues["producer"] || "-").trim(),
-                  carrier: (colValues["carrier"] || "-").trim(),
-                  lob: (colValues["lob"] || "-").trim(),
-                  trans_type: (colValues["transType"] || "-").trim(),
-                  policyConfidence: policyNorm.length >= 5 ? 85 : 60,
-                }
-
-                const conf = scoreCommissionRow(parsed)
-                newCommData.push({ id: uid, ...parsed, confidence: conf })
-                newSeen.add(uid)
-                fileTotal += commission
-                parsedRows++
-              }
             }
 
-            log(`  Found ${parsedRows} commission records (${skippedRows} rows skipped, ${allRows.length} total rows, headerAt=${headerRowIdx})`)
+            log(`  Found ${parsedRows} commission records (${skippedRows} rows skipped)`)
           } catch (err) {
             log(`Error parsing PDF: ${(err as Error).message}`)
           }
