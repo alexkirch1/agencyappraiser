@@ -1,7 +1,8 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { SmartInput } from "@/components/ui/smart-input"
+import type { SmartInputType } from "@/components/ui/smart-input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -283,25 +284,33 @@ function NumField({
   label,
   value,
   onChange,
-  numOrNull,
   placeholder,
   hint,
 }: {
   label: string
   value: number | null
   onChange: (v: number | null) => void
-  numOrNull: (val: string) => number | null
+  numOrNull?: (val: string) => number | null
   placeholder: string
   hint?: string
 }) {
+  // Auto-detect field type from label
+  const lowerLabel = label.toLowerCase()
+  let fieldType: SmartInputType = "currency"
+  if (lowerLabel.includes("%") || lowerLabel.includes("ratio") || lowerLabel.includes("retention") || lowerLabel.includes("rate") || lowerLabel.includes("bundle")) {
+    fieldType = "percent"
+  } else if (lowerLabel.includes("pif") || lowerLabel.includes("count") || lowerLabel.includes("apps") || lowerLabel.includes("nb count")) {
+    fieldType = "count"
+  }
+
   return (
     <div>
       <Label className="text-sm text-muted-foreground">{label}</Label>
-      <Input
-        type="number"
+      <SmartInput
+        inputType={fieldType}
         placeholder={placeholder}
-        value={value ?? ""}
-        onChange={(e) => onChange(numOrNull(e.target.value))}
+        value={value}
+        onValueChange={onChange}
         className="mt-1"
       />
       {hint && <p className="mt-0.5 text-xs text-muted-foreground/70">{hint}</p>}

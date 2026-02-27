@@ -14,7 +14,7 @@ interface Props {
 
 async function extractTextFromPDF(file: File): Promise<string> {
   const pdfjsLib = await import("pdfjs-dist")
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
 
   const arrayBuffer = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
@@ -45,6 +45,7 @@ export function ReportUpload({ carrier, onParsed }: Props) {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [fileName, setFileName] = useState("")
   const [fieldsFound, setFieldsFound] = useState(0)
+  const [confidence, setConfidence] = useState(0)
   const [errorMsg, setErrorMsg] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -73,7 +74,14 @@ export function ReportUpload({ carrier, onParsed }: Props) {
             "Could not extract any fields from this PDF. Make sure you are uploading the correct report type for this carrier. You can still fill in the fields manually."
           )
         } else {
+          // Estimate confidence based on fields found vs expected
+          const expectedFields: Record<string, number> = {
+            progressive: 7, safeco: 5, hartford: 6, travelers: 6, msa: 5,
+          }
+          const expected = expectedFields[carrier] || 5
+          const conf = Math.min(100, Math.round((count / expected) * 80 + 20))
           setFieldsFound(count)
+          setConfidence(conf)
           setStatus("success")
           onParsed(parsed)
         }
@@ -162,6 +170,13 @@ export function ReportUpload({ carrier, onParsed }: Props) {
                 </p>
                 <p className="text-xs text-[hsl(var(--success))]">
                   {fieldsFound} field{fieldsFound !== 1 ? "s" : ""} auto-filled from report
+                  <span className={`ml-2 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                    confidence >= 70 ? "bg-[hsl(var(--success))]/15 text-[hsl(var(--success))]" :
+                    confidence >= 45 ? "bg-[hsl(var(--warning))]/15 text-[hsl(var(--warning))]" :
+                    "bg-destructive/15 text-destructive"
+                  }`}>
+                    {confidence}% confidence
+                  </span>
                 </p>
               </div>
             </div>
