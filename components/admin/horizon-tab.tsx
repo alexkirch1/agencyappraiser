@@ -550,6 +550,7 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                 return best.name
               }
 
+              let _debugDataRowCount = 0
               for (let ri = headerRowIdx + 1; ri < allRows.length; ri++) {
                 const row = allRows[ri]
 
@@ -565,6 +566,12 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                   } else {
                     colValues[colName] = item.str
                   }
+                }
+
+                // Log first 3 data rows with full column assignment
+                if (_debugDataRowCount < 3) {
+                  console.log(`[v0] DataRow ${_debugDataRowCount} (ri=${ri}): ${JSON.stringify(colValues)}`)
+                  _debugDataRowCount++
                 }
 
                 // Skip header-like rows, totals, page footers, summary sections
@@ -619,6 +626,9 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                 const policyNorm = normalizePolicy(rawPolicy)
 
                 if (!commission || !policyNorm) {
+                  if (skippedRows < 3) {
+                    console.log(`[v0] SkippedRow ri=${ri}: pol="${rawPolicy}" policyNorm="${policyNorm}" comm="${rawComm}" commNum=${commission}`)
+                  }
                   skippedRows++
                   continue
                 }
@@ -649,12 +659,7 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
               }
             }
 
-            log(`  Found ${parsedRows} commission records (${skippedRows} rows skipped)`)
-            // Log sample of first 3 parsed records
-            const sample = newCommData.slice(0, 3)
-            for (const s of sample) {
-              console.log(`[v0] Sample: pol="${s.policy_number}" name="${s.client_name}" comm=${s.commission} carrier="${s.carrier}"`)
-            }
+            log(`  Found ${parsedRows} commission records (${skippedRows} rows skipped, ${allRows.length} total rows, headerAt=${headerRowIdx})`)
           } catch (err) {
             log(`Error parsing PDF: ${(err as Error).message}`)
           }
