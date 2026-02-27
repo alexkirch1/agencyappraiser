@@ -190,8 +190,8 @@ export default function CarrierPage() {
           title="Unlock Carrier Book Valuation"
           description="Enter your details to view your carrier-specific book valuation."
           toolUsed={`Carrier Calculator - ${inputs.carrier ? inputs.carrier.charAt(0).toUpperCase() + inputs.carrier.slice(1) : "Unknown"}`}
-          valuationSummary={`Carrier: ${inputs.carrier || "N/A"}\nBook Type: ${inputs.bookType || "N/A"}\nWritten Premium: $${inputs.writtenPremium?.toLocaleString() ?? "N/A"}\nPolicies in Force: ${inputs.policiesInForce ?? "N/A"}\nLoss Ratio: ${inputs.lossRatio ?? "N/A"}%\nRetention Rate: ${inputs.retentionRate ?? "N/A"}%\nAvg Premium: $${inputs.avgPremium?.toLocaleString() ?? "N/A"}\nYears with Carrier: ${inputs.yearsWithCarrier ?? "N/A"}`}
-          estimatedValue={inputs.writtenPremium ?? 0}
+          valuationSummary={`Carrier: ${inputs.carrier || "N/A"}\nBook Type: ${inputs.bookType || "N/A"}\nEstimated Premium: $${results?.premium?.toLocaleString() ?? "N/A"}\nMultiple: ${results?.finalMultiple?.toFixed(2) ?? "N/A"}x\nLow Offer: $${results?.lowOffer?.toLocaleString() ?? "N/A"}\nHigh Offer: $${results?.highOffer?.toLocaleString() ?? "N/A"}`}
+          estimatedValue={results?.premium ?? 0}
         />
       )}
       {showDisclaimer && (
