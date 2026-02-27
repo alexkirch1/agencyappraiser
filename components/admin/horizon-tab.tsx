@@ -356,18 +356,25 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
               const page = await pdf.getPage(pageIdx)
               const tc = await page.getTextContent()
 
-              // Build positioned items
-              type TItem = { str: string; x: number; y: number; fontSize: number }
+              // Build positioned items -- use pdfjs width if available,
+              // otherwise estimate from charCount * fontSize * avgCharFactor
+              type TItem = { str: string; x: number; y: number; fontSize: number; width: number }
               const items: TItem[] = []
               for (const item of tc.items) {
                 if (!("transform" in item) || !("str" in item)) continue
                 const str = (item.str ?? "").replace(/\r/g, "")
                 if (!str.trim()) continue
+                const fontSize = Math.abs(item.transform[0])
+                // pdfjs items have a `width` property (in user-space units)
+                const itemWidth = ("width" in item && typeof item.width === "number" && item.width > 0)
+                  ? item.width
+                  : str.length * fontSize * 0.52
                 items.push({
                   str,
                   x: item.transform[4],
                   y: Math.round(item.transform[5]),
-                  fontSize: Math.abs(item.transform[0]),
+                  fontSize,
+                  width: itemWidth,
                 })
               }
 
@@ -397,14 +404,14 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
 
                   if (ri > 0) {
                     const prev = rowItems[ri - 1]
-                    const prevCharW = prev.fontSize * 0.52
-                    const prevEnd = prev.x + prev.str.length * prevCharW
+                    const prevEnd = prev.x + prev.width
                     const gap = item.x - prevEnd
+                    const charW = prev.fontSize * 0.5 || 5
 
-                    if (gap > prevCharW * 3) {
+                    if (gap > charW * 3) {
                       // Big gap -> column separator (double space for parsePdfCommissionRow)
                       lineStr += "  "
-                    } else if (gap > prevCharW * 0.3) {
+                    } else if (gap > charW * 0.3) {
                       // Small gap -> word separator
                       lineStr += " "
                     }

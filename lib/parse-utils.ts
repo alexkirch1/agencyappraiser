@@ -437,6 +437,18 @@ export function parsePdfCommissionRow(
   const foundPol = bestPol?.normalized ?? null
   const polConfidence = bestPol?.confidence ?? 0
 
+  // Debug: log first 5 parsed rows with policy candidates
+  if (typeof window !== "undefined" && polCandidates.length > 0) {
+    const _dbgKey = "__v0_polDbgCount"
+    const w = window as Record<string, number>
+    w[_dbgKey] = (w[_dbgKey] || 0) + 1
+    if (w[_dbgKey] <= 5) {
+      const top3 = polCandidates.slice(0, 3).map(c => `"${c.normalized}"(conf=${c.confidence})`).join(", ")
+      console.log(`[v0] PolicyPick #${w[_dbgKey]}: chose="${foundPol}" from [${top3}]`)
+      console.log(`[v0]   segments: ${JSON.stringify(segments)}`)
+    }
+  }
+
   // --- 4. Second pass: collect name candidates (skip policy segment, dates, numbers) ---
   const candidateNameSegments: string[] = []
 
