@@ -19,9 +19,7 @@ export function Footer() {
             <Link href="/calculator" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
               Valuation Calculator
             </Link>
-            <Link href="/carrier" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-              Carrier Calculator
-            </Link>
+
             <Link href="/quiz" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
               Readiness Quiz
             </Link>

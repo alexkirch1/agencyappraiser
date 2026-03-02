@@ -2,12 +2,12 @@ import Link from "next/link"
 import {
   ArrowRight,
   Calculator,
-  BarChart3,
   ClipboardCheck,
   CheckCircle2,
   Shield,
   Target,
   Zap,
+  Lock,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -21,6 +21,7 @@ const tools = [
     accent: "text-[hsl(var(--warning))]",
     accentBg: "bg-[hsl(var(--warning))]/10",
     tag: "Start Here",
+    locked: false,
   },
   {
     href: "/calculator",
@@ -30,15 +31,7 @@ const tools = [
     accent: "text-primary",
     accentBg: "bg-primary/10",
     tag: "Most Popular",
-  },
-  {
-    href: "/carrier",
-    icon: BarChart3,
-    title: "Carrier Book Calc",
-    description: "Value a specific carrier book. Supports Progressive, Safeco, Hartford, Travelers, and MSA.",
-    accent: "text-[hsl(var(--success))]",
-    accentBg: "bg-[hsl(var(--success))]/10",
-    tag: null,
+    locked: false,
   },
   {
     href: "/quiz",
@@ -48,15 +41,17 @@ const tools = [
     accent: "text-[hsl(var(--chart-4))]",
     accentBg: "bg-[hsl(var(--chart-4))]/10",
     tag: null,
+    locked: false,
   },
   {
     href: "/readiness",
     icon: ClipboardCheck,
     title: "Seller Scorecard",
-    description: "Comprehensive checklist covering financials, legal, operations, and transition planning.",
+    description: "Complete the Full Valuation first to unlock this comprehensive preparation checklist.",
     accent: "text-[hsl(var(--chart-5))]",
     accentBg: "bg-[hsl(var(--chart-5))]/10",
-    tag: null,
+    tag: "Requires Full Valuation",
+    locked: true,
   },
 ]
 
@@ -142,27 +137,57 @@ export default function HomePage() {
           ))}
         </div>
 
-        {/* Bottom 3 cards */}
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
-          {tools.slice(2).map((tool) => (
-            <Link key={tool.href} href={tool.href} className="group">
-              <Card className="h-full border border-border bg-card transition-colors hover:border-primary/50">
-                <CardContent className="flex flex-col gap-3 p-5">
-                  <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${tool.accentBg}`}>
-                    <tool.icon className={`h-4 w-4 ${tool.accent}`} />
-                  </div>
-                  <h3 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
-                    {tool.title}
-                  </h3>
-                  <p className="text-sm leading-relaxed text-muted-foreground">{tool.description}</p>
-                  <div className="mt-auto flex items-center gap-1 pt-1 text-sm font-medium text-primary">
-                    <span>Get started</span>
-                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+        {/* Bottom cards */}
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          {tools.slice(2).map((tool) => {
+            if (tool.locked) {
+              return (
+                <div key={tool.href} className="relative">
+                  <Card className="h-full border border-border bg-card opacity-60">
+                    <CardContent className="flex flex-col gap-3 p-5">
+                      <div className="flex items-center justify-between">
+                        <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${tool.accentBg}`}>
+                          <Lock className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        {tool.tag && (
+                          <span className="rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                            {tool.tag}
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="text-base font-semibold text-muted-foreground">
+                        {tool.title}
+                      </h3>
+                      <p className="text-sm leading-relaxed text-muted-foreground">{tool.description}</p>
+                      <div className="mt-auto flex items-center gap-1 pt-1 text-sm font-medium text-muted-foreground">
+                        <Lock className="h-3.5 w-3.5" />
+                        <span>Locked</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )
+            }
+            return (
+              <Link key={tool.href} href={tool.href} className="group">
+                <Card className="h-full border border-border bg-card transition-colors hover:border-primary/50">
+                  <CardContent className="flex flex-col gap-3 p-5">
+                    <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${tool.accentBg}`}>
+                      <tool.icon className={`h-4 w-4 ${tool.accent}`} />
+                    </div>
+                    <h3 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
+                      {tool.title}
+                    </h3>
+                    <p className="text-sm leading-relaxed text-muted-foreground">{tool.description}</p>
+                    <div className="mt-auto flex items-center gap-1 pt-1 text-sm font-medium text-primary">
+                      <span>Get started</span>
+                      <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            )
+          })}
         </div>
       </section>
 

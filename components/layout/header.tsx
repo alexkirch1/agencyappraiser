@@ -12,9 +12,7 @@ const navItems = [
   { href: "/", label: "Home" },
   { href: "/quick-value", label: "Quick Value" },
   { href: "/calculator", label: "Full Valuation" },
-  { href: "/carrier", label: "Carrier Calc" },
   { href: "/quiz", label: "Readiness Quiz" },
-  { href: "/readiness", label: "Seller Scorecard" },
 ]
 
 export function Header() {

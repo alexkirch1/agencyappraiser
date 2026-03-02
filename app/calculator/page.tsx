@@ -105,6 +105,8 @@ export default function CalculatorPage() {
     setShowLeadCapture(false)
     // Show disclaimer after lead capture
     setShowDisclaimer(true)
+    // Unlock the Seller Scorecard for this session
+    try { sessionStorage.setItem("fullCalcCompleted", "true") } catch {}
   }
 
   const handleDisclaimerContinue = () => {
