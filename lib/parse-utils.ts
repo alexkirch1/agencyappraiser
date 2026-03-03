@@ -467,13 +467,30 @@ export function parsePdfCommissionRow(
     candidateNameSegments.push(segToUse)
   }
 
+  // Known carrier / company keywords to strip from the end of a name segment.
+  // These appear when a truncated name runs into the carrier column in the PDF.
+  const CARRIER_TAIL_WORDS = new Set([
+    "allied", "travelers", "safeco", "progressive", "hartford", "nationwide",
+    "liberty", "mutual", "state", "farm", "allstate", "usaa", "chubb",
+    "zurich", "markel", "employers", "amtrust", "guard", "merchants",
+    "westfield", "erie", "grange", "motorists", "cincinnati", "hanover",
+    "preferred", "encompass", "auto-owners", "owners", "acuity", "sentry",
+    "shelter", "grinnell", "pekin", "island", "donegal", "selective",
+    "utica", "central", "continental", "general", "american", "national",
+    "federal", "standard", "united", "heritage", "horizon", "meridian",
+    "insurance", "ins", "co", "corp", "inc", "llc", "ltd",
+  ])
+
   // --- 4. Pick the best client name ---
-  // Strategy: score each candidate segment. The client name is typically the
-  // segment with the most alphabetic words in the 2-4 word "First Last" or
-  // "Last, First" pattern. We keep all the original words (not just filtered
-  // alpha words) to preserve names like "O'Brien" or "St. James".
+  // Score each candidate segment. Prefer segments that:
+  //  - Have multiple alpha words (person/business name pattern)
+  //  - Come before the policy number position in the line
+  //  - Are NOT carrier names or jargon
   let bestName = ""
   let bestScore = -1
+
+  // Find the approximate character position of the policy number in the original line
+  const polPos = foundPol ? lineStr.indexOf(bestPol!.normalized.slice(0, 5)) : lineStr.length
 
   for (const seg of candidateNameSegments) {
     const words = seg.split(/\s+/)
@@ -487,29 +504,43 @@ export function parsePdfCommissionRow(
     // High ratio of name-like words = likely a name field
     score += nameRatio * 30
 
-    // Sweet spot: 2-4 words is ideal for a person/business name
-    if (alphaWords.length >= 2 && alphaWords.length <= 4) score += 35
-    else if (alphaWords.length === 1 && alphaWords[0].length >= 3) score += 15
-    else if (alphaWords.length > 4) score += 10
+    // 2-6 words is ideal for a name (includes business names)
+    if (alphaWords.length >= 2 && alphaWords.length <= 6) score += 35
+    else if (alphaWords.length === 1 && alphaWords[0].length >= 4) score += 10
+    else if (alphaWords.length > 6) score += 15
 
-    // Prefer longer text (full names vs single abbreviations)
-    score += Math.min(seg.length, 25)
+    // Prefer longer text (full names vs abbreviations)
+    score += Math.min(seg.length, 30)
 
     // Comma pattern bonus ("Last, First")
     if (seg.includes(",")) score += 15
 
-    // Penalize segments with LOB/carrier jargon
+    // Bonus if this segment appears before the policy number
+    const segPos = lineStr.indexOf(seg.slice(0, Math.min(8, seg.length)))
+    if (segPos >= 0 && segPos < polPos) score += 20
+
+    // Penalize LOB / line-of-business jargon
     const lowerSeg = seg.toLowerCase()
-    const jargonHits = ["auto", "home", "fire", "bop", "gl", "wc", "liability",
-      "property", "umbrella", "dwelling", "flood", "commercial", "personal"]
+    const jobHits = ["auto", "home", "fire", "bop", "gl", "wc", "liability",
+      "property", "umbrella", "dwelling", "flood", "commercial", "personal",
+      "homeowners", "renters", "motorcycle", "boat", "farm"]
       .filter(j => lowerSeg.includes(j)).length
-    score -= jargonHits * 8
+    score -= jobHits * 10
+
+    // Penalize if this is clearly a single known carrier name
+    if (alphaWords.length === 1 && CARRIER_TAIL_WORDS.has(alphaWords[0].toLowerCase())) {
+      score -= 40
+    }
 
     if (score > bestScore) {
       bestScore = score
-      // Keep the original segment text (preserving formatting like commas,
-      // apostrophes, etc.) but cap at 4 words
-      bestName = words.slice(0, 4).join(" ")
+      // Strip trailing carrier keywords that bled in from an adjacent column
+      let nameWords = [...words]
+      while (nameWords.length > 1 && CARRIER_TAIL_WORDS.has(nameWords[nameWords.length - 1].toLowerCase())) {
+        nameWords = nameWords.slice(0, -1)
+      }
+      // Cap at 6 words -- handles long business names while avoiding runaway text
+      bestName = nameWords.slice(0, 6).join(" ").trim()
     }
   }
 
