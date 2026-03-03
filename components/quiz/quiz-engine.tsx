@@ -19,16 +19,7 @@ interface QuizQuestion {
 }
 
 const questions: QuizQuestion[] = [
-  {
-    category: "Retention",
-    question: "Do you know your exact client retention rate?",
-    options: [
-      { label: "Yes, it's above 92% and I track it monthly", score: 10 },
-      { label: "Yes, it's between 85-92%", score: 7 },
-      { label: "I have a general idea, around 80%", score: 4 },
-      { label: "I don't track retention regularly", score: 1 },
-    ],
-  },
+  // ── Business readiness ──
   {
     category: "Financials",
     question: "How well-documented are your agency's financials?",
@@ -37,6 +28,16 @@ const questions: QuizQuestion[] = [
       { label: "I have tax returns but no formal P&L", score: 6 },
       { label: "My accountant handles everything, I'd need to pull it together", score: 3 },
       { label: "My books are disorganized or mixed with personal finances", score: 1 },
+    ],
+  },
+  {
+    category: "Retention",
+    question: "Do you know your exact client retention rate?",
+    options: [
+      { label: "Yes, it's above 92% and I track it monthly", score: 10 },
+      { label: "Yes, it's between 85-92%", score: 7 },
+      { label: "I have a general idea, around 80%", score: 4 },
+      { label: "I don't track retention regularly", score: 1 },
     ],
   },
   {
@@ -50,26 +51,6 @@ const questions: QuizQuestion[] = [
     ],
   },
   {
-    category: "Carrier Diversification",
-    question: "How diversified is your carrier portfolio?",
-    options: [
-      { label: "No single carrier represents more than 30% of my book", score: 10 },
-      { label: "My top carrier is 30-50% of my book", score: 7 },
-      { label: "My top carrier is 50-75% of my book", score: 4 },
-      { label: "One carrier dominates (75%+ of my book)", score: 1 },
-    ],
-  },
-  {
-    category: "Succession",
-    question: "Do you have a succession or transition plan?",
-    options: [
-      { label: "Yes, I have a documented plan with a timeline", score: 10 },
-      { label: "I've thought about it but nothing is formalized", score: 5 },
-      { label: "I know I need one but haven't started", score: 3 },
-      { label: "No, I haven't considered succession planning", score: 1 },
-    ],
-  },
-  {
     category: "Technology",
     question: "What is your agency's technology and systems readiness?",
     options: [
@@ -80,13 +61,13 @@ const questions: QuizQuestion[] = [
     ],
   },
   {
-    category: "Concentration",
-    question: "How concentrated is your client base?",
+    category: "Carrier Diversification",
+    question: "How diversified is your carrier portfolio?",
     options: [
-      { label: "Top 10 clients are less than 10% of revenue", score: 10 },
-      { label: "Top 10 clients are 10-20% of revenue", score: 7 },
-      { label: "Top 10 clients are 20-35% of revenue", score: 4 },
-      { label: "Top 10 clients are 35%+ of revenue", score: 1 },
+      { label: "No single carrier represents more than 30% of my book", score: 10 },
+      { label: "My top carrier is 30-50% of my book", score: 7 },
+      { label: "My top carrier is 50-75% of my book", score: 4 },
+      { label: "One carrier dominates (75%+ of my book)", score: 1 },
     ],
   },
   {
@@ -100,23 +81,44 @@ const questions: QuizQuestion[] = [
     ],
   },
   {
-    category: "Valuation Expectations",
-    question: "How well do you understand what your agency is worth?",
+    category: "Succession",
+    question: "Do you have a succession or transition plan?",
     options: [
-      { label: "I've had a formal valuation or appraisal done", score: 10 },
-      { label: "I've used tools and have a reasonable estimate", score: 7 },
-      { label: "I have a number in my head but no data to back it up", score: 4 },
-      { label: "I have no idea what my agency is worth", score: 1 },
+      { label: "Yes, I have a documented plan with a timeline", score: 10 },
+      { label: "I've thought about it but nothing is formalized", score: 5 },
+      { label: "I know I need one but haven't started", score: 3 },
+      { label: "No, I haven't considered succession planning", score: 1 },
+    ],
+  },
+  // ── Personal readiness ──
+  {
+    category: "Personal Readiness",
+    question: "How would you feel if you woke up tomorrow and the agency was no longer yours?",
+    options: [
+      { label: "Relieved -- I'm ready to move on to the next chapter", score: 10 },
+      { label: "Mostly fine, though I'd miss a few things", score: 7 },
+      { label: "Uneasy -- the agency is a big part of who I am", score: 4 },
+      { label: "I can't imagine my life without it", score: 1 },
     ],
   },
   {
-    category: "Timeline",
-    question: "What is your ideal timeline for a sale?",
+    category: "Post-Sale Plan",
+    question: "Do you have a clear plan for what comes after the sale?",
     options: [
-      { label: "12-24 months out, I'm planning proactively", score: 10 },
-      { label: "6-12 months, I'd like to move relatively soon", score: 7 },
-      { label: "I need to sell within 6 months", score: 4 },
-      { label: "As soon as possible / urgent", score: 2 },
+      { label: "Yes -- whether that's retirement, a new venture, or something else entirely", score: 10 },
+      { label: "I have some ideas but nothing concrete", score: 6 },
+      { label: "I haven't really thought past the closing table", score: 3 },
+      { label: "No, I'm focused on the sale itself right now", score: 1 },
+    ],
+  },
+  {
+    category: "Family & Advisors",
+    question: "Have you talked about a potential sale with your family or trusted advisors?",
+    options: [
+      { label: "Yes, my family and advisors are aligned and supportive", score: 10 },
+      { label: "I've mentioned it but we haven't had a real conversation", score: 6 },
+      { label: "My family knows I'm thinking about it, but we disagree on timing", score: 4 },
+      { label: "No one close to me knows I'm considering a sale", score: 1 },
     ],
   },
 ]
