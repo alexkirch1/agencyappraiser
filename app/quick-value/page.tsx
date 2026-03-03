@@ -57,7 +57,7 @@ const TIER_MESSAGES: Record<Tier, { icon: React.ReactNode; color: string; bg: st
     color: "text-primary",
     bg: "bg-primary/8",
     border: "border-primary/30",
-    text: "Want to increase this number? Our full audit identifies the 7 key areas buyers look for to pay top dollar.",
+    text: "Want to increase this number? Our full audit identifies the 7 key areas buyers evaluate most closely when placing their offer.",
   },
   below: {
     icon: <ShieldAlert className="h-4 w-4" />,
@@ -84,6 +84,8 @@ export default function QuickValuePage() {
   const [revenue, setRevenue] = useState<number | null>(null)
   const [retention, setRetention] = useState<string>("")
   const [bookType, setBookType] = useState<string>("")
+  const [customers, setCustomers] = useState<number | null>(null)
+  const [policies, setPolicies] = useState<number | null>(null)
   const [multiplier, setMultiplier] = useState(1.95)
   const [showDisclaimer, setShowDisclaimer] = useState(false)
   const [resultsVisible, setResultsVisible] = useState(false)
@@ -107,17 +109,23 @@ export default function QuickValuePage() {
     // Central value -- natural rounding so it looks precise, not manufactured
     const value = naturalRound(revenue * multiplier)
 
-    // Asymmetric range that varies by revenue
-    const lowSpread  = 0.17 + ((revenue % 13) / 13) * 0.05
-    const highSpread = 0.21 + ((revenue % 11) / 11) * 0.07
-    const lowValue   = naturalRound(value * (1 - lowSpread))
-    const highValue  = naturalRound(value * (1 + highSpread))
+    // Low end: slightly below 1x revenue; high end: slightly above 2x.
+    // Small per-agency variance keeps numbers from feeling templated.
+    const lowMult  = 0.91 + ((revenue % 13) / 13) * 0.06   // ~0.91x – 0.97x
+    const highMult = 2.07 + ((revenue % 11) / 11) * 0.11   // ~2.07x – 2.18x
+    const lowValue  = naturalRound(revenue * lowMult)
+    const highValue = naturalRound(revenue * highMult)
 
     const tier = getTier(retention, bookType, revenue)
     const gap  = getFullValGap(retention, bookType)
 
-    return { value, lowValue, highValue, suggested, tier, gap }
-  }, [revenue, retention, bookType, multiplier])
+    // Policies-per-customer ratio
+    const ratio = (customers && policies && customers > 0)
+      ? parseFloat((policies / customers).toFixed(2))
+      : null
+
+    return { value, lowValue, highValue, suggested, tier, gap, ratio }
+  }, [revenue, retention, bookType, multiplier, customers, policies])
 
   const tierInfo = estimate ? TIER_MESSAGES[estimate.tier] : null
 
@@ -219,6 +227,48 @@ export default function QuickValuePage() {
             </CardContent>
           </Card>
 
+          {/* Customers & Policies */}
+          <Card className="border border-border bg-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold text-foreground">
+                4. How many customers and policies do you have?
+                <InfoTip text="Total active customers (households or accounts) and total active policies. We calculate your policies-per-customer ratio, which signals how well-rounded your book is." />
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="quickCustomers" className="text-sm text-muted-foreground">Active Customers</Label>
+                  <SmartInput
+                    id="quickCustomers"
+                    inputType="number"
+                    placeholder="e.g. 850"
+                    value={customers}
+                    onValueChange={setCustomers}
+                    className="mt-1.5"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="quickPolicies" className="text-sm text-muted-foreground">Active Policies</Label>
+                  <SmartInput
+                    id="quickPolicies"
+                    inputType="number"
+                    placeholder="e.g. 1420"
+                    value={policies}
+                    onValueChange={setPolicies}
+                    className="mt-1.5"
+                  />
+                </div>
+              </div>
+              {estimate?.ratio !== null && estimate?.ratio !== undefined && (
+                <div className="mt-3 flex items-center justify-between rounded-md bg-secondary/50 px-3 py-2">
+                  <span className="text-xs text-muted-foreground">Policies per customer</span>
+                  <span className="font-mono text-sm font-bold text-foreground">{estimate.ratio.toFixed(2)}</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Multiplier Slider */}
           <Card className="border border-border bg-card">
             <CardHeader className="pb-3">
@@ -302,6 +352,18 @@ export default function QuickValuePage() {
                       {formatCurrency(revenue ?? 0)} &times; {multiplier.toFixed(2)}x
                     </p>
 
+                    {estimate.ratio !== null && estimate.ratio !== undefined && (
+                      <div className="w-full mt-1 flex items-center justify-between rounded-md border border-border bg-secondary/40 px-3 py-2">
+                        <span className="text-xs text-muted-foreground">Policies per customer</span>
+                        <span className="font-mono text-sm font-bold text-foreground">
+                          {estimate.ratio.toFixed(2)}
+                          <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+                            {estimate.ratio >= 2.0 ? "— strong cross-sell" : estimate.ratio >= 1.4 ? "— avg" : "— growth opportunity"}
+                          </span>
+                        </span>
+                      </div>
+                    )}
+
                     {/* Contextual message */}
                     {tierInfo && (
                       <div className={`w-full mt-2 rounded-lg border px-3 py-2.5 text-left ${tierInfo.bg} ${tierInfo.border}`}>
@@ -315,9 +377,9 @@ export default function QuickValuePage() {
                     {/* Full val gap nudge */}
                     <div className="w-full mt-1 rounded-lg border border-border bg-secondary/40 px-3 py-2.5">
                       <p className="text-xs text-muted-foreground text-center leading-relaxed">
-                        The Full Valuation covers{" "}
+                        The Full Valuation analyzes{" "}
                         <span className="font-semibold text-foreground">{estimate.gap}% more</span>{" "}
-                        of your agency than this estimate.
+                        of your agency than this estimate alone can show.
                       </p>
                       <Button asChild size="sm" variant="outline" className="w-full mt-2 gap-1.5 text-xs">
                         <Link href="/calculator">
@@ -354,7 +416,7 @@ export default function QuickValuePage() {
                     <div>
                       <h3 className="text-sm font-semibold text-foreground">Want a More Accurate Valuation?</h3>
                       <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                        Our full calculator analyzes 7 risk categories for a precise, defensible number.
+                        Our full calculator scores 7 key categories buyers examine to arrive at a precise, defensible number.
                       </p>
                     </div>
                     <Button asChild className="w-full gap-2" size="sm">
