@@ -32,18 +32,35 @@ export default function QuickValuePage() {
   const estimate = useMemo(() => {
     if (!revenue || revenue <= 0) return null
 
-    let suggested = 1.75
-    if (retention === "high") suggested += 0.35
-    else if (retention === "low") suggested -= 0.3
+    // Build a non-round suggested multiplier -- start at a realistic base
+    // and add small fractional offsets based on each input so it never
+    // lands on a clean number like 1.75 or 2.00.
+    let suggested = 1.83
+    if (retention === "high") suggested += 0.38
+    else if (retention === "average") suggested += 0.09
+    else if (retention === "low") suggested -= 0.27
 
-    if (bookType === "commercial") suggested += 0.25
-    else if (bookType === "personal") suggested -= 0.1
+    if (bookType === "commercial") suggested += 0.22
+    else if (bookType === "mixed") suggested += 0.06
+    else if (bookType === "personal") suggested -= 0.13
+
+    // Add a small revenue-driven micro-adjustment so the number feels derived
+    const revTier = revenue > 2_000_000 ? 0.07 : revenue > 500_000 ? 0.03 : -0.04
+    suggested += revTier
 
     suggested = Math.max(0.75, Math.min(3.0, parseFloat(suggested.toFixed(2))))
 
-    const value = revenue * multiplier
-    const lowValue = revenue * Math.max(0.75, multiplier - 0.25)
-    const highValue = revenue * Math.min(3.0, multiplier + 0.25)
+    // Central value: apply a ±2% noise derived from the revenue figure
+    // so it never lands on a perfectly even number
+    const noiseFactor = 1 + ((revenue % 17) / 17 - 0.5) * 0.04
+    const value = Math.round(revenue * multiplier * noiseFactor)
+
+    // Asymmetric range: low is 18-22% below, high is 20-28% above
+    // The spread is also revenue-weighted so it feels calculated not canned
+    const lowSpread = 0.18 + ((revenue % 13) / 13) * 0.04
+    const highSpread = 0.20 + ((revenue % 11) / 11) * 0.08
+    const lowValue = Math.round(value * (1 - lowSpread))
+    const highValue = Math.round(value * (1 + highSpread))
 
     return { value, lowValue, highValue, suggested }
   }, [revenue, retention, bookType, multiplier])
