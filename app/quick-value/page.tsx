@@ -68,7 +68,7 @@ export default function QuickValuePage() {
           <Card className="border border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold text-foreground">
-                1. What is your annual revenue?<InfoTip text="Total commission and fee income for the last 12 months. This is the foundation of your valuation." />
+                1. What is your annual revenue?<InfoTip text="Your total commission and fee income for the last 12 months. Include all revenue sources -- this is the number your multiple gets applied to." />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -90,7 +90,7 @@ export default function QuickValuePage() {
           <Card className="border border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold text-foreground">
-                2. How is your client retention?<InfoTip text="Retention drives recurring revenue. Excellent retention significantly increases what buyers will pay." />
+                2. How is your client retention?<InfoTip text="What percentage of your clients renew each year? Check your management system for your actual renewal rate." />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -120,7 +120,7 @@ export default function QuickValuePage() {
           <Card className="border border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold text-foreground">
-                3. What does your book primarily consist of?<InfoTip text="Commercial-heavy books command higher multiples due to larger premiums and stickier accounts." />
+                3. What does your book primarily consist of?<InfoTip text="Is the majority of your premium in commercial policies, personal lines, or a mix of both?" />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -150,7 +150,7 @@ export default function QuickValuePage() {
           <Card className="border border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold text-foreground">
-                Adjust Your Multiplier<InfoTip text="The revenue multiple is what a buyer pays per dollar of your revenue. Most agencies trade between 1.5x and 2.5x." />
+                Adjust Your Multiplier<InfoTip text="The revenue multiple applied to your annual revenue. Most P&C agencies trade between 1.5x and 2.5x depending on book quality." />
               </CardTitle>
               <p className="text-xs text-muted-foreground">
                 Drag the slider to adjust the revenue multiple.

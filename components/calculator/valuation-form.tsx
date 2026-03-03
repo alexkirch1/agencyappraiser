@@ -54,7 +54,7 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Label className="mb-3 block text-sm text-muted-foreground">{requiredStar("Scope of Sale")}<InfoTip text="How you structure the deal directly affects the multiplier. Full agency sales command the highest multiples because the buyer gets everything -- staff, systems, and brand." /></Label>
+          <Label className="mb-3 block text-sm text-muted-foreground">{requiredStar("Scope of Sale")}<InfoTip text="Are you selling the entire agency (staff, brand, systems, and book), just a book of business, or select accounts? Full agency sales include everything." /></Label>
           <RadioGroup
             value={inputs.scopeOfSale != null ? String(inputs.scopeOfSale) : ""}
             onValueChange={(v) => update({ scopeOfSale: parseFloat(v) })}
@@ -88,7 +88,7 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Label htmlFor="yearEstablished" className="text-sm text-muted-foreground">Year Established<InfoTip text="Older agencies typically have deeper client relationships and more predictable renewals, which reduces risk for buyers." /></Label>
+          <Label htmlFor="yearEstablished" className="text-sm text-muted-foreground">Year Established<InfoTip text="The year your agency first began operating. Longer track records signal stability to buyers." /></Label>
           <SmartInput
             id="yearEstablished"
             inputType="year"
@@ -109,7 +109,7 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div>
-            <Label className="text-sm text-muted-foreground">Primary State<InfoTip text="Your state affects regulatory requirements and the competitive landscape for agency acquisitions." /></Label>
+            <Label className="text-sm text-muted-foreground">Primary State<InfoTip text="The state where your agency is primarily licensed and operates. Regional markets vary in demand." /></Label>
             <Select value={inputs.primaryState} onValueChange={(v) => update({ primaryState: v })}>
               <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select state" /></SelectTrigger>
               <SelectContent>
@@ -118,11 +118,11 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
             </Select>
           </div>
           <div>
-            <Label htmlFor="empCount" className="text-sm text-muted-foreground">Number of Employees<InfoTip text="Used to calculate revenue per employee -- a key efficiency metric buyers evaluate." /></Label>
+            <Label htmlFor="empCount" className="text-sm text-muted-foreground">Number of Employees<InfoTip text="Total headcount including the owner, full-time staff, and part-time (count part-time as 0.5). This helps measure operational efficiency." /></Label>
             <SmartInput id="empCount" inputType="count" placeholder="e.g. 5" value={inputs.employeeCount} onValueChange={(v) => update({ employeeCount: v })} className="mt-1.5" />
           </div>
           <div>
-            <Label className="mb-2 block text-sm text-muted-foreground">Office Structure<InfoTip text="Virtual and hybrid agencies are easier to integrate post-sale. Physical offices may carry lease liabilities." /></Label>
+            <Label className="mb-2 block text-sm text-muted-foreground">Office Structure<InfoTip text="How does your team work day-to-day? Virtual means fully remote, Hybrid is a mix, Brick & Mortar is a physical office." /></Label>
             <RadioGroup value={inputs.officeStructure} onValueChange={(v) => update({ officeStructure: v })} className="flex flex-col gap-2 sm:flex-row sm:gap-4">
               {["Virtual", "Hybrid", "BrickAndMortar"].map((opt) => (
                 <label key={opt} className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/10">
@@ -148,11 +148,11 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div>
-            <Label htmlFor="eoClaims" className="text-sm text-muted-foreground">{"E&O Claims (Past 3 Years)"}<InfoTip text="Claims history is a red flag during due diligence. Zero claims signals strong operational controls." /></Label>
+            <Label htmlFor="eoClaims" className="text-sm text-muted-foreground">{"E&O Claims (Past 3 Years)"}<InfoTip text="How many Errors & Omissions claims have been filed against your agency in the last 3 years? Zero is ideal -- claims can raise concerns during due diligence." /></Label>
             <SmartInput id="eoClaims" inputType="count" placeholder="0" value={inputs.eoClaims} onValueChange={(v) => update({ eoClaims: v ?? 0 })} className="mt-1.5" />
           </div>
           <div>
-            <Label className="mb-2 block text-sm text-muted-foreground">Producer Agreements<InfoTip text="Non-compete and non-solicitation agreements protect the book from walking out the door after a sale." /></Label>
+            <Label className="mb-2 block text-sm text-muted-foreground">Producer Agreements<InfoTip text="Do your producers have signed non-compete or non-solicitation agreements? These protect the book from leaving with staff after a sale." /></Label>
             <RadioGroup value={inputs.producerAgreements} onValueChange={(v) => update({ producerAgreements: v })} className="flex flex-col gap-2 sm:flex-row sm:gap-4">
               {[
                 { value: "strong", label: "Strong (Non-Compete/Solicit)" },
@@ -178,13 +178,13 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div id="field-revenueLTM">
-            <Label htmlFor="revLTM" className="text-sm text-muted-foreground">{requiredStar("Annual Revenue (LTM)")}<InfoTip text="Last twelve months of total commission and fee income. This is the base that your valuation multiple is applied to." /></Label>
+            <Label htmlFor="revLTM" className="text-sm text-muted-foreground">{requiredStar("Annual Revenue (LTM)")}<InfoTip text="Your total commission and fee income for the last 12 months. Include all revenue sources. This is the number your valuation multiple gets applied to." /></Label>
             <SmartInput id="revLTM" inputType="currency" placeholder="e.g. 1500000" value={inputs.revenueLTM} onValueChange={(v) => update({ revenueLTM: v })} className={`mt-1.5 ${fieldBorder("revenueLTM")}`} />
             {isInvalid("revenueLTM") && <p className="mt-1 text-xs text-destructive">Revenue is required for valuation</p>}
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <Label htmlFor="revY2" className="text-sm text-muted-foreground">Revenue Y-2<InfoTip text="Prior year revenue helps determine your growth trend. Consistent growth commands higher multiples." /></Label>
+              <Label htmlFor="revY2" className="text-sm text-muted-foreground">Revenue Y-2<InfoTip text="Your total revenue from the year before last. Used alongside current revenue to calculate your growth trend." /></Label>
               <SmartInput id="revY2" inputType="currency" placeholder="Prior year" value={inputs.revenueY2} onValueChange={(v) => update({ revenueY2: v })} className="mt-1.5" />
             </div>
             <div>
@@ -193,7 +193,7 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
             </div>
           </div>
           <div id="field-sdeEbitda">
-            <Label htmlFor="sde" className="text-sm text-muted-foreground">{requiredStar("SDE / EBITDA")}<InfoTip text="Seller's Discretionary Earnings -- what the owner actually takes home. Buyers use this to determine if the deal cash-flows after debt service." /></Label>
+            <Label htmlFor="sde" className="text-sm text-muted-foreground">{requiredStar("SDE / EBITDA")}<InfoTip text="Seller's Discretionary Earnings: net income plus owner compensation, non-recurring expenses, and depreciation. It shows what an owner actually takes home from the business." /></Label>
             <SmartInput id="sde" inputType="currency" placeholder="e.g. 400000" value={inputs.sdeEbitda} onValueChange={(v) => update({ sdeEbitda: v })} className={`mt-1.5 ${fieldBorder("sdeEbitda")}`} />
             <p className="mt-1 text-xs text-muted-foreground/70">
               {"Net Income + Owner Comp + Non-Recurring Expenses + Depreciation"}
@@ -212,18 +212,18 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div id="field-retentionRate">
-            <Label htmlFor="retention" className="text-sm text-muted-foreground">{requiredStar("Retention Rate (%)")}<InfoTip text="The single most important metric for buyers. High retention means predictable recurring revenue and lower integration risk." /></Label>
+            <Label htmlFor="retention" className="text-sm text-muted-foreground">{requiredStar("Retention Rate (%)")}<InfoTip text="The percentage of clients who renew each year. Check your management system for your actual renewal rate. This is one of the most heavily weighted factors in your valuation." /></Label>
             <SmartInput id="retention" inputType="percent" placeholder="e.g. 92" value={inputs.retentionRate} onValueChange={(v) => update({ retentionRate: v })} className={`mt-1.5 ${fieldBorder("retentionRate")}`} />
             {isInvalid("retentionRate") && <p className="mt-1 text-xs text-destructive">Retention rate is required</p>}
           </div>
           <div id="field-policyMix">
-            <Label htmlFor="policyMix" className="text-sm text-muted-foreground">{requiredStar("Commercial Lines Mix (%)")}<InfoTip text="Commercial lines generally carry higher premiums and better retention. A heavier commercial mix is valued more favorably." /></Label>
+            <Label htmlFor="policyMix" className="text-sm text-muted-foreground">{requiredStar("Commercial Lines Mix (%)")}<InfoTip text="What percentage of your total written premium comes from commercial lines vs. personal lines? Enter as a whole number (e.g. 60 for 60% commercial)." /></Label>
             <SmartInput id="policyMix" inputType="percent" placeholder="e.g. 60" value={inputs.policyMix} onValueChange={(v) => update({ policyMix: v })} className={`mt-1.5 ${fieldBorder("policyMix")}`} />
             <p className="mt-1 text-xs text-muted-foreground/70">% of premium that is Commercial Lines</p>
             {isInvalid("policyMix") && <p className="mt-0.5 text-xs text-destructive">Policy mix is required</p>}
           </div>
           <div id="field-clientConcentration">
-            <Label htmlFor="concentration" className="text-sm text-muted-foreground">{requiredStar("Client Concentration (%)")}<InfoTip text="If a few large clients make up most of your revenue, the buyer faces significant risk if any of them leave after the sale." /></Label>
+            <Label htmlFor="concentration" className="text-sm text-muted-foreground">{requiredStar("Client Concentration (%)")}<InfoTip text="What share of your total revenue comes from your 10 largest clients? High concentration means more risk if a key account leaves." /></Label>
             <SmartInput id="concentration" inputType="percent" placeholder="e.g. 15" value={inputs.clientConcentration} onValueChange={(v) => update({ clientConcentration: v })} className={`mt-1.5 ${fieldBorder("clientConcentration")}`} />
             <p className="mt-1 text-xs text-muted-foreground/70">% of revenue from your top 10 clients</p>
             {isInvalid("clientConcentration") && <p className="mt-0.5 text-xs text-destructive">Client concentration is required</p>}
@@ -240,12 +240,12 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div>
-            <Label htmlFor="carrierDiv" className="text-sm text-muted-foreground">Carrier Diversification (%)<InfoTip text="Heavy dependence on one carrier is risky. If they change terms or drop you, a large portion of revenue is at stake." /></Label>
+            <Label htmlFor="carrierDiv" className="text-sm text-muted-foreground">Carrier Diversification (%)<InfoTip text="What percentage of your total premium is placed with your single largest carrier? Lower means a more diversified book." /></Label>
             <SmartInput id="carrierDiv" inputType="percent" placeholder="% from top carrier" value={inputs.carrierDiversification} onValueChange={(v) => update({ carrierDiversification: v })} className="mt-1.5" />
             <p className="mt-1 text-xs text-muted-foreground/70">% of premium from your single largest carrier</p>
           </div>
           <div>
-            <Label htmlFor="rpe" className="text-sm text-muted-foreground">Revenue Per Employee ($)<InfoTip text="A measure of operational efficiency. Higher RPE means leaner operations and more profit per head." /></Label>
+            <Label htmlFor="rpe" className="text-sm text-muted-foreground">Revenue Per Employee ($)<InfoTip text="Your annual revenue divided by your employee count. If you entered both above, we can calculate this for you. Industry average is around $150K-$200K." /></Label>
             <SmartInput id="rpe" inputType="currency" placeholder="e.g. 175000" value={inputs.revenuePerEmployee} onValueChange={(v) => update({ revenuePerEmployee: v })} className="mt-1.5" />
           </div>
           <div>
@@ -266,7 +266,7 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div>
-              <Label className="mb-2 block text-sm text-muted-foreground">Closing Timeline<InfoTip text="Urgency to close can signal distress to buyers and may result in lower offers." /></Label>
+              <Label className="mb-2 block text-sm text-muted-foreground">Closing Timeline<InfoTip text="How quickly are you looking to complete the sale? Urgent means under 60 days, Standard is 3-6 months, Long is 6+ months." /></Label>
               <RadioGroup value={inputs.closingTimeline} onValueChange={(v) => update({ closingTimeline: v })} className="flex flex-col gap-2 sm:flex-row sm:gap-4">
                 {[
                   { value: "urgent", label: "Urgent (<60 days)" },
@@ -291,7 +291,7 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
               </div>
             </div>
             <div>
-              <Label className="mb-2 block text-sm text-muted-foreground">Staff Retention Risk<InfoTip text="Buyers need the team to stay through the transition. Contracts and good culture reduce this risk significantly." /></Label>
+              <Label className="mb-2 block text-sm text-muted-foreground">Staff Retention Risk<InfoTip text="How likely is your staff to stay through and after a transition? Secure means they have employment contracts, High Risk means key people may leave." /></Label>
               <RadioGroup value={inputs.staffRetentionRisk} onValueChange={(v) => update({ staffRetentionRisk: v })} className="flex flex-col gap-2 sm:flex-row sm:gap-4">
                 {[
                   { value: "secure", label: "Secure (Contracts)" },
@@ -307,11 +307,11 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label htmlFor="newBiz" className="text-sm text-muted-foreground">Monthly New Business Value ($)<InfoTip text="Active new business production proves the agency is not just coasting on renewals." /></Label>
+                <Label htmlFor="newBiz" className="text-sm text-muted-foreground">Monthly New Business Value ($)<InfoTip text="Average monthly premium from brand new policies written. This shows whether the agency is actively growing or just maintaining renewals." /></Label>
                 <SmartInput id="newBiz" inputType="currency" placeholder="e.g. 25000" value={inputs.newBusinessValue} onValueChange={(v) => update({ newBusinessValue: v })} className="mt-1.5" />
               </div>
               <div>
-                <Label htmlFor="clientTenure" className="text-sm text-muted-foreground">Avg Client Tenure (years)<InfoTip text="Longer client relationships indicate loyalty and reduce churn risk post-acquisition." /></Label>
+                <Label htmlFor="clientTenure" className="text-sm text-muted-foreground">Avg Client Tenure (years)<InfoTip text="On average, how many years have your clients been with your agency? Longer tenure suggests loyalty and lower churn risk." /></Label>
                 <SmartInput id="clientTenure" inputType="count" placeholder="e.g. 8" value={inputs.avgClientTenure} onValueChange={(v) => update({ avgClientTenure: v })} className="mt-1.5" max={99} />
               </div>
             </div>
