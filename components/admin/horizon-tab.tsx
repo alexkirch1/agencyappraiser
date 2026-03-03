@@ -1014,31 +1014,22 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
               const unmatchedPolicies = policyNumbers.size - matchedPolicies
               const matchRate = policyNumbers.size > 0 ? ((matchedPolicies / policyNumbers.size) * 100) : 0
 
-              // Retention: policies with type containing "renew" or effective date in past
-              let renewals = 0
-              let newBiz = 0
-              activePolicies.forEach(row => {
-                const typeStr = typeIdx >= 0 ? String(row[typeIdx]).toLowerCase() : ""
-                if (typeStr.includes("renew") || typeStr.includes("ren") || typeStr.includes("renewal")) {
-                  renewals++
-                } else if (typeStr.includes("new") || typeStr.includes("nb") || typeStr.includes("new business")) {
-                  newBiz++
-                }
-              })
-              // If no type data, estimate from effective dates
-              if (renewals === 0 && newBiz === 0 && effIdx >= 0) {
-                const now = new Date()
-                const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
-                activePolicies.forEach(row => {
-                  const effDate = new Date(row[effIdx])
-                  if (!isNaN(effDate.getTime())) {
-                    if (effDate > oneYearAgo) newBiz++
-                    else renewals++
-                  }
-                })
-              }
-              const retentionRate = (renewals + newBiz) > 0 ? ((renewals / (renewals + newBiz)) * 100) : 0
-              const newPolicyRate = (renewals + newBiz) > 0 ? ((newBiz / (renewals + newBiz)) * 100) : 0
+              // Retention Rate: active policies that appear on at least one commission statement.
+              // These are policies we are actively receiving commission on -- they renewed.
+              // In a perfect world this equals the match rate.
+              //
+              // New Policy Rate: active policies that do NOT appear on any commission statement.
+              // These are brand-new accounts that have not yet generated a commission entry.
+              //
+              // Both use the total active policy count as the denominator.
+              const retentionRate = policyNumbers.size > 0
+                ? (matchedPolicies / policyNumbers.size) * 100
+                : 0
+
+              const newPolicyCount = unmatchedPolicies // policies active but not on any statement
+              const newPolicyRate = policyNumbers.size > 0
+                ? (newPolicyCount / policyNumbers.size) * 100
+                : 0
 
               // Total premium
               let totalPrem = 0
@@ -1068,12 +1059,12 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
                       <p className="text-lg font-extrabold text-success">{matchRate.toFixed(1)}%</p>
                       <p className="text-[10px] font-semibold text-muted-foreground">Match Rate</p>
                     </div>
-                    <div className="rounded-lg border border-border bg-card p-3 text-center">
-                      <p className="text-lg font-extrabold text-foreground">{retentionRate > 0 ? retentionRate.toFixed(1) + "%" : "N/A"}</p>
+                    <div className="rounded-lg border border-border bg-card p-3 text-center" title="Active policies that appear on a commission statement — renewed and being paid on">
+                      <p className="text-lg font-extrabold text-success">{retentionRate > 0 ? retentionRate.toFixed(1) + "%" : "N/A"}</p>
                       <p className="text-[10px] font-semibold text-muted-foreground">Retention Rate</p>
                     </div>
-                    <div className="rounded-lg border border-border bg-card p-3 text-center">
-                      <p className="text-lg font-extrabold text-foreground">{newPolicyRate > 0 ? newPolicyRate.toFixed(1) + "%" : "N/A"}</p>
+                    <div className="rounded-lg border border-border bg-card p-3 text-center" title="Active policies with no matching commission statement — new accounts not yet on a statement">
+                      <p className="text-lg font-extrabold text-primary">{newPolicyRate > 0 ? newPolicyRate.toFixed(1) + "%" : "N/A"}</p>
                       <p className="text-[10px] font-semibold text-muted-foreground">New Policy Rate</p>
                     </div>
                     <div className="rounded-lg border border-border bg-card p-3 text-center">
