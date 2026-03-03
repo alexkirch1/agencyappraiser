@@ -10,6 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Button } from "@/components/ui/button"
 import { ValuationDisclaimerModal } from "@/components/valuation-disclaimer-modal"
 import { ArrowRight, Calculator, Zap, DollarSign } from "lucide-react"
+import { InfoTip } from "@/components/ui/info-tip"
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -67,7 +68,7 @@ export default function QuickValuePage() {
           <Card className="border border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold text-foreground">
-                1. What is your annual revenue?
+                1. What is your annual revenue?<InfoTip text="Total commission and fee income for the last 12 months. This is the foundation of your valuation." />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -89,7 +90,7 @@ export default function QuickValuePage() {
           <Card className="border border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold text-foreground">
-                2. How is your client retention?
+                2. How is your client retention?<InfoTip text="Retention drives recurring revenue. Excellent retention significantly increases what buyers will pay." />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -119,7 +120,7 @@ export default function QuickValuePage() {
           <Card className="border border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold text-foreground">
-                3. What does your book primarily consist of?
+                3. What does your book primarily consist of?<InfoTip text="Commercial-heavy books command higher multiples due to larger premiums and stickier accounts." />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -149,7 +150,7 @@ export default function QuickValuePage() {
           <Card className="border border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold text-foreground">
-                Adjust Your Multiplier
+                Adjust Your Multiplier<InfoTip text="The revenue multiple is what a buyer pays per dollar of your revenue. Most agencies trade between 1.5x and 2.5x." />
               </CardTitle>
               <p className="text-xs text-muted-foreground">
                 Drag the slider to adjust the revenue multiple.
