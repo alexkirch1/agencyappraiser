@@ -32,18 +32,25 @@ function naturalRound(value: number): number {
 
 type Tier = "high" | "average" | "below"
 
-function getTier(retention: string, bookType: string, revenue: number | null, growth: string): Tier {
+function getTier(retention: string, bookType: string, revenue: number | null, growth: string, ratio?: number | null): Tier {
   let score = 0
-  if (retention === "high") score += 2
+  if (retention === "high")         score += 2
   else if (retention === "average") score += 1
-  if (bookType === "commercial") score += 2
-  else if (bookType === "mixed") score += 1
+  else if (retention === "low")     score -= 1
+  if (bookType === "commercial")    score += 2
+  else if (bookType === "mixed")    score += 1
+  else if (bookType === "personal") score -= 1
   if (revenue && revenue > 1_000_000) score += 1
-  if (growth === "strong") score += 2
-  else if (growth === "moderate") score += 1
-  else if (growth === "declining") score -= 1
+  if (growth === "strong")          score += 2
+  else if (growth === "moderate")   score += 1
+  else if (growth === "flat")       score -= 1
+  else if (growth === "declining")  score -= 2
+  if (ratio !== null && ratio !== undefined) {
+    if (ratio > 1.75)      score += 1
+    else if (ratio < 1.33) score -= 1
+  }
   if (score >= 5) return "high"
-  if (score >= 2) return "average"
+  if (score >= 1) return "average"
   return "below"
 }
 
@@ -97,40 +104,62 @@ export default function QuickValuePage() {
   const estimate = useMemo(() => {
     if (!revenue || revenue <= 0) return null
 
-    // Build suggested multiplier with realistic fractional offsets
-    let suggested = 1.83
-    if (retention === "high") suggested += 0.38
-    else if (retention === "average") suggested += 0.09
-    else if (retention === "low") suggested -= 0.27
-    if (bookType === "commercial") suggested += 0.22
-    else if (bookType === "mixed") suggested += 0.06
-    else if (bookType === "personal") suggested -= 0.13
-    if (growth === "strong") suggested += 0.31
-    else if (growth === "moderate") suggested += 0.09
-    else if (growth === "flat") suggested -= 0.08
-    else if (growth === "declining") suggested -= 0.29
-    // Small revenue-tier offset so it never snaps to a round number
-    const revTier = revenue > 2_000_000 ? 0.07 : revenue > 500_000 ? 0.03 : -0.04
-    suggested += revTier
-    suggested = Math.max(0.75, Math.min(3.0, parseFloat(suggested.toFixed(2))))
+    // --- Suggested multiplier ---
+    // Designed so a truly poor agency lands below 1x and a top-tier agency
+    // reaches 2.0x+. Each category contributes a realistic spread.
+    //
+    // Baseline: 1.09 (middle-of-road, unanswered)
+    //
+    // Retention:   high=+0.41  average=+0.12  low=-0.31
+    // Book type:   commercial=+0.29  mixed=+0.07  personal=-0.18
+    // Growth:      strong=+0.33  moderate=+0.10  flat=-0.09  declining=-0.34
+    // Ratio:       good(>1.75)=+0.12  bad(<1.33)=-0.16
+    //
+    // Worst case:  1.09 - 0.31 - 0.18 - 0.34 - 0.16 = 0.10  (floor 0.78 after clamp)
+    // Best case:   1.09 + 0.41 + 0.29 + 0.33 + 0.12 = 2.24  (ceil 2.3 after rev bump)
 
-    // Central value -- natural rounding so it looks precise, not manufactured
-    const value = naturalRound(revenue * multiplier)
-
-    // Low end: slightly below 1x revenue; high end: slightly above 2x.
-    // Small per-agency variance keeps numbers from feeling templated.
-    const lowMult  = 0.91 + ((revenue % 13) / 13) * 0.06   // ~0.91x – 0.97x
-    const highMult = 2.07 + ((revenue % 11) / 11) * 0.11   // ~2.07x – 2.18x
-    const lowValue  = naturalRound(revenue * lowMult)
-    const highValue = naturalRound(revenue * highMult)
-
-    const tier = getTier(retention, bookType, revenue, growth)
-    const gap  = getFullValGap(retention, bookType, growth)
-
-    // Policies-per-customer ratio
     const ratio = (customers && policies && customers > 0)
       ? parseFloat((policies / customers).toFixed(2))
       : null
+
+    let suggested = 1.09
+    if (retention === "high")          suggested += 0.41
+    else if (retention === "average")  suggested += 0.12
+    else if (retention === "low")      suggested -= 0.31
+
+    if (bookType === "commercial")     suggested += 0.29
+    else if (bookType === "mixed")     suggested += 0.07
+    else if (bookType === "personal")  suggested -= 0.18
+
+    if (growth === "strong")           suggested += 0.33
+    else if (growth === "moderate")    suggested += 0.10
+    else if (growth === "flat")        suggested -= 0.09
+    else if (growth === "declining")   suggested -= 0.34
+
+    if (ratio !== null) {
+      if (ratio > 1.75)      suggested += 0.12
+      else if (ratio < 1.33) suggested -= 0.16
+    }
+
+    // Small revenue-tier micro-offset so it never snaps to a round number
+    const revOffset = revenue > 2_000_000 ? 0.07 : revenue > 500_000 ? 0.03 : -0.04
+    suggested += revOffset
+
+    suggested = Math.max(0.78, Math.min(3.0, parseFloat(suggested.toFixed(2))))
+
+    // Central value
+    const value = naturalRound(revenue * multiplier)
+
+    // Range: low/high are derived from suggested, not a fixed spread.
+    // Low is ~15-18% below suggested (always risks going sub-1x for weak agencies).
+    // High is ~18-24% above suggested (top agencies comfortably clear 2x).
+    const lowSpread  = 0.15 + ((revenue % 13) / 13) * 0.03
+    const highSpread = 0.18 + ((revenue % 11) / 11) * 0.06
+    const lowValue   = naturalRound(revenue * Math.max(0.75, suggested * (1 - lowSpread)))
+    const highValue  = naturalRound(revenue * Math.min(3.0,  suggested * (1 + highSpread)))
+
+    const tier = getTier(retention, bookType, revenue, growth, ratio)
+    const gap  = getFullValGap(retention, bookType, growth)
 
     return { value, lowValue, highValue, suggested, tier, gap, ratio }
   }, [revenue, retention, bookType, multiplier, customers, policies, growth])
@@ -401,7 +430,7 @@ export default function QuickValuePage() {
                         <span className="font-mono text-sm font-bold text-foreground">
                           {estimate.ratio.toFixed(2)}
                           <span className="ml-1 text-[10px] font-normal text-muted-foreground">
-                            {estimate.ratio >= 2.0 ? "— strong cross-sell" : estimate.ratio >= 1.4 ? "— avg" : "— growth opportunity"}
+                            {estimate.ratio > 1.75 ? "— strong cross-sell" : estimate.ratio >= 1.33 ? "— average" : "— growth opportunity"}
                           </span>
                         </span>
                       </div>
