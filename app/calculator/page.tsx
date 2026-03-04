@@ -81,6 +81,7 @@ export default function CalculatorPage() {
   const [unlocked, setUnlocked] = useState(false)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
   const [triedSubmit, setTriedSubmit] = useState(false)
+  const [leadId, setLeadId] = useState<number | null>(null)
 
   // Pre-fill revenue from URL param if navigated from quick-value
   useEffect(() => {
@@ -122,17 +123,44 @@ export default function CalculatorPage() {
     }
   }
 
-  const handleLeadSubmit = () => {
-    setUnlocked(true)
-    setShowLeadCapture(false)
-    setShowDisclaimer(true)
-    try { sessionStorage.setItem("fullCalcCompleted", "true") } catch {}
+  const saveFullValuation = async (id: number | null, calcResults: ReturnType<typeof calculateValuation> | null) => {
+    try {
+      await fetch("/api/save-full-valuation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leadId: id,
+          inputs,
+          results: calcResults ? {
+            lowOffer: calcResults.lowOffer,
+            highOffer: calcResults.highOffer,
+            coreScore: calcResults.coreScore,
+            calculatedMultiple: calcResults.multiple,
+            riskGrade: calcResults.riskGrade,
+          } : null,
+        }),
+      })
+    } catch (err) {
+      console.error("[v0] save-full-valuation failed:", err)
+    }
   }
 
-  const handleDisclaimerContinue = () => {
+  const handleLeadSubmit = async (_leadData: { name: string; email: string; phone: string; agencyName: string }, returnedLeadId?: number | null) => {
+    setUnlocked(true)
+    setShowLeadCapture(false)
+    if (returnedLeadId) setLeadId(returnedLeadId)
+    try { sessionStorage.setItem("fullCalcCompleted", "true") } catch {}
+    setShowDisclaimer(true)
+  }
+
+  const handleDisclaimerContinue = async () => {
     setShowDisclaimer(false)
     setSubmitted(true)
     setEditing(false)
+    // Calculate results then save to DB
+    const calcResults = calculateValuation(inputs)
+    const currentLeadId = leadId
+    saveFullValuation(currentLeadId, calcResults)
     setTimeout(() => {
       const el = document.getElementById("valuation-results")
       if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })

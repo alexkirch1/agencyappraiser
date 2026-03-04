@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import sql from "@/lib/db"
 
 const PIPEDRIVE_TOKEN = process.env.PIPEDRIVE_API_TOKEN
 const PIPEDRIVE_DOMAIN = "rocky" // your Pipedrive subdomain
@@ -285,10 +286,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Name and email are required" }, { status: 400 })
     }
 
-    const results: { pipedrive: boolean; email: boolean; dealId: number | null } = {
+    const results: { pipedrive: boolean; email: boolean; dealId: number | null; leadId: number | null } = {
       pipedrive: false,
       email: false,
       dealId: null,
+      leadId: null,
+    }
+
+    // Save lead to Neon
+    try {
+      const rows = await sql`
+        INSERT INTO leads (name, email, phone, agency_name, tool_used, estimated_value)
+        VALUES (${name}, ${email}, ${phone || null}, ${agencyName || null}, ${toolUsed || null}, ${estimatedValue || null})
+        RETURNING id
+      `
+      results.leadId = rows[0]?.id ?? null
+    } catch (err) {
+      console.error("[v0] Neon lead insert failed:", err)
     }
 
     // 1. Create Pipedrive person + deal
@@ -341,6 +355,10 @@ export async function POST(req: Request) {
         if (dealId) {
           results.pipedrive = true
           results.dealId = dealId
+          // Backfill Pipedrive deal ID on the lead row
+          if (results.leadId) {
+            await sql`UPDATE leads SET pipedrive_deal_id = ${dealId} WHERE id = ${results.leadId}`.catch(() => {})
+          }
         }
       }
     }
@@ -356,7 +374,7 @@ export async function POST(req: Request) {
     })
     results.email = true
 
-    return NextResponse.json({ success: true, ...results })
+    return NextResponse.json({ success: true, ...results, leadId: results.leadId })
   } catch (err) {
     console.error("[v0] Lead submission error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

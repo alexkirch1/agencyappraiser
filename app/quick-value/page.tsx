@@ -508,9 +508,34 @@ export default function QuickValuePage() {
 
       {showDisclaimer && (
         <ValuationDisclaimerModal
-          onContinue={() => {
+          onContinue={async () => {
             setShowDisclaimer(false)
             setResultsVisible(true)
+            // Save to DB silently (no lead required for quick val)
+            if (estimate) {
+              try {
+                await fetch("/api/save-quick-valuation", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    leadId: null,
+                    revenue,
+                    retention,
+                    bookType,
+                    growth,
+                    customers,
+                    policies,
+                    ratio: estimate.ratio,
+                    multiplier,
+                    suggested: estimate.suggested,
+                    lowValue: estimate.lowValue,
+                    midValue: estimate.value,
+                    highValue: estimate.highValue,
+                    tier: estimate.tier,
+                  }),
+                })
+              } catch { /* non-blocking */ }
+            }
           }}
         />
       )}

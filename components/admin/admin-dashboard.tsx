@@ -1,12 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { LogOut, Sun, Moon, BarChart3, FolderKanban, Settings } from "lucide-react"
+import { LogOut, Sun, Moon, BarChart3, FolderKanban, Settings, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/theme-provider"
 import { OverviewTab } from "@/components/admin/overview-tab"
 import { HorizonTab } from "@/components/admin/horizon-tab"
 import { SettingsTab } from "@/components/admin/settings-tab"
+import { LeadsTab } from "@/components/admin/leads-tab"
 import { cn } from "@/lib/utils"
 
 export interface Deal {
@@ -26,6 +27,7 @@ interface AdminDashboardProps {
 
 const tabs = [
   { id: "overview", label: "Overview", icon: BarChart3 },
+  { id: "leads", label: "Leads", icon: Users },
   { id: "horizon", label: "Horizon Pipeline", icon: FolderKanban },
   { id: "settings", label: "Settings", icon: Settings },
 ] as const
@@ -129,6 +131,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               console.log("Load deal:", id)
             }}
           />
+        )}
+        {activeTab === "leads" && (
+          <LeadsTab />
         )}
         {activeTab === "horizon" && (
           <HorizonTab deals={deals} onSaveDeal={addDeal} onUpdateDeal={updateDeal} />

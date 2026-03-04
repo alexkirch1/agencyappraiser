@@ -145,10 +145,39 @@ export function QuizEngine() {
     setAnswers(newAnswers)
   }
 
+  const saveQuizResults = async (score: number, max: number, pct: number, grade: string, answersArr: (number | null)[]) => {
+    try {
+      const answerPayload = questions.map((q, i) => ({
+        category: q.category,
+        question: q.question,
+        answer: answersArr[i] ?? 0,
+        score: answersArr[i] ?? 0,
+      }))
+      await fetch("/api/save-quiz", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leadId: null,
+          totalScore: score,
+          maxScore: max,
+          percentage: pct,
+          grade,
+          answers: answerPayload,
+        }),
+      })
+    } catch { /* non-blocking */ }
+  }
+
   const goNext = () => {
     if (currentQ < questions.length - 1) {
       setCurrentQ(currentQ + 1)
     } else {
+      // Save before showing results
+      const finalScore = answers.reduce<number>((sum, a) => sum + (a ?? 0), 0)
+      const max = questions.length * 10
+      const pct = Math.round((finalScore / max) * 100)
+      const { label } = getGrade(pct)
+      saveQuizResults(finalScore, max, pct, label, answers)
       setShowResults(true)
     }
   }

@@ -15,7 +15,7 @@ interface LeadData {
 }
 
 interface Props {
-  onSubmit: (data: LeadData) => void
+  onSubmit: (data: LeadData, leadId?: number | null) => void
   onClose?: () => void
   title?: string
   description?: string
@@ -58,9 +58,10 @@ export function LeadCaptureModal({
     setSubmitting(true)
     const leadData: LeadData = { name, email, phone, agencyName }
 
-    // Fire API call to Pipedrive + email (non-blocking for the user)
+    // Fire API call to Pipedrive + email, capture leadId for DB linking
+    let returnedLeadId: number | null = null
     try {
-      await fetch("/api/submit-lead", {
+      const res = await fetch("/api/submit-lead", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -71,13 +72,14 @@ export function LeadCaptureModal({
           valuationData,
         }),
       })
+      const json = await res.json()
+      returnedLeadId = json.leadId ?? null
     } catch {
-      // Silently fail - don't block the user from seeing their valuation
       console.error("[v0] Lead API call failed, continuing anyway")
     }
 
     setSubmitting(false)
-    onSubmit(leadData)
+    onSubmit(leadData, returnedLeadId)
   }
 
   return (
