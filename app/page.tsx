@@ -30,10 +30,10 @@ const tools = [
     tag: "Most Popular",
   },
   {
-    href: "/quiz",
+    href: "/carrier",
     icon: Target,
-    title: "Readiness Quiz",
-    description: "10-question scored assessment to evaluate if you and your agency are ready for an exit.",
+    title: "Carrier Report",
+    description: "Value a specific carrier book of business. Upload your carrier report or enter metrics directly to get a carrier-specific estimate.",
     accent: "text-[hsl(var(--chart-4))]",
     accentBg: "bg-[hsl(var(--chart-4))]/10",
     tag: null,
@@ -86,7 +86,7 @@ export default function HomePage() {
       {/* Tools */}
       <section className="mx-auto w-full max-w-5xl px-4 py-16 lg:px-8">
         <h2 className="mb-2 text-center text-2xl font-bold tracking-tight text-foreground md:text-3xl">
-          Valuation &amp; Readiness Tools
+          Agency Valuation Tools
         </h2>
         <p className="mx-auto mb-10 max-w-xl text-center text-sm text-muted-foreground">
           Everything you need to value, evaluate, and prepare your agency for a successful transaction.
@@ -154,7 +154,7 @@ export default function HomePage() {
             {[
               { n: "1", title: "Quick Estimate", desc: "Start with our 60-second Quick Valuation to see a ballpark range." },
               { n: "2", title: "Go Deeper", desc: "Run the full 7-category calculator with risk audit and deal simulator." },
-              { n: "3", title: "Prepare to Sell", desc: "Use the readiness quiz and scorecard to get deal-ready." },
+              { n: "3", title: "Drill Into Carriers", desc: "Use the Carrier Report to value individual books of business by carrier with upload-and-parse reporting." },
             ].map((step) => (
               <div key={step.n} className="flex flex-col items-center text-center">
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-primary/30 bg-primary/5 text-xl font-bold text-primary">
