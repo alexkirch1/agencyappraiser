@@ -81,13 +81,15 @@ const TIER_MESSAGES: Record<Tier, { icon: React.ReactNode; color: string; bg: st
 // How much more detail the full valuation adds -- expressed as a percentage
 // based on how many of the 7 categories the quick inputs touch.
 function getFullValGap(retention: string, bookType: string, growth: string): number {
-  // Quick val covers ~2 of 7 categories. Each answered input narrows the gap slightly.
-  let covered = 2
-  if (retention) covered += 0.5
-  if (bookType)  covered += 0.5
-  if (growth)    covered += 0.5
-  const gap = Math.round(((7 - covered) / 7) * 100)
-  return gap
+  // Full calc has 20+ inputs across 7 categories; quick val touches 5.
+  // Each answered question here covers ~1 of the 20 data points.
+  let answeredPoints = 1 // revenue is always provided
+  if (retention) answeredPoints += 1
+  if (bookType)  answeredPoints += 1
+  if (growth)    answeredPoints += 1
+  const FULL_CALC_POINTS = 20
+  const gap = Math.round(((FULL_CALC_POINTS - answeredPoints) / FULL_CALC_POINTS) * 100)
+  return Math.max(gap, 75) // always at least 75% more to analyze
 }
 
 export default function QuickValuePage() {
@@ -454,7 +456,7 @@ export default function QuickValuePage() {
                         of your agency than this estimate alone can show.
                       </p>
                       <Button asChild size="sm" variant="outline" className="w-full mt-2 gap-1.5 text-xs">
-                        <Link href="/calculator">
+                        <Link href={`/calculator${revenue ? `?rev=${revenue}` : ""}`}>
                           Run Full Valuation <ArrowRight className="h-3 w-3" />
                         </Link>
                       </Button>
@@ -492,7 +494,7 @@ export default function QuickValuePage() {
                       </p>
                     </div>
                     <Button asChild className="w-full gap-2" size="sm">
-                      <Link href="/calculator">
+                      <Link href={`/calculator${revenue ? `?rev=${revenue}` : ""}`}>
                         Detailed Valuation <ArrowRight className="h-4 w-4" />
                       </Link>
                     </Button>

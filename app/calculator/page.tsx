@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { ValuationForm } from "@/components/calculator/valuation-form"
 import { ValuationSidebar } from "@/components/calculator/valuation-sidebar"
 import { LeadCaptureModal } from "@/components/lead-capture-modal"
@@ -10,7 +11,7 @@ import { RiskAudit } from "@/components/calculator/risk-audit"
 import { calculateValuation, runRiskAudit, type ValuationInputs } from "@/components/calculator/valuation-engine"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Lock, Unlock, AlertCircle, ClipboardCheck, ArrowRight } from "lucide-react"
+import { Lock, Unlock, AlertCircle, ClipboardCheck, ArrowRight, Pencil } from "lucide-react"
 import Link from "next/link"
 
 const defaultInputs: ValuationInputs = {
@@ -64,13 +65,33 @@ function getInvalidFieldKeys(inputs: ValuationInputs): string[] {
 }
 
 export default function CalculatorPage() {
-  const [inputs, setInputs] = useState<ValuationInputs>(defaultInputs)
+  const searchParams = useSearchParams()
+  const [inputs, setInputs] = useState<ValuationInputs>(() => {
+    const rev = searchParams.get("rev")
+    if (rev) {
+      const n = parseFloat(rev)
+      if (!isNaN(n) && n > 0) return { ...defaultInputs, revenueLTM: n }
+    }
+    return defaultInputs
+  })
   const [submitted, setSubmitted] = useState(false)
+  const [editing, setEditing] = useState(false)
   const [showLeadCapture, setShowLeadCapture] = useState(false)
   const [showDisclaimer, setShowDisclaimer] = useState(false)
   const [unlocked, setUnlocked] = useState(false)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
   const [triedSubmit, setTriedSubmit] = useState(false)
+
+  // Pre-fill revenue from URL param if navigated from quick-value
+  useEffect(() => {
+    const rev = searchParams.get("rev")
+    if (rev) {
+      const n = parseFloat(rev)
+      if (!isNaN(n) && n > 0) {
+        setInputs(prev => prev.revenueLTM ? prev : { ...prev, revenueLTM: n })
+      }
+    }
+  }, [searchParams])
 
   const results = useMemo(() => {
     if (!submitted) return null
@@ -94,7 +115,7 @@ export default function CalculatorPage() {
     }
     setValidationErrors([])
     if (unlocked) {
-      // Already unlocked: show disclaimer loading, then results
+      // Already unlocked (first submit or resubmit after edit)
       setShowDisclaimer(true)
     } else {
       setShowLeadCapture(true)
@@ -104,23 +125,21 @@ export default function CalculatorPage() {
   const handleLeadSubmit = () => {
     setUnlocked(true)
     setShowLeadCapture(false)
-    // Show disclaimer after lead capture
     setShowDisclaimer(true)
-    // Unlock the Seller Scorecard for this session
     try { sessionStorage.setItem("fullCalcCompleted", "true") } catch {}
   }
 
   const handleDisclaimerContinue = () => {
     setShowDisclaimer(false)
     setSubmitted(true)
-    // Scroll to results
+    setEditing(false)
     setTimeout(() => {
       const el = document.getElementById("valuation-results")
       if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
     }, 100)
   }
 
-  const invalidKeys = triedSubmit ? getInvalidFieldKeys(inputs) : []
+  const invalidKeys = (triedSubmit && (!submitted || editing)) ? getInvalidFieldKeys(inputs) : []
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
@@ -135,21 +154,39 @@ export default function CalculatorPage() {
       <div className="flex flex-col gap-8 lg:flex-row">
         {/* Form (left) */}
         <div className="w-full lg:w-[60%]">
-          <ValuationForm
-            inputs={inputs}
-            onChange={(newInputs) => {
-              setInputs(newInputs)
-              if (submitted) setSubmitted(false)
-              if (triedSubmit) {
-                const stillMissing = getMissingFields(newInputs)
-                setValidationErrors(stillMissing)
-              }
-            }}
-            invalidFields={invalidKeys}
-          />
+
+          {/* Submitted + locked banner */}
+          {submitted && !editing && (
+            <div className="mb-4 flex items-center justify-between rounded-lg border border-border bg-secondary/40 px-4 py-3">
+              <p className="text-sm text-muted-foreground">Your inputs are locked. Edit to make changes and resubmit.</p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 shrink-0 ml-4"
+                onClick={() => setEditing(true)}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit
+              </Button>
+            </div>
+          )}
+
+          <div className={submitted && !editing ? "pointer-events-none opacity-60 select-none" : ""}>
+            <ValuationForm
+              inputs={inputs}
+              onChange={(newInputs) => {
+                setInputs(newInputs)
+                if (triedSubmit) {
+                  const stillMissing = getMissingFields(newInputs)
+                  setValidationErrors(stillMissing)
+                }
+              }}
+              invalidFields={invalidKeys}
+            />
+          </div>
 
           {/* Validation Errors */}
-          {validationErrors.length > 0 && (
+          {validationErrors.length > 0 && editing && (
             <div className="mt-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
               <div className="flex items-start gap-3">
                 <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
@@ -165,27 +202,51 @@ export default function CalculatorPage() {
             </div>
           )}
 
-          {/* Submit Button */}
-          <div className="mt-6">
-            <Button onClick={handleSubmit} size="lg" className="w-full gap-2 text-base">
-              {unlocked ? (
-                <>
-                  <Unlock className="h-5 w-5" />
-                  Calculate Valuation
-                </>
-              ) : (
-                <>
-                  <Lock className="h-5 w-5" />
-                  Submit & Unlock Valuation
-                </>
+          {/* Validation errors on first submit (before unlocked) */}
+          {validationErrors.length > 0 && !submitted && (
+            <div className="mt-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+                <div>
+                  <p className="text-sm font-medium text-destructive">Please fill in the following required fields:</p>
+                  <ul className="mt-1.5 list-inside list-disc text-sm text-destructive/80">
+                    {validationErrors.map((field) => (
+                      <li key={field}>{field}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Submit / Resubmit Button */}
+          {(!submitted || editing) && (
+            <div className="mt-6">
+              <Button onClick={handleSubmit} size="lg" className="w-full gap-2 text-base">
+                {editing ? (
+                  <>
+                    <Unlock className="h-5 w-5" />
+                    Resubmit Valuation
+                  </>
+                ) : unlocked ? (
+                  <>
+                    <Unlock className="h-5 w-5" />
+                    Calculate Valuation
+                  </>
+                ) : (
+                  <>
+                    <Lock className="h-5 w-5" />
+                    Submit & Unlock Valuation
+                  </>
+                )}
+              </Button>
+              {!unlocked && !editing && (
+                <p className="mt-2 text-center text-xs text-muted-foreground">
+                  You will be asked for your name and email to view results.
+                </p>
               )}
-            </Button>
-            {!unlocked && (
-              <p className="mt-2 text-center text-xs text-muted-foreground">
-                You will be asked for your name and email to view results.
-              </p>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Sidebar (right) */}
