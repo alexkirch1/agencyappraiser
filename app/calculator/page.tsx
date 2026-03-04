@@ -135,8 +135,8 @@ export default function CalculatorPage() {
             lowOffer: calcResults.lowOffer,
             highOffer: calcResults.highOffer,
             coreScore: calcResults.coreScore,
-            calculatedMultiple: calcResults.multiple,
-            riskGrade: calcResults.riskGrade,
+            calculatedMultiple: calcResults.calculatedMultiple,
+            riskGrade: calcResults.riskLevel?.text ?? null,
           } : null,
         }),
       })
