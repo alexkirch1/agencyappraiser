@@ -32,14 +32,17 @@ function naturalRound(value: number): number {
 
 type Tier = "high" | "average" | "below"
 
-function getTier(retention: string, bookType: string, revenue: number | null): Tier {
+function getTier(retention: string, bookType: string, revenue: number | null, growth: string): Tier {
   let score = 0
   if (retention === "high") score += 2
   else if (retention === "average") score += 1
   if (bookType === "commercial") score += 2
   else if (bookType === "mixed") score += 1
   if (revenue && revenue > 1_000_000) score += 1
-  if (score >= 4) return "high"
+  if (growth === "strong") score += 2
+  else if (growth === "moderate") score += 1
+  else if (growth === "declining") score -= 1
+  if (score >= 5) return "high"
   if (score >= 2) return "average"
   return "below"
 }
@@ -70,14 +73,14 @@ const TIER_MESSAGES: Record<Tier, { icon: React.ReactNode; color: string; bg: st
 
 // How much more detail the full valuation adds -- expressed as a percentage
 // based on how many of the 7 categories the quick inputs touch.
-function getFullValGap(retention: string, bookType: string): number {
-  // Quick val covers ~2 of 7 categories (revenue + book quality/retention).
-  // Each answer the user gave narrows the gap slightly.
+function getFullValGap(retention: string, bookType: string, growth: string): number {
+  // Quick val covers ~2 of 7 categories. Each answered input narrows the gap slightly.
   let covered = 2
   if (retention) covered += 0.5
   if (bookType)  covered += 0.5
+  if (growth)    covered += 0.5
   const gap = Math.round(((7 - covered) / 7) * 100)
-  return gap // e.g. 71%
+  return gap
 }
 
 export default function QuickValuePage() {
@@ -86,6 +89,7 @@ export default function QuickValuePage() {
   const [bookType, setBookType] = useState<string>("")
   const [customers, setCustomers] = useState<number | null>(null)
   const [policies, setPolicies] = useState<number | null>(null)
+  const [growth, setGrowth] = useState<string>("")
   const [multiplier, setMultiplier] = useState(1.95)
   const [showDisclaimer, setShowDisclaimer] = useState(false)
   const [resultsVisible, setResultsVisible] = useState(false)
@@ -101,6 +105,10 @@ export default function QuickValuePage() {
     if (bookType === "commercial") suggested += 0.22
     else if (bookType === "mixed") suggested += 0.06
     else if (bookType === "personal") suggested -= 0.13
+    if (growth === "strong") suggested += 0.31
+    else if (growth === "moderate") suggested += 0.09
+    else if (growth === "flat") suggested -= 0.08
+    else if (growth === "declining") suggested -= 0.29
     // Small revenue-tier offset so it never snaps to a round number
     const revTier = revenue > 2_000_000 ? 0.07 : revenue > 500_000 ? 0.03 : -0.04
     suggested += revTier
@@ -116,8 +124,8 @@ export default function QuickValuePage() {
     const lowValue  = naturalRound(revenue * lowMult)
     const highValue = naturalRound(revenue * highMult)
 
-    const tier = getTier(retention, bookType, revenue)
-    const gap  = getFullValGap(retention, bookType)
+    const tier = getTier(retention, bookType, revenue, growth)
+    const gap  = getFullValGap(retention, bookType, growth)
 
     // Policies-per-customer ratio
     const ratio = (customers && policies && customers > 0)
@@ -125,7 +133,7 @@ export default function QuickValuePage() {
       : null
 
     return { value, lowValue, highValue, suggested, tier, gap, ratio }
-  }, [revenue, retention, bookType, multiplier, customers, policies])
+  }, [revenue, retention, bookType, multiplier, customers, policies, growth])
 
   const tierInfo = estimate ? TIER_MESSAGES[estimate.tier] : null
 
@@ -138,7 +146,7 @@ export default function QuickValuePage() {
         </div>
         <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">Quick Agency Valuation</h1>
         <p className="mt-2 max-w-xl mx-auto text-muted-foreground">
-          Get a fast ballpark estimate of your agency&apos;s value. Answer 3 questions, adjust the multiplier, and see your result instantly.
+          Get a fast ballpark estimate of your agency&apos;s value.           Answer 5 questions, adjust the multiplier, and see your result instantly.
         </p>
       </div>
 
@@ -227,11 +235,46 @@ export default function QuickValuePage() {
             </CardContent>
           </Card>
 
+          {/* Sales Growth */}
+          <Card className="border border-border bg-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold text-foreground">
+                4. How has your revenue trended over the last 3 years?
+                <InfoTip text="Look at your last 3 years of revenue. Strong growth means 10%+ per year. Moderate is 3-9%. Flat means roughly the same each year." />
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RadioGroup
+                value={growth}
+                onValueChange={setGrowth}
+                className="flex flex-col gap-2"
+              >
+                {[
+                  { value: "strong",    label: "Strong Growth",   sub: "10%+ per year"        },
+                  { value: "moderate",  label: "Moderate Growth", sub: "3–9% per year"         },
+                  { value: "flat",      label: "Flat",            sub: "Roughly the same"      },
+                  { value: "declining", label: "Declining",       sub: "Revenue has decreased" },
+                ].map((opt) => (
+                  <label
+                    key={opt.value}
+                    className="flex cursor-pointer items-center gap-3 rounded-lg border border-border px-4 py-3 text-sm text-foreground transition-colors hover:border-muted-foreground/40 has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/5"
+                  >
+                    <RadioGroupItem value={opt.value} />
+                    <span className="flex-1">
+                      <span className="font-medium">{opt.label}</span>
+                      <span className="ml-2 text-muted-foreground text-xs">{opt.sub}</span>
+                    </span>
+                  </label>
+                ))}
+              </RadioGroup>
+            </CardContent>
+          </Card>
+
           {/* Customers & Policies */}
           <Card className="border border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold text-foreground">
-                4. How many customers and policies do you have?
+                5. How many customers and policies do you have?
                 <InfoTip text="Total active customers (households or accounts) and total active policies. We calculate your policies-per-customer ratio, which signals how well-rounded your book is." />
               </CardTitle>
             </CardHeader>
