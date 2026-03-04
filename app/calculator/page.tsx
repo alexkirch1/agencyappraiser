@@ -11,8 +11,9 @@ import { RiskAudit } from "@/components/calculator/risk-audit"
 import { calculateValuation, runRiskAudit, type ValuationInputs } from "@/components/calculator/valuation-engine"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Lock, Unlock, AlertCircle, ClipboardCheck, ArrowRight, Pencil } from "lucide-react"
+import { Lock, Unlock, AlertCircle, ClipboardCheck, ArrowRight, Pencil, Download } from "lucide-react"
 import Link from "next/link"
+import { downloadValuationPDF } from "@/lib/generate-pdf"
 
 const defaultInputs: ValuationInputs = {
   scopeOfSale: null,
@@ -82,6 +83,7 @@ export default function CalculatorPage() {
   const [validationErrors, setValidationErrors] = useState<string[]>([])
   const [triedSubmit, setTriedSubmit] = useState(false)
   const [leadId, setLeadId] = useState<number | null>(null)
+  const [pdfLoading, setPdfLoading] = useState(false)
 
   // Pre-fill revenue from URL param if navigated from quick-value
   useEffect(() => {
@@ -286,9 +288,29 @@ export default function CalculatorPage() {
       {/* Deal Simulator & Risk Audit -- shown below after valuation is complete */}
       {results && (
         <div id="valuation-results" className="mt-12 border-t border-border pt-10">
-          <h2 className="mb-6 text-2xl font-bold tracking-tight text-foreground">
-            Deep Dive: Deal Simulator & Risk Audit
-          </h2>
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">
+              Deep Dive: Deal Simulator & Risk Audit
+            </h2>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 shrink-0"
+              disabled={pdfLoading}
+              onClick={async () => {
+                if (!results) return
+                setPdfLoading(true)
+                try {
+                  await downloadValuationPDF(inputs, results, riskAudit)
+                } finally {
+                  setPdfLoading(false)
+                }
+              }}
+            >
+              <Download className="h-4 w-4" />
+              {pdfLoading ? "Generating..." : "Download PDF Report"}
+            </Button>
+          </div>
           <div className="grid gap-8 lg:grid-cols-2">
             {/* Deal Simulator */}
             <div>

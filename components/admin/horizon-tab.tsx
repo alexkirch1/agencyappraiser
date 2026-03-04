@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SmartInput } from "@/components/ui/smart-input"
 import { Card, CardContent } from "@/components/ui/card"
-import { Plus, Upload, FileText, Search, ChevronLeft, ChevronRight, FolderKanban, BarChart3 } from "lucide-react"
+import { Plus, Upload, FileText, Search, ChevronLeft, ChevronRight, FolderKanban, BarChart3, Pencil, X, Save } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Deal } from "./admin-dashboard"
 import { ValuationReport } from "./valuation-report"
@@ -132,11 +132,18 @@ interface HorizonTabProps {
   onUpdateDeal: (id: string, updates: Partial<Deal>) => void
 }
 
-export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
+export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps) {
   // --- Form state ---
   const [showForm, setShowForm] = useState(false)
   const [dealName, setDealName] = useState("")
   const [dealType, setDealType] = useState<"full" | "book">("full")
+
+  // --- Edit drawer state ---
+  const [editingDeal, setEditingDeal] = useState<Deal | null>(null)
+  const [editName, setEditName] = useState("")
+  const [editStatus, setEditStatus] = useState<Deal["status"]>("active")
+  const [editValuation, setEditValuation] = useState(0)
+  const [editNotes, setEditNotes] = useState("")
 
   // --- Policy list state ---
   const [policy, setPolicy] = useState<PolicyState>({
@@ -653,10 +660,36 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
     )
   })
 
+  // ----- Edit helpers -----
+  const openEdit = (deal: Deal) => {
+    setEditingDeal(deal)
+    setEditName(deal.deal_name)
+    setEditStatus(deal.status)
+    setEditValuation(deal.valuation)
+    setEditNotes((deal.details?.notes as string) ?? "")
+  }
+
+  const saveEdit = () => {
+    if (!editingDeal) return
+    onUpdateDeal(editingDeal.id, {
+      deal_name: editName,
+      status: editStatus,
+      valuation: editValuation,
+      details: { ...editingDeal.details, notes: editNotes },
+    })
+    setEditingDeal(null)
+  }
+
+  const statusColors: Record<Deal["status"], string> = {
+    active: "text-success",
+    completed: "text-primary",
+    declined: "text-destructive",
+  }
+
   // ----- List View (no form open) -----
   if (!showForm) {
     return (
-      <div>
+      <div className="relative">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-lg font-bold text-foreground">Horizon Pipeline</h2>
           <Button onClick={() => setShowForm(true)}>
@@ -677,22 +710,156 @@ export function HorizonTab({ deals, onSaveDeal }: HorizonTabProps) {
         ) : (
           <div className="grid gap-4">
             {deals.map((deal) => (
-              <Card key={deal.id} className="border-border">
-                <CardContent className="flex items-center justify-between p-4">
-                  <div>
-                    <p className="font-bold text-foreground">{deal.deal_name}</p>
+              <Card key={deal.id} className="border-border transition-shadow hover:shadow-md">
+                <CardContent className="flex items-center justify-between gap-4 p-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-bold text-foreground">{deal.deal_name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {deal.deal_type.toUpperCase()} |{" "}
-                      {new Date(deal.date_saved).toLocaleDateString()}
+                      {deal.deal_type.toUpperCase()} &bull;{" "}
+                      {new Date(deal.date_saved).toLocaleDateString()} &bull;{" "}
+                      <span className={statusColors[deal.status]}>
+                        {deal.status.charAt(0).toUpperCase() + deal.status.slice(1)}
+                      </span>
                     </p>
+                    {deal.details?.notes && (
+                      <p className="mt-1 truncate text-xs text-muted-foreground/70 italic">
+                        {deal.details.notes as string}
+                      </p>
+                    )}
                   </div>
-                  <p className="text-lg font-extrabold text-success">
-                    {formatCurrency(deal.valuation)}
-                  </p>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <p className="text-lg font-extrabold text-success">
+                      {formatCurrency(deal.valuation)}
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={() => openEdit(deal)}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Edit
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}
           </div>
+        )}
+
+        {/* Edit Drawer / Slide-over */}
+        {editingDeal && (
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 z-40 bg-black/40"
+              onClick={() => setEditingDeal(null)}
+            />
+            {/* Panel */}
+            <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-card shadow-2xl">
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-border px-6 py-4">
+                <h3 className="text-base font-semibold text-foreground">Edit Deal</h3>
+                <button
+                  onClick={() => setEditingDeal(null)}
+                  className="rounded p-1 text-muted-foreground hover:text-foreground"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
+                {/* Deal Name */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-foreground">Deal Name</label>
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </div>
+
+                {/* Status */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-foreground">Status</label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value as Deal["status"])}
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  >
+                    <option value="active">Active</option>
+                    <option value="completed">Completed</option>
+                    <option value="declined">Declined</option>
+                  </select>
+                </div>
+
+                {/* Valuation override */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-foreground">Valuation ($)</label>
+                  <input
+                    type="number"
+                    value={editValuation}
+                    onChange={(e) => setEditValuation(parseFloat(e.target.value) || 0)}
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-foreground">Notes</label>
+                  <textarea
+                    value={editNotes}
+                    onChange={(e) => setEditNotes(e.target.value)}
+                    rows={5}
+                    placeholder="Add deal notes, next steps, contact info..."
+                    className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </div>
+
+                {/* Read-only meta */}
+                <div className="rounded-md border border-border bg-secondary/30 p-4 space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Type</span>
+                    <span className="font-medium text-foreground">{editingDeal.deal_type.toUpperCase()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Premium Base</span>
+                    <span className="font-medium text-foreground">{formatCurrency(editingDeal.premium_base)}</span>
+                  </div>
+                  {editingDeal.details?.multiple && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Multiple</span>
+                      <span className="font-medium text-foreground">{Number(editingDeal.details.multiple).toFixed(2)}x</span>
+                    </div>
+                  )}
+                  {editingDeal.details?.policyCount && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Policies</span>
+                      <span className="font-medium text-foreground">{String(editingDeal.details.policyCount)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Saved</span>
+                    <span className="font-medium text-foreground">{new Date(editingDeal.date_saved).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="border-t border-border px-6 py-4 flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={() => setEditingDeal(null)}>
+                  Cancel
+                </Button>
+                <Button className="flex-1 gap-2" onClick={saveEdit}>
+                  <Save className="h-4 w-4" />
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          </>
         )}
       </div>
     )
