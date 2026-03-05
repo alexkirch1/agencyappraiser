@@ -163,11 +163,15 @@ async function createPipedriveDeal(params: {
       currency: "USD",
     }
 
+    // Pipedrive system field keys that must never be set via the custom field mapper
+    const SYSTEM_KEYS = new Set(["origin", "source", "status", "stage_id", "pipeline_id", "owner_id", "person_id", "org_id"])
+
     // Map valuation data to Pipedrive custom fields
     if (params.customFields) {
       for (const [logicalKey, value] of Object.entries(params.customFields)) {
         const pipedriveKey = fieldMap[logicalKey]
-        if (pipedriveKey && value != null) {
+        // Only write if the resolved key looks like a custom field (40-char hex) and is not a system field
+        if (pipedriveKey && value != null && /^[a-f0-9]{40}$/.test(pipedriveKey) && !SYSTEM_KEYS.has(pipedriveKey)) {
           dealBody[pipedriveKey] = value
         }
       }

@@ -723,7 +723,7 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
                     </p>
                     {deal.details?.notes && (
                       <p className="mt-1 truncate text-xs text-muted-foreground/70 italic">
-                        {deal.details.notes as string}
+                        {String(deal.details.notes)}
                       </p>
                     )}
                   </div>
