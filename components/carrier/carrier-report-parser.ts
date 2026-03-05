@@ -1,229 +1,213 @@
 // =====================================================
-// Carrier Report PDF Parser
-// Extracts carrier-specific fields from uploaded PDF reports
+// Carrier Report PDF Parser — Travelers & Progressive
+// =====================================================
+// PDF text comes out as a single string where whitespace
+// is inconsistent. We normalise whitespace, then run
+// targeted regex patterns that match what each carrier's
+// actual report looks like after pdfjs extraction.
 // =====================================================
 
 import type { CarrierInputs, CarrierName } from "./carrier-engine"
 
-function num(s: string | undefined): number | null {
+// Strip currency symbols, commas, % signs and parse float
+function num(s: string | undefined | null): number | null {
   if (!s) return null
-  const cleaned = s.replace(/[$,%\s]/g, "").replace(/,/g, "")
+  const cleaned = s.replace(/[$,%\s]/g, "")
   const n = parseFloat(cleaned)
   return isNaN(n) ? null : n
 }
 
-/**
- * Parse text extracted from a PDF and return partial CarrierInputs
- * based on the selected carrier.
- */
+// Collapse multiple spaces / line breaks to single space for easier matching
+function normalise(text: string): string {
+  return text.replace(/\r?\n/g, " ").replace(/\s{2,}/g, " ").trim()
+}
+
 export function parseCarrierReport(
   text: string,
   carrier: CarrierName
 ): Partial<CarrierInputs> {
+  const t = normalise(text)
   switch (carrier) {
     case "progressive":
-      return parseProgressive(text)
-    case "safeco":
-      return parseSafeco(text)
-    case "hartford":
-      return parseHartford(text)
+      return parseProgressive(t, text)
     case "travelers":
-      return parseTravelers(text)
-    case "msa":
-      return parseMSA(text)
+      return parseTravelers(t, text)
     default:
       return {}
   }
 }
 
-// -------------------------------------------------------------------
-// Progressive: Account Production Report
-// -------------------------------------------------------------------
-function parseProgressive(text: string): Partial<CarrierInputs> {
+// =====================================================
+// Progressive — Account Production Report
+// =====================================================
+// The report has labelled rows like:
+//   "Personal Lines Written Premium 2,541,893 ..."
+//   "Loss Ratio 42.5 %"
+//   "Bundle Rate 68 %"
+//   "Commercial Lines Written Premium 834,211 ..."
+//   "PIF 1,234"
+//   "YTD Apps 87"
+// =====================================================
+function parseProgressive(t: string, raw: string): Partial<CarrierInputs> {
   const result: Partial<CarrierInputs> = {}
 
-  // Personal Lines: "Total Personal Lines",,"\$XXX","\$XXX","PIF","XX%"
-  const plMatch = text.match(
-    /Total Personal Lines[",\s]*\$?([\d,]+)[",\s]*\$?[\d,]*[",\s]*(\d+)[",\s]*(\d+)%/i
-  )
-  if (plMatch) {
-    result.prog_pl_premium = num(plMatch[1])
-    result.prog_pl_pif = num(plMatch[2])
-    result.prog_pl_loss_ratio = num(plMatch[3])
+  // ---- Personal Lines Written Premium ----
+  // Variations: "Personal Lines Written Premium", "PL Written Premium", "PL WP"
+  const plWp =
+    firstMatch(t, /(?:Personal\s*Lines?\s*(?:Written\s*)?Premium|PL\s*(?:Written\s*)?(?:Premium|WP))\s*\$?\s*([\d,]+)/i) ||
+    firstMatch(t, /(?:Personal|PL)\s*\n?\s*(?:Auto|Lines?)?\s*(?:Written\s*)?(?:Premium|WP)[:\s]*([\d,]+)/i)
+  if (plWp) result.prog_pl_premium = num(plWp)
+
+  // ---- PL PIF ----
+  const plPif =
+    firstMatch(t, /Personal\s*Lines?[\s\S]{0,80}?PIF[:\s]*([\d,]+)/i) ||
+    firstMatch(t, /(?:PL|Personal)\s*(?:Policies?\s*in\s*Force|PIF)[:\s]*([\d,]+)/i) ||
+    firstMatch(raw, /PIF[:\s]*([\d,]+)/i)
+  if (plPif) result.prog_pl_pif = num(plPif)
+
+  // ---- PL Loss Ratio ----
+  // "Loss Ratio" near Personal Lines section; also "L\/R" abbreviation
+  const plLr =
+    firstMatch(t, /Personal\s*Lines?[\s\S]{0,200}?(?:Loss\s*Ratio|L\/R)[:\s]*([\d.]+)\s*%?/i) ||
+    firstMatch(t, /(?:PL|Personal)\s*(?:Loss\s*Ratio|L\/R)[:\s]*([\d.]+)/i)
+  if (plLr) result.prog_pl_loss_ratio = num(plLr)
+
+  // ---- Commercial Lines Written Premium ----
+  const clWp =
+    firstMatch(t, /(?:Commercial\s*Lines?\s*(?:Written\s*)?Premium|CL\s*(?:Written\s*)?(?:Premium|WP))\s*\$?\s*([\d,]+)/i) ||
+    firstMatch(t, /(?:Commercial|CL)\s*(?:Lines?)?\s*(?:Written\s*)?(?:Premium|WP)[:\s]*([\d,]+)/i)
+  if (clWp) result.prog_cl_premium = num(clWp)
+
+  // ---- CL PIF ----
+  const clPif =
+    firstMatch(t, /Commercial\s*Lines?[\s\S]{0,80}?PIF[:\s]*([\d,]+)/i) ||
+    firstMatch(t, /(?:CL|Commercial)\s*(?:Policies?\s*in\s*Force|PIF)[:\s]*([\d,]+)/i)
+  if (clPif) result.prog_cl_pif = num(clPif)
+
+  // ---- CL Loss Ratio ----
+  const clLr =
+    firstMatch(t, /Commercial\s*Lines?[\s\S]{0,200}?(?:Loss\s*Ratio|L\/R)[:\s]*([\d.]+)\s*%?/i) ||
+    firstMatch(t, /(?:CL|Commercial)\s*(?:Loss\s*Ratio|L\/R)[:\s]*([\d.]+)/i)
+  if (clLr) result.prog_cl_loss_ratio = num(clLr)
+
+  // ---- Bundle Rate ----
+  // Common labels: "Bundle Rate", "Bundled %", "Multi-Policy Rate"
+  const bundle =
+    firstMatch(t, /(?:Bundle\s*Rate|Bundled\s*%|Multi.?Policy\s*(?:Rate|%)?)[:\s]*([\d.]+)\s*%?/i)
+  if (bundle) result.prog_bundle_rate = num(bundle)
+
+  // ---- YTD Apps ----
+  const apps =
+    firstMatch(t, /YTD\s*(?:New\s*)?App(?:lication)?s?[:\s]*([\d,]+)/i) ||
+    firstMatch(t, /New\s*Business\s*(?:App(?:lication)?s?|Count)[:\s]*([\d,]+)/i)
+  if (apps) result.prog_ytd_apps = num(apps)
+
+  return result
+}
+
+// =====================================================
+// Travelers — Agency Results Report
+// =====================================================
+// The report is usually structured in sections:
+//   AUTOMOBILE section with "Written Premium", "Loss Ratio", "Retention"
+//   HOMEOWNERS section with same fields
+//   Numbers are often in $k (thousands) on this report
+// =====================================================
+function parseTravelers(t: string, raw: string): Partial<CarrierInputs> {
+  const result: Partial<CarrierInputs> = {}
+
+  // ---- AUTO section ----
+  // Travelers labels: "Automobile", "Auto", "Private Passenger Auto"
+  const autoSection = sectionAfter(t, /(?:Automobile|Private\s*Passenger\s*Auto|Auto(?:mobile)?)\b/i, 600)
+
+  if (autoSection) {
+    const autoWp =
+      firstMatch(autoSection, /(?:Written\s*Premium|WP|Earned\s*Premium|Direct\s*Written)[:\s]*\$?\s*([\d,]+)/i) ||
+      firstMatch(autoSection, /([\d,]{4,})\s*(?:Written|WP)/i)
+    if (autoWp) {
+      const v = num(autoWp)
+      // If value > 50,000 assume already in dollars, convert to $k; else it's already $k
+      result.travelers_auto_wp = v && v > 50_000 ? Math.round(v / 1000) : v
+    }
+
+    const autoLr =
+      firstMatch(autoSection, /(?:Loss\s*Ratio|L\/R|LR)[:\s]*([\d.]+)\s*%?/i)
+    if (autoLr) result.travelers_auto_lr = num(autoLr)
+
+    const autoRet =
+      firstMatch(autoSection, /Retention[:\s]*([\d.]+)\s*%?/i)
+    if (autoRet) result.travelers_auto_retention = num(autoRet)
+
+    const autoPif =
+      firstMatch(autoSection, /(?:Policies?\s*in\s*Force|PIF|Policy\s*Count)[:\s]*([\d,]+)/i)
+    if (autoPif) result.travelers_auto_pif = num(autoPif)
   }
 
-  // Alt pattern: look for lines with "Personal Lines" and dollar amounts
-  if (!plMatch) {
-    const plAlt = text.match(/Personal\s*Lines[\s\S]{0,200}?\$\s*([\d,]+)/i)
-    if (plAlt) result.prog_pl_premium = num(plAlt[1])
+  // ---- HOMEOWNERS section ----
+  const homeSection = sectionAfter(t, /(?:Homeowner|Home\s*Owner|HO|Property)\b/i, 600)
 
-    const plPif = text.match(/Personal\s*Lines[\s\S]{0,200}?PIF[:\s]*(\d+)/i)
-    if (plPif) result.prog_pl_pif = num(plPif[1])
+  if (homeSection) {
+    const homeWp =
+      firstMatch(homeSection, /(?:Written\s*Premium|WP|Earned\s*Premium|Direct\s*Written)[:\s]*\$?\s*([\d,]+)/i) ||
+      firstMatch(homeSection, /([\d,]{4,})\s*(?:Written|WP)/i)
+    if (homeWp) {
+      const v = num(homeWp)
+      result.travelers_home_wp = v && v > 50_000 ? Math.round(v / 1000) : v
+    }
 
-    const plLr = text.match(/Personal\s*Lines[\s\S]{0,200}?Loss\s*Ratio[:\s]*([\d.]+)/i)
-    if (plLr) result.prog_pl_loss_ratio = num(plLr[1])
+    const homeLr =
+      firstMatch(homeSection, /(?:Loss\s*Ratio|L\/R|LR)[:\s]*([\d.]+)\s*%?/i)
+    if (homeLr) result.travelers_home_lr = num(homeLr)
+
+    const homeRet =
+      firstMatch(homeSection, /Retention[:\s]*([\d.]+)\s*%?/i)
+    if (homeRet) result.travelers_home_retention = num(homeRet)
+
+    const homePif =
+      firstMatch(homeSection, /(?:Policies?\s*in\s*Force|PIF|Policy\s*Count)[:\s]*([\d,]+)/i)
+    if (homePif) result.travelers_home_pif = num(homePif)
   }
 
-  // Commercial Lines
-  const clMatch = text.match(
-    /Commercial\s*Lines[",\s]*\d*[",\s]*\$?([\d,]+)[",\s]*\$?[\d,]*[",\s]*(\d+)[",\s]*(\d+)%/i
-  )
-  if (clMatch) {
-    result.prog_cl_premium = num(clMatch[1])
-    result.prog_cl_pif = num(clMatch[2])
-    result.prog_cl_loss_ratio = num(clMatch[3])
-  }
-
-  if (!clMatch) {
-    const clAlt = text.match(/Commercial\s*Lines[\s\S]{0,200}?\$\s*([\d,]+)/i)
-    if (clAlt) result.prog_cl_premium = num(clAlt[1])
-
-    const clPif = text.match(/Commercial\s*Lines[\s\S]{0,200}?PIF[:\s]*(\d+)/i)
-    if (clPif) result.prog_cl_pif = num(clPif[1])
-
-    const clLr = text.match(/Commercial\s*Lines[\s\S]{0,200}?Loss\s*Ratio[:\s]*([\d.]+)/i)
-    if (clLr) result.prog_cl_loss_ratio = num(clLr[1])
-  }
-
-  // Bundle Rate
-  const bundleMatch = text.match(/Bundle\s*Rate[",\s]*\d*%?[",\s]*\d*%?[",\s]*\d*%?[",\s]*(\d+)%/i)
-  if (bundleMatch) result.prog_bundle_rate = num(bundleMatch[1])
-  if (!bundleMatch) {
-    const bundleAlt = text.match(/Bundle\s*Rate[:\s]*([\d.]+)/i)
-    if (bundleAlt) result.prog_bundle_rate = num(bundleAlt[1])
-  }
-
-  // YTD Apps
-  const appsMatch = text.match(/YTD\s*App[s]?[:\s]*(\d+)/i)
-  if (appsMatch) result.prog_ytd_apps = num(appsMatch[1])
-  if (!appsMatch) {
-    const appsAlt = text.match(/Total\s*Personal\s*Lines[\s\S]{0,200}?(\d+)\s*$/im)
-    if (appsAlt) result.prog_ytd_apps = num(appsAlt[1])
+  // ---- Fallback: scan entire text if section split missed ----
+  if (!result.travelers_auto_wp && !result.travelers_home_wp) {
+    // Look for any dollar amounts near "auto" and "home" labels in full text
+    const anyAutoWp = firstMatch(t, /Auto(?:mobile)?\s*(?:Written\s*)?(?:Premium|WP)[:\s]*\$?\s*([\d,]+)/i)
+    if (anyAutoWp) {
+      const v = num(anyAutoWp)
+      result.travelers_auto_wp = v && v > 50_000 ? Math.round(v / 1000) : v
+    }
+    const anyHomeWp = firstMatch(t, /(?:Home(?:owner)?s?)\s*(?:Written\s*)?(?:Premium|WP)[:\s]*\$?\s*([\d,]+)/i)
+    if (anyHomeWp) {
+      const v = num(anyHomeWp)
+      result.travelers_home_wp = v && v > 50_000 ? Math.round(v / 1000) : v
+    }
+    // Retention / LR fallback
+    if (!result.travelers_auto_lr) {
+      const lr = firstMatch(t, /Auto(?:mobile)?\s*(?:Loss\s*Ratio|LR)[:\s]*([\d.]+)/i)
+      if (lr) result.travelers_auto_lr = num(lr)
+    }
+    if (!result.travelers_home_lr) {
+      const lr = firstMatch(t, /(?:Home(?:owner)?s?)\s*(?:Loss\s*Ratio|LR)[:\s]*([\d.]+)/i)
+      if (lr) result.travelers_home_lr = num(lr)
+    }
   }
 
   return result
 }
 
-// -------------------------------------------------------------------
-// Safeco
-// -------------------------------------------------------------------
-function parseSafeco(text: string): Partial<CarrierInputs> {
-  const result: Partial<CarrierInputs> = {}
+// =====================================================
+// Utilities
+// =====================================================
 
-  // DWP / Total Written Premium
-  const dwp = text.match(/(?:Total|Direct)\s*(?:Written|DWP)[:\s]*\$?\s*([\d,]+)/i)
-  if (dwp) result.safeco_total_dwp = num(dwp[1])
-
-  // PIF
-  const pif = text.match(/(?:Policies?\s*in\s*Force|PIF)[:\s]*([\d,]+)/i)
-  if (pif) result.safeco_pif = num(pif[1])
-
-  // Loss Ratio
-  const lr = text.match(/Loss\s*Ratio[:\s]*([\d.]+)/i)
-  if (lr) result.safeco_loss_ratio = num(lr[1])
-
-  // Retention
-  const ret = text.match(/Retention[:\s]*([\d.]+)/i)
-  if (ret) result.safeco_retention = num(ret[1])
-
-  // New Business Count
-  const nb = text.match(/(?:New\s*Business|NB)\s*(?:Count)?[:\s]*([\d,]+)/i)
-  if (nb) result.safeco_nb_count = num(nb[1])
-
-  return result
+/** Return the first capture group of the first match, or null */
+function firstMatch(text: string, re: RegExp): string | null {
+  const m = text.match(re)
+  return m ? (m[1] ?? null) : null
 }
 
-// -------------------------------------------------------------------
-// Hartford
-// -------------------------------------------------------------------
-function parseHartford(text: string): Partial<CarrierInputs> {
-  const result: Partial<CarrierInputs> = {}
-
-  // Personal Lines TWP (in thousands)
-  const plTwp = text.match(/Personal\s*Lines[\s\S]{0,200}?(?:TWP|Written\s*Premium)[:\s]*\$?\s*([\d,]+)/i)
-  if (plTwp) {
-    const val = num(plTwp[1])
-    // If value > 100000 it's in dollars, convert to thousands
-    result.hartford_pl_twp = val && val > 100000 ? Math.round(val / 1000) : val
-  }
-
-  const plLr = text.match(/Personal\s*Lines[\s\S]{0,200}?Loss\s*Ratio[:\s]*([\d.]+)/i)
-  if (plLr) result.hartford_pl_lr = num(plLr[1])
-
-  const plRet = text.match(/Personal\s*Lines[\s\S]{0,200}?Retention[:\s]*([\d.]+)/i)
-  if (plRet) result.hartford_pl_retention = num(plRet[1])
-
-  // Commercial / Small Commercial
-  const clTwp = text.match(/(?:Commercial|Small\s*Commercial)[\s\S]{0,200}?(?:TWP|Written\s*Premium)[:\s]*\$?\s*([\d,]+)/i)
-  if (clTwp) {
-    const val = num(clTwp[1])
-    result.hartford_cl_twp = val && val > 100000 ? Math.round(val / 1000) : val
-  }
-
-  const clLr = text.match(/(?:Commercial|Small\s*Commercial)[\s\S]{0,200}?Loss\s*Ratio[:\s]*([\d.]+)/i)
-  if (clLr) result.hartford_cl_lr = num(clLr[1])
-
-  const clRet = text.match(/(?:Commercial|Small\s*Commercial)[\s\S]{0,200}?Retention[:\s]*([\d.]+)/i)
-  if (clRet) result.hartford_cl_retention = num(clRet[1])
-
-  return result
-}
-
-// -------------------------------------------------------------------
-// Travelers
-// -------------------------------------------------------------------
-function parseTravelers(text: string): Partial<CarrierInputs> {
-  const result: Partial<CarrierInputs> = {}
-
-  // Auto
-  const autoWp = text.match(/Auto[\s\S]{0,200}?(?:Written\s*Premium|WP)[:\s]*\$?\s*([\d,]+)/i)
-  if (autoWp) {
-    const val = num(autoWp[1])
-    result.travelers_auto_wp = val && val > 100000 ? Math.round(val / 1000) : val
-  }
-
-  const autoLr = text.match(/Auto[\s\S]{0,200}?Loss\s*Ratio[:\s]*([\d.]+)/i)
-  if (autoLr) result.travelers_auto_lr = num(autoLr[1])
-
-  const autoRet = text.match(/Auto[\s\S]{0,200}?Retention[:\s]*([\d.]+)/i)
-  if (autoRet) result.travelers_auto_retention = num(autoRet[1])
-
-  // Homeowners
-  const homeWp = text.match(/(?:Home|Homeowner)[\s\S]{0,200}?(?:Written\s*Premium|WP)[:\s]*\$?\s*([\d,]+)/i)
-  if (homeWp) {
-    const val = num(homeWp[1])
-    result.travelers_home_wp = val && val > 100000 ? Math.round(val / 1000) : val
-  }
-
-  const homeLr = text.match(/(?:Home|Homeowner)[\s\S]{0,200}?Loss\s*Ratio[:\s]*([\d.]+)/i)
-  if (homeLr) result.travelers_home_lr = num(homeLr[1])
-
-  const homeRet = text.match(/(?:Home|Homeowner)[\s\S]{0,200}?Retention[:\s]*([\d.]+)/i)
-  if (homeRet) result.travelers_home_retention = num(homeRet[1])
-
-  return result
-}
-
-// -------------------------------------------------------------------
-// MSA
-// -------------------------------------------------------------------
-function parseMSA(text: string): Partial<CarrierInputs> {
-  const result: Partial<CarrierInputs> = {}
-
-  const dwp = text.match(/(?:Total|Direct)\s*(?:Written|DWP)[:\s]*\$?\s*([\d,]+)/i)
-  if (dwp) result.msa_total_dwp = num(dwp[1])
-
-  const pif = text.match(/(?:Policies?\s*in\s*Force|PIF)[:\s]*([\d,]+)/i)
-  if (pif) result.msa_pif = num(pif[1])
-
-  const lr = text.match(/Loss\s*Ratio[:\s]*([\d.]+)/i)
-  if (lr) result.msa_loss_ratio = num(lr[1])
-
-  const ret = text.match(/Retention[:\s]*([\d.]+)/i)
-  if (ret) result.msa_retention = num(ret[1])
-
-  const nb = text.match(/(?:New\s*Business|NB)\s*(?:Premium)?[:\s]*\$?\s*([\d,]+)/i)
-  if (nb) result.msa_nb_premium = num(nb[1])
-
-  return result
+/** Return the substring starting just after `headerPattern` up to `length` chars */
+function sectionAfter(text: string, headerPattern: RegExp, length: number): string | null {
+  const m = text.search(headerPattern)
+  if (m === -1) return null
+  return text.slice(m, m + length)
 }

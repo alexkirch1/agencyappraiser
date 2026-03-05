@@ -35,10 +35,7 @@ async function extractTextFromPDF(file: File): Promise<string> {
 
 const carrierReportNames: Record<CarrierName, string> = {
   progressive: "Account Production Report",
-  safeco: "Agency Production Report",
-  hartford: "Agency Book of Business Report",
   travelers: "Agency Results Report",
-  msa: "Agency Performance Report",
 }
 
 export function ReportUpload({ carrier, onParsed }: Props) {
@@ -76,7 +73,8 @@ export function ReportUpload({ carrier, onParsed }: Props) {
         } else {
           // Estimate confidence based on fields found vs expected
           const expectedFields: Record<string, number> = {
-            progressive: 7, safeco: 5, hartford: 6, travelers: 6, msa: 5,
+            progressive: 7,
+            travelers: 8,
           }
           const expected = expectedFields[carrier] || 5
           const conf = Math.min(100, Math.round((count / expected) * 80 + 20))
