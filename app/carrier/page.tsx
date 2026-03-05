@@ -33,8 +33,8 @@ export default function CarrierPage() {
       setValidationError("Please select a carrier first.")
       return
     }
-    // Check if carrier requires bookType
-    if (["progressive", "hartford", "travelers"].includes(inputs.carrier) && !inputs.bookType) {
+    // Both supported carriers require bookType
+    if (["progressive", "travelers"].includes(inputs.carrier) && !inputs.bookType) {
       setValidationError("Please select a book type.")
       return
     }
@@ -60,10 +60,10 @@ export default function CarrierPage() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Carrier Book Calculator</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">Carrier Book Valuation</h1>
         <p className="mt-2 text-muted-foreground">
-          Value a specific carrier book of business using carrier-specific metrics and our valuation model.
-          Fill in your carrier details and submit to see your valuation.
+          Value your Travelers or Progressive book of business using carrier-specific production metrics.
+          Upload your carrier report to auto-fill fields, or enter your numbers directly.
         </p>
       </div>
 
@@ -189,6 +189,9 @@ export default function CarrierPage() {
           onClose={() => setShowLeadCapture(false)}
           title="Unlock Carrier Book Valuation"
           description="Enter your details to view your carrier-specific book valuation."
+          toolUsed={`Carrier Calculator - ${inputs.carrier ? inputs.carrier.charAt(0).toUpperCase() + inputs.carrier.slice(1) : "Unknown"}`}
+          valuationSummary={`Carrier: ${inputs.carrier || "N/A"}\nBook Type: ${inputs.bookType || "N/A"}\nEstimated Premium: $${results?.premium?.toLocaleString() ?? "N/A"}\nMultiple: ${results?.finalMultiple?.toFixed(2) ?? "N/A"}x\nLow Offer: $${results?.lowOffer?.toLocaleString() ?? "N/A"}\nHigh Offer: $${results?.highOffer?.toLocaleString() ?? "N/A"}`}
+          estimatedValue={results?.premium ?? 0}
         />
       )}
       {showDisclaimer && (

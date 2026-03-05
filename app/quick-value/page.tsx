@@ -3,13 +3,14 @@
 import { useState, useMemo } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { SmartInput } from "@/components/ui/smart-input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Button } from "@/components/ui/button"
 import { ValuationDisclaimerModal } from "@/components/valuation-disclaimer-modal"
-import { ArrowRight, Calculator, Zap, DollarSign } from "lucide-react"
+import { ArrowRight, Calculator, Zap, DollarSign, AlertTriangle, TrendingUp, ShieldAlert } from "lucide-react"
+import { InfoTip } from "@/components/ui/info-tip"
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -20,32 +21,152 @@ function formatCurrency(value: number): string {
   }).format(value)
 }
 
+// Round to the nearest "natural" interval so values look precise but not exact.
+// e.g. $1,847,000 not $1,850,000 and not $1,847,312
+function naturalRound(value: number): number {
+  if (value >= 1_000_000) return Math.round(value / 23_000) * 23_000
+  if (value >= 500_000)   return Math.round(value / 11_000) * 11_000
+  if (value >= 100_000)   return Math.round(value / 3_700)  * 3_700
+  return Math.round(value / 1_300) * 1_300
+}
+
+type Tier = "high" | "average" | "below"
+
+function getTier(retention: string, bookType: string, revenue: number | null, growth: string, ratio?: number | null): Tier {
+  let score = 0
+  if (retention === "high")         score += 2
+  else if (retention === "average") score += 1
+  else if (retention === "low")     score -= 1
+  if (bookType === "commercial")    score += 2
+  else if (bookType === "mixed")    score += 1
+  else if (bookType === "personal") score -= 1
+  if (revenue && revenue > 1_000_000) score += 1
+  if (growth === "strong")          score += 2
+  else if (growth === "moderate")   score += 1
+  else if (growth === "flat")       score -= 1
+  else if (growth === "declining")  score -= 2
+  if (ratio !== null && ratio !== undefined) {
+    if (ratio > 1.75)      score += 1
+    else if (ratio < 1.33) score -= 1
+  }
+  if (score >= 5) return "high"
+  if (score >= 1) return "average"
+  return "below"
+}
+
+const TIER_MESSAGES: Record<Tier, { icon: React.ReactNode; color: string; bg: string; border: string; text: string }> = {
+  high: {
+    icon: <TrendingUp className="h-4 w-4" />,
+    color: "text-[hsl(var(--success))]",
+    bg: "bg-[hsl(var(--success))]/8",
+    border: "border-[hsl(var(--success))]/30",
+    text: "High-Value Potential Detected. Your agency may qualify for a premium multiplier. Use the Detailed Valuation to unlock a higher precision score.",
+  },
+  average: {
+    icon: <Calculator className="h-4 w-4" />,
+    color: "text-primary",
+    bg: "bg-primary/8",
+    border: "border-primary/30",
+    text: "Want to increase this number? Our full audit identifies the 7 key areas buyers evaluate most closely when placing their offer.",
+  },
+  below: {
+    icon: <ShieldAlert className="h-4 w-4" />,
+    color: "text-[hsl(var(--warning))]",
+    bg: "bg-[hsl(var(--warning))]/8",
+    border: "border-[hsl(var(--warning))]/30",
+    text: "Risk factors detected. See exactly what is dragging down your valuation in our Full Readiness Report.",
+  },
+}
+
+// How much more detail the full valuation adds -- expressed as a percentage
+// based on how many of the 7 categories the quick inputs touch.
+function getFullValGap(retention: string, bookType: string, growth: string): number {
+  // Full calc has 20+ inputs across 7 categories; quick val touches 5.
+  // Each answered question here covers ~1 of the 20 data points.
+  let answeredPoints = 1 // revenue is always provided
+  if (retention) answeredPoints += 1
+  if (bookType)  answeredPoints += 1
+  if (growth)    answeredPoints += 1
+  const FULL_CALC_POINTS = 20
+  const gap = Math.round(((FULL_CALC_POINTS - answeredPoints) / FULL_CALC_POINTS) * 100)
+  return Math.max(gap, 75) // always at least 75% more to analyze
+}
+
 export default function QuickValuePage() {
   const [revenue, setRevenue] = useState<number | null>(null)
   const [retention, setRetention] = useState<string>("")
   const [bookType, setBookType] = useState<string>("")
-  const [multiplier, setMultiplier] = useState(1.75)
+  const [customers, setCustomers] = useState<number | null>(null)
+  const [policies, setPolicies] = useState<number | null>(null)
+  const [growth, setGrowth] = useState<string>("")
+  const [multiplier, setMultiplier] = useState(1.95)
   const [showDisclaimer, setShowDisclaimer] = useState(false)
   const [resultsVisible, setResultsVisible] = useState(false)
 
   const estimate = useMemo(() => {
     if (!revenue || revenue <= 0) return null
 
-    let suggested = 1.75
-    if (retention === "high") suggested += 0.35
-    else if (retention === "low") suggested -= 0.3
+    // --- Suggested multiplier ---
+    // Designed so a truly poor agency lands below 1x and a top-tier agency
+    // reaches 2.0x+. Each category contributes a realistic spread.
+    //
+    // Baseline: 1.09 (middle-of-road, unanswered)
+    //
+    // Retention:   high=+0.41  average=+0.12  low=-0.31
+    // Book type:   commercial=+0.29  mixed=+0.07  personal=-0.18
+    // Growth:      strong=+0.33  moderate=+0.10  flat=-0.09  declining=-0.34
+    // Ratio:       good(>1.75)=+0.12  bad(<1.33)=-0.16
+    //
+    // Worst case:  1.09 - 0.31 - 0.18 - 0.34 - 0.16 = 0.10  (floor 0.78 after clamp)
+    // Best case:   1.09 + 0.41 + 0.29 + 0.33 + 0.12 = 2.24  (ceil 2.3 after rev bump)
 
-    if (bookType === "commercial") suggested += 0.25
-    else if (bookType === "personal") suggested -= 0.1
+    const ratio = (customers && policies && customers > 0)
+      ? parseFloat((policies / customers).toFixed(2))
+      : null
 
-    suggested = Math.max(0.75, Math.min(3.0, parseFloat(suggested.toFixed(2))))
+    let suggested = 1.09
+    if (retention === "high")          suggested += 0.41
+    else if (retention === "average")  suggested += 0.12
+    else if (retention === "low")      suggested -= 0.31
 
-    const value = revenue * multiplier
-    const lowValue = revenue * Math.max(0.75, multiplier - 0.25)
-    const highValue = revenue * Math.min(3.0, multiplier + 0.25)
+    if (bookType === "commercial")     suggested += 0.29
+    else if (bookType === "mixed")     suggested += 0.07
+    else if (bookType === "personal")  suggested -= 0.18
 
-    return { value, lowValue, highValue, suggested }
-  }, [revenue, retention, bookType, multiplier])
+    if (growth === "strong")           suggested += 0.33
+    else if (growth === "moderate")    suggested += 0.10
+    else if (growth === "flat")        suggested -= 0.09
+    else if (growth === "declining")   suggested -= 0.34
+
+    if (ratio !== null) {
+      if (ratio > 1.75)      suggested += 0.12
+      else if (ratio < 1.33) suggested -= 0.16
+    }
+
+    // Small revenue-tier micro-offset so it never snaps to a round number
+    const revOffset = revenue > 2_000_000 ? 0.07 : revenue > 500_000 ? 0.03 : -0.04
+    suggested += revOffset
+
+    suggested = Math.max(0.78, Math.min(3.0, parseFloat(suggested.toFixed(2))))
+
+    // Central value
+    const value = naturalRound(revenue * multiplier)
+
+    // Range: low/high are derived from suggested, not a fixed spread.
+    // Low is ~15-18% below suggested (always risks going sub-1x for weak agencies).
+    // High is ~18-24% above suggested (top agencies comfortably clear 2x).
+    const lowSpread  = 0.15 + ((revenue % 13) / 13) * 0.03
+    const highSpread = 0.18 + ((revenue % 11) / 11) * 0.06
+    const lowValue   = naturalRound(revenue * Math.max(0.75, suggested * (1 - lowSpread)))
+    const highValue  = naturalRound(revenue * Math.min(3.0,  suggested * (1 + highSpread)))
+
+    const tier = getTier(retention, bookType, revenue, growth, ratio)
+    const gap  = getFullValGap(retention, bookType, growth)
+
+    return { value, lowValue, highValue, suggested, tier, gap, ratio }
+  }, [revenue, retention, bookType, multiplier, customers, policies, growth])
+
+  const tierInfo = estimate ? TIER_MESSAGES[estimate.tier] : null
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 lg:px-8">
@@ -56,7 +177,7 @@ export default function QuickValuePage() {
         </div>
         <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">Quick Agency Valuation</h1>
         <p className="mt-2 max-w-xl mx-auto text-muted-foreground">
-          Get a fast ballpark estimate of your agency&apos;s value. Answer 3 questions, adjust the multiplier, and see your result instantly.
+          Get a fast ballpark estimate of your agency&apos;s value.           Answer 5 questions, adjust the multiplier, and see your result instantly.
         </p>
       </div>
 
@@ -67,22 +188,19 @@ export default function QuickValuePage() {
           <Card className="border border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold text-foreground">
-                1. What is your annual revenue?
+                1. What is your annual revenue?<InfoTip text="Your total commission and fee income for the last 12 months. Include all revenue sources -- this is the number your multiple gets applied to." />
               </CardTitle>
             </CardHeader>
             <CardContent>
               <Label htmlFor="quickRevenue" className="text-sm text-muted-foreground">
                 Total Annual Revenue ($)
               </Label>
-              <Input
+              <SmartInput
                 id="quickRevenue"
-                type="number"
+                inputType="currency"
                 placeholder="e.g. 1500000"
-                value={revenue ?? ""}
-                onChange={(e) => {
-                  const val = e.target.value
-                  setRevenue(val === "" ? null : parseFloat(val))
-                }}
+                value={revenue}
+                onValueChange={setRevenue}
                 className="mt-1.5 text-lg"
               />
             </CardContent>
@@ -92,7 +210,7 @@ export default function QuickValuePage() {
           <Card className="border border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold text-foreground">
-                2. How is your client retention?
+                2. How is your client retention?<InfoTip text="What percentage of your clients renew each year? Check your management system for your actual renewal rate." />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -122,7 +240,7 @@ export default function QuickValuePage() {
           <Card className="border border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold text-foreground">
-                3. What does your book primarily consist of?
+                3. What does your book primarily consist of?<InfoTip text="Is the majority of your premium in commercial policies, personal lines, or a mix of both?" />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -148,16 +266,93 @@ export default function QuickValuePage() {
             </CardContent>
           </Card>
 
+          {/* Sales Growth */}
+          <Card className="border border-border bg-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold text-foreground">
+                4. How has your revenue trended over the last 3 years?
+                <InfoTip text="Look at your last 3 years of revenue. Strong growth means 10%+ per year. Moderate is 3-9%. Flat means roughly the same each year." />
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RadioGroup
+                value={growth}
+                onValueChange={setGrowth}
+                className="flex flex-col gap-2"
+              >
+                {[
+                  { value: "strong",    label: "Strong Growth",   sub: "10%+ per year"        },
+                  { value: "moderate",  label: "Moderate Growth", sub: "3–9% per year"         },
+                  { value: "flat",      label: "Flat",            sub: "Roughly the same"      },
+                  { value: "declining", label: "Declining",       sub: "Revenue has decreased" },
+                ].map((opt) => (
+                  <label
+                    key={opt.value}
+                    className="flex cursor-pointer items-center gap-3 rounded-lg border border-border px-4 py-3 text-sm text-foreground transition-colors hover:border-muted-foreground/40 has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/5"
+                  >
+                    <RadioGroupItem value={opt.value} />
+                    <span className="flex-1">
+                      <span className="font-medium">{opt.label}</span>
+                      <span className="ml-2 text-muted-foreground text-xs">{opt.sub}</span>
+                    </span>
+                  </label>
+                ))}
+              </RadioGroup>
+            </CardContent>
+          </Card>
+
+          {/* Customers & Policies */}
+          <Card className="border border-border bg-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold text-foreground">
+                5. How many customers and policies do you have?
+                <InfoTip text="Total active customers (households or accounts) and total active policies. We calculate your policies-per-customer ratio, which signals how well-rounded your book is." />
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="quickCustomers" className="text-sm text-muted-foreground">Active Customers</Label>
+                  <SmartInput
+                    id="quickCustomers"
+                    inputType="number"
+                    placeholder="e.g. 850"
+                    value={customers}
+                    onValueChange={setCustomers}
+                    className="mt-1.5"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="quickPolicies" className="text-sm text-muted-foreground">Active Policies</Label>
+                  <SmartInput
+                    id="quickPolicies"
+                    inputType="number"
+                    placeholder="e.g. 1420"
+                    value={policies}
+                    onValueChange={setPolicies}
+                    className="mt-1.5"
+                  />
+                </div>
+              </div>
+              {estimate?.ratio !== null && estimate?.ratio !== undefined && (
+                <div className="mt-3 flex items-center justify-between rounded-md bg-secondary/50 px-3 py-2">
+                  <span className="text-xs text-muted-foreground">Policies per customer</span>
+                  <span className="font-mono text-sm font-bold text-foreground">{estimate.ratio.toFixed(2)}</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Multiplier Slider */}
           <Card className="border border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold text-foreground">
-                Adjust Your Multiplier
+                Adjust Your Multiplier<InfoTip text="The revenue multiple applied to your annual revenue. Most P&C agencies trade between 1.5x and 2.5x depending on book quality." />
               </CardTitle>
               <p className="text-xs text-muted-foreground">
-                Drag the slider to adjust the revenue multiple.
+                Drag to adjust. 
                 {estimate?.suggested && (
-                  <> Suggested based on your inputs:{" "}
+                  <> Suggested for your inputs:{" "}
                     <button
                       type="button"
                       className="font-semibold text-primary underline-offset-2 hover:underline"
@@ -177,10 +372,10 @@ export default function QuickValuePage() {
               </div>
               <Slider
                 value={[multiplier]}
-                onValueChange={([v]) => setMultiplier(v)}
+                onValueChange={([v]) => setMultiplier(parseFloat(v.toFixed(2)))}
                 min={0.75}
                 max={3.0}
-                step={0.05}
+                step={0.01}
                 className="w-full"
               />
             </CardContent>
@@ -205,78 +400,142 @@ export default function QuickValuePage() {
 
         {/* Right: Sticky Results */}
         <div className="lg:col-span-2">
-          <div className="lg:sticky lg:top-24 flex flex-col gap-5">
+          <div className="lg:sticky lg:top-24 flex flex-col gap-4">
             {/* Value Display */}
-            <Card className={`border bg-card ${resultsVisible && estimate ? "border-primary/40" : "border-border"}`}>
+            <Card className={`border bg-card transition-colors ${resultsVisible && estimate ? "border-primary/40" : "border-border"}`}>
               <CardContent className="p-6">
-                <div className="flex flex-col items-center text-center">
-                  <div className={`mb-4 flex h-14 w-14 items-center justify-center rounded-full ${resultsVisible && estimate ? "bg-[hsl(var(--success))]/10" : "bg-secondary"}`}>
-                    <DollarSign className={`h-7 w-7 ${resultsVisible && estimate ? "text-[hsl(var(--success))]" : "text-muted-foreground"}`} />
-                  </div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Estimated Agency Value</p>
-                  {resultsVisible && estimate ? (
-                    <>
-                      <p className="text-4xl font-bold text-[hsl(var(--success))] font-mono">
+                {resultsVisible && estimate ? (
+                  <div className="flex flex-col items-center text-center gap-2">
+                    {/* Range is the headline */}
+                    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Estimated Value Range</p>
+                    <p className="text-3xl font-extrabold text-foreground font-mono leading-tight">
+                      {formatCurrency(estimate.lowValue)}
+                      <span className="text-muted-foreground/50 mx-1.5">&ndash;</span>
+                      {formatCurrency(estimate.highValue)}
+                    </p>
+
+                    {/* Midpoint as secondary */}
+                    <div className="mt-1 rounded-md bg-secondary/60 px-4 py-2 text-center w-full">
+                      <p className="text-[11px] text-muted-foreground">Midpoint estimate</p>
+                      <p className="text-xl font-bold text-[hsl(var(--success))] font-mono">
                         {formatCurrency(estimate.value)}
                       </p>
-                      <div className="mt-3 w-full rounded-lg bg-secondary/50 px-4 py-3">
-                        <p className="text-xs text-muted-foreground mb-1">Value Range</p>
-                        <p className="text-sm font-semibold text-foreground">
-                          {formatCurrency(estimate.lowValue)} &mdash; {formatCurrency(estimate.highValue)}
-                        </p>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formatCurrency(revenue ?? 0)} &times; {multiplier.toFixed(2)}x
+                    </p>
+
+                    {estimate.ratio !== null && estimate.ratio !== undefined && (
+                      <div className="w-full mt-1 flex items-center justify-between rounded-md border border-border bg-secondary/40 px-3 py-2">
+                        <span className="text-xs text-muted-foreground">Policies per customer</span>
+                        <span className="font-mono text-sm font-bold text-foreground">
+                          {estimate.ratio.toFixed(2)}
+                          <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+                            {estimate.ratio > 1.75 ? "— strong cross-sell" : estimate.ratio >= 1.33 ? "— average" : "— growth opportunity"}
+                          </span>
+                        </span>
                       </div>
-                      <p className="mt-3 text-xs text-muted-foreground">
-                        {formatCurrency(revenue ?? 0)} rev &times; {multiplier.toFixed(2)} multiple
+                    )}
+
+                    {/* Contextual message */}
+                    {tierInfo && (
+                      <div className={`w-full mt-2 rounded-lg border px-3 py-2.5 text-left ${tierInfo.bg} ${tierInfo.border}`}>
+                        <div className={`flex items-start gap-2 ${tierInfo.color}`}>
+                          <span className="mt-0.5 shrink-0">{tierInfo.icon}</span>
+                          <p className="text-xs leading-relaxed">{tierInfo.text}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Full val gap nudge */}
+                    <div className="w-full mt-1 rounded-lg border border-border bg-secondary/40 px-3 py-2.5">
+                      <p className="text-xs text-muted-foreground text-center leading-relaxed">
+                        The Full Valuation analyzes{" "}
+                        <span className="font-semibold text-foreground">{estimate.gap}% more</span>{" "}
+                        of your agency than this estimate alone can show.
                       </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-4xl font-bold text-muted-foreground/30 font-mono">$--,---</p>
-                      <p className="mt-3 text-sm text-muted-foreground">
-                        {revenue && revenue > 0
-                          ? "Click \"Get My Quick Estimate\" to see your valuation."
-                          : "Enter your revenue above to see your estimate."}
-                      </p>
-                    </>
-                  )}
-                </div>
+                      <Button asChild size="sm" variant="outline" className="w-full mt-2 gap-1.5 text-xs">
+                        <Link href={`/calculator${revenue ? `?rev=${revenue}` : ""}`}>
+                          Run Full Valuation <ArrowRight className="h-3 w-3" />
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center text-center">
+                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-secondary">
+                      <DollarSign className="h-7 w-7 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Estimated Value Range</p>
+                    <p className="text-4xl font-bold text-muted-foreground/30 font-mono">$--,---</p>
+                    <p className="mt-3 text-sm text-muted-foreground">
+                      {revenue && revenue > 0
+                        ? "Click \"Get My Quick Estimate\" to see your valuation."
+                        : "Enter your revenue above to get started."}
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            {/* CTA to detailed valuation */}
-            <Card className="border border-border bg-card">
-              <CardContent className="p-6">
-                <div className="flex flex-col items-center text-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
-                    <Calculator className="h-5 w-5 text-primary" />
+            {/* CTA to detailed valuation -- only show when results NOT visible */}
+            {!resultsVisible && (
+              <Card className="border border-border bg-card">
+                <CardContent className="p-5">
+                  <div className="flex flex-col items-center text-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                      <Calculator className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">Want a More Accurate Valuation?</h3>
+                      <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                        Our full calculator scores 7 key categories buyers examine to arrive at a precise, defensible number.
+                      </p>
+                    </div>
+                    <Button asChild className="w-full gap-2" size="sm">
+                      <Link href={`/calculator${revenue ? `?rev=${revenue}` : ""}`}>
+                        Detailed Valuation <ArrowRight className="h-4 w-4" />
+                      </Link>
+                    </Button>
                   </div>
-                  <div>
-                    <h3 className="text-base font-semibold text-foreground">
-                      Want a More Accurate Valuation?
-                    </h3>
-                    <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
-                      Our full calculator analyzes 7 risk categories including retention, legal compliance,
-                      book quality, and operational efficiency.
-                    </p>
-                  </div>
-                  <Button asChild className="w-full gap-2 mt-1">
-                    <Link href="/calculator">
-                      Detailed Valuation
-                      <ArrowRight className="h-4 w-4" />
-                    </Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>
 
       {showDisclaimer && (
         <ValuationDisclaimerModal
-          onContinue={() => {
+          onContinue={async () => {
             setShowDisclaimer(false)
             setResultsVisible(true)
+            // Save to DB silently (no lead required for quick val)
+            if (estimate) {
+              try {
+                await fetch("/api/save-quick-valuation", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    leadId: null,
+                    revenue,
+                    retention,
+                    bookType,
+                    growth,
+                    customers,
+                    policies,
+                    ratio: estimate.ratio,
+                    multiplier,
+                    suggested: estimate.suggested,
+                    lowValue: estimate.lowValue,
+                    midValue: estimate.value,
+                    highValue: estimate.highValue,
+                    tier: estimate.tier,
+                  }),
+                })
+              } catch { /* non-blocking */ }
+            }
           }}
         />
       )}

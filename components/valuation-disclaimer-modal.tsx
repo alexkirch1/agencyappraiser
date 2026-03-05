@@ -56,6 +56,7 @@ export function ValuationDisclaimerModal({ onContinue }: Props) {
                 src="/images/mountain-goat.jpg"
                 alt="Mountain goat mascot"
                 fill
+                sizes="112px"
                 className="object-cover"
                 priority
               />

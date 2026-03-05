@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
-import { Menu, X, TrendingUp, Sun, Moon } from "lucide-react"
+import { Menu, X, TrendingUp, Sun, Moon, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/theme-provider"
 
@@ -12,9 +12,7 @@ const navItems = [
   { href: "/", label: "Home" },
   { href: "/quick-value", label: "Quick Value" },
   { href: "/calculator", label: "Full Valuation" },
-  { href: "/carrier", label: "Carrier Calc" },
-  { href: "/quiz", label: "Readiness Quiz" },
-  { href: "/readiness", label: "Seller Scorecard" },
+  { href: "/carrier", label: "Carrier Report" },
 ]
 
 export function Header() {
@@ -52,6 +50,16 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <Link href="/admin" aria-label="Admin dashboard">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <Lock className="h-4 w-4" />
+            </Button>
+          </Link>
+
           <Button
             variant="ghost"
             size="icon"

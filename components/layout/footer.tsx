@@ -1,6 +1,10 @@
 import Link from "next/link"
 import { TrendingUp } from "lucide-react"
 
+// Version bumped on each meaningful release
+const APP_VERSION = "1.5.0"
+const BUILD_DATE = "2026-03-05T10:14:00"
+
 export function Footer() {
   return (
     <footer className="border-t border-border bg-card">
@@ -16,14 +20,14 @@ export function Footer() {
           </div>
 
           <nav className="flex flex-wrap items-center justify-center gap-6">
+            <Link href="/quick-value" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+              Quick Value
+            </Link>
             <Link href="/calculator" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-              Valuation Calculator
+              Full Valuation
             </Link>
             <Link href="/carrier" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-              Carrier Calculator
-            </Link>
-            <Link href="/quiz" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-              Readiness Quiz
+              Carrier Report
             </Link>
             <Link href="/readiness" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
               Seller Scorecard
@@ -31,13 +35,20 @@ export function Footer() {
           </nav>
         </div>
 
-        <div className="mt-8 border-t border-border pt-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            This tool provides preliminary estimates for educational purposes only. It is not a binding offer or formal appraisal.
-          </p>
-          <p className="mt-2 text-xs text-muted-foreground/60">
-            {"Agency Appraiser. All rights reserved."}
-          </p>
+        <div className="mt-8 border-t border-border pt-8">
+          <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
+            <div>
+              <p className="text-sm text-muted-foreground">
+                This tool provides preliminary estimates for educational purposes only. It is not a binding offer or formal appraisal.
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground/60">
+                {"Agency Appraiser. All rights reserved."}
+              </p>
+            </div>
+            <p className="shrink-0 font-mono text-[10px] text-muted-foreground/40" title="Build version and timestamp">
+              v{APP_VERSION} &bull; {BUILD_DATE.replace("T", " ")}
+            </p>
+          </div>
         </div>
       </div>
     </footer>

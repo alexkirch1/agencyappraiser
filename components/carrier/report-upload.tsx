@@ -14,38 +14,66 @@ interface Props {
 
 async function extractTextFromPDF(file: File): Promise<string> {
   const pdfjsLib = await import("pdfjs-dist")
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
 
   const arrayBuffer = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
 
   let fullText = ""
+
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i)
     const content = await page.getTextContent()
-    const pageText = content.items
-      .filter((item): item is typeof item & { str: string } => "str" in item)
-      .map((item) => item.str)
-      .join(" ")
+
+    // Group text items by their Y position (row) so we preserve row structure.
+    // Items within 3px of each other vertically are considered the same row.
+    const items = content.items.filter(
+      (item): item is typeof item & { str: string; transform: number[] } => "str" in item && item.str.trim() !== ""
+    )
+
+    // Sort by Y descending (top of page first), then X ascending (left to right)
+    items.sort((a, b) => {
+      const yDiff = b.transform[5] - a.transform[5]
+      if (Math.abs(yDiff) > 3) return yDiff
+      return a.transform[4] - b.transform[4]
+    })
+
+    // Group into rows by Y proximity
+    const rows: string[][] = []
+    let currentRow: { y: number; strs: string[] } | null = null
+    for (const item of items) {
+      const y = item.transform[5]
+      if (!currentRow || Math.abs(currentRow.y - y) > 3) {
+        currentRow = { y, strs: [item.str] }
+        rows.push(currentRow.strs)
+      } else {
+        currentRow.strs.push(item.str)
+      }
+    }
+
+    // Join each row's items with a space, rows separated by newline
+    const pageText = rows.map(r => r.join(" ")).join("\n")
     fullText += pageText + "\n"
+
+    console.log("[v0] Page", i, "text:\n", pageText)
   }
 
+  console.log("[v0] Full PDF text:\n", fullText)
   return fullText
 }
 
 const carrierReportNames: Record<CarrierName, string> = {
   progressive: "Account Production Report",
-  safeco: "Agency Production Report",
-  hartford: "Agency Book of Business Report",
   travelers: "Agency Results Report",
-  msa: "Agency Performance Report",
 }
 
 export function ReportUpload({ carrier, onParsed }: Props) {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [fileName, setFileName] = useState("")
   const [fieldsFound, setFieldsFound] = useState(0)
+  const [confidence, setConfidence] = useState(0)
   const [errorMsg, setErrorMsg] = useState("")
+  const [rawPreview, setRawPreview] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
 
   const handleFile = useCallback(
@@ -69,11 +97,20 @@ export function ReportUpload({ carrier, onParsed }: Props) {
 
         if (count === 0) {
           setStatus("error")
+          setRawPreview(text.split("\n").slice(0, 60).join("\n"))
           setErrorMsg(
             "Could not extract any fields from this PDF. Make sure you are uploading the correct report type for this carrier. You can still fill in the fields manually."
           )
         } else {
+          // Estimate confidence based on fields found vs expected
+          const expectedFields: Record<string, number> = {
+            progressive: 7,
+            travelers: 8,
+          }
+          const expected = expectedFields[carrier] || 5
+          const conf = Math.min(100, Math.round((count / expected) * 80 + 20))
           setFieldsFound(count)
+          setConfidence(conf)
           setStatus("success")
           onParsed(parsed)
         }
@@ -106,6 +143,7 @@ export function ReportUpload({ carrier, onParsed }: Props) {
     setFileName("")
     setFieldsFound(0)
     setErrorMsg("")
+    setRawPreview("")
     if (inputRef.current) inputRef.current.value = ""
   }
 
@@ -162,6 +200,13 @@ export function ReportUpload({ carrier, onParsed }: Props) {
                 </p>
                 <p className="text-xs text-[hsl(var(--success))]">
                   {fieldsFound} field{fieldsFound !== 1 ? "s" : ""} auto-filled from report
+                  <span className={`ml-2 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                    confidence >= 70 ? "bg-[hsl(var(--success))]/15 text-[hsl(var(--success))]" :
+                    confidence >= 45 ? "bg-[hsl(var(--warning))]/15 text-[hsl(var(--warning))]" :
+                    "bg-destructive/15 text-destructive"
+                  }`}>
+                    {confidence}% confidence
+                  </span>
                 </p>
               </div>
             </div>
@@ -183,6 +228,16 @@ export function ReportUpload({ carrier, onParsed }: Props) {
                 <p className="mt-0.5 text-xs text-muted-foreground">{errorMsg}</p>
               </div>
             </div>
+            {rawPreview && (
+              <details className="rounded-md border border-border bg-secondary/30">
+                <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground">
+                  Show extracted text (for support)
+                </summary>
+                <pre className="max-h-48 overflow-auto px-3 py-2 text-[10px] leading-4 text-muted-foreground whitespace-pre-wrap">
+                  {rawPreview}
+                </pre>
+              </details>
+            )}
             <Button variant="outline" size="sm" onClick={reset} className="self-start">
               Try another file
             </Button>

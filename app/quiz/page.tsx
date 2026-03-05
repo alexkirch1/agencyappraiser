@@ -8,7 +8,7 @@ export default function QuizPage() {
       <div className="mb-8 text-center">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">Agency Readiness Quiz</h1>
         <p className="mt-2 text-muted-foreground">
-          10 questions to assess if you and your agency are truly ready for an exit.
+          10 questions covering your business preparation and personal readiness for an exit.
         </p>
       </div>
       <QuizEngine />

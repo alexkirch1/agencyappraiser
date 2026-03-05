@@ -1,229 +1,260 @@
 // =====================================================
-// Carrier Report PDF Parser
-// Extracts carrier-specific fields from uploaded PDF reports
+// Carrier Report PDF Parser — Travelers & Progressive
+// =====================================================
+// Strategy: extract text preserving row structure, then
+// scan line by line for known label patterns. This is
+// far more robust than single-regex full-text matching
+// because pdfjs outputs items in visual/column order.
 // =====================================================
 
 import type { CarrierInputs, CarrierName } from "./carrier-engine"
 
-function num(s: string | undefined): number | null {
+// Strip $, commas, %, leading/trailing whitespace and parse float
+function num(s: string | undefined | null): number | null {
   if (!s) return null
-  const cleaned = s.replace(/[$,%\s]/g, "").replace(/,/g, "")
+  const cleaned = s.replace(/[$,%()\s]/g, "")
   const n = parseFloat(cleaned)
   return isNaN(n) ? null : n
 }
 
-/**
- * Parse text extracted from a PDF and return partial CarrierInputs
- * based on the selected carrier.
- */
+// Find the first number-like token in a string
+function firstNumber(s: string): number | null {
+  const m = s.match(/([\d,]+(?:\.\d+)?)/)
+  return m ? num(m[1]) : null
+}
+
+// Find the first percentage-like token (e.g. "42.5" or "42.5%")
+function firstPercent(s: string): number | null {
+  const m = s.match(/([\d]+(?:\.\d+)?)\s*%/)
+  if (m) return num(m[1])
+  // also accept bare decimals that look like a ratio (< 200)
+  const m2 = s.match(/([\d]+\.\d+)/)
+  if (m2) {
+    const v = parseFloat(m2[1])
+    return v < 200 ? v : null
+  }
+  return null
+}
+
+// Normalise a string for label comparison — lowercase, collapse spaces
+function norm(s: string): string {
+  return s.toLowerCase().replace(/\s+/g, " ").trim()
+}
+
 export function parseCarrierReport(
   text: string,
   carrier: CarrierName
 ): Partial<CarrierInputs> {
+  const lines = text.split("\n").map(l => l.trim()).filter(Boolean)
+  console.log("[v0] Parser got", lines.length, "lines for carrier:", carrier)
+  console.log("[v0] First 40 lines:", lines.slice(0, 40))
+
   switch (carrier) {
     case "progressive":
-      return parseProgressive(text)
-    case "safeco":
-      return parseSafeco(text)
-    case "hartford":
-      return parseHartford(text)
+      return parseProgressive(lines)
     case "travelers":
-      return parseTravelers(text)
-    case "msa":
-      return parseMSA(text)
+      return parseTravelers(lines, text)
     default:
       return {}
   }
 }
 
-// -------------------------------------------------------------------
-// Progressive: Account Production Report
-// -------------------------------------------------------------------
-function parseProgressive(text: string): Partial<CarrierInputs> {
+// =====================================================
+// TRAVELERS — Agency Results Report
+// =====================================================
+// Travelers reports are tabular. The left column has the
+// label, the right column(s) have values. Because pdfjs
+// extracts by row, a line might look like:
+//   "Written Premium 1,234,567"  — label + value on same line
+// OR the label and value end up on adjacent lines if the
+// columns are widely spaced.
+//
+// We use two passes:
+//   1. Same-line: does this line contain a known label AND a number?
+//   2. Next-line: does the NEXT line contain a bare number?
+// =====================================================
+function parseTravelers(lines: string[], fullText: string): Partial<CarrierInputs> {
   const result: Partial<CarrierInputs> = {}
 
-  // Personal Lines: "Total Personal Lines",,"\$XXX","\$XXX","PIF","XX%"
-  const plMatch = text.match(
-    /Total Personal Lines[",\s]*\$?([\d,]+)[",\s]*\$?[\d,]*[",\s]*(\d+)[",\s]*(\d+)%/i
-  )
-  if (plMatch) {
-    result.prog_pl_premium = num(plMatch[1])
-    result.prog_pl_pif = num(plMatch[2])
-    result.prog_pl_loss_ratio = num(plMatch[3])
+  // Track which LOB context we're in as we scan lines
+  type Lob = "auto" | "home" | null
+  let lob: Lob = null
+
+  // Helper: convert raw WP value — Travelers sometimes reports in $000s
+  const wpVal = (v: number | null): number | null => {
+    if (v === null) return null
+    // If value looks like thousands denomination (< 10,000 but plausible as $k)
+    // leave as-is; if it's clearly full dollars (> 50,000) convert to $k
+    return v > 50_000 ? Math.round(v / 1_000) : v
   }
 
-  // Alt pattern: look for lines with "Personal Lines" and dollar amounts
-  if (!plMatch) {
-    const plAlt = text.match(/Personal\s*Lines[\s\S]{0,200}?\$\s*([\d,]+)/i)
-    if (plAlt) result.prog_pl_premium = num(plAlt[1])
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const n = norm(line)
+    const next = lines[i + 1] ? norm(lines[i + 1]) : ""
 
-    const plPif = text.match(/Personal\s*Lines[\s\S]{0,200}?PIF[:\s]*(\d+)/i)
-    if (plPif) result.prog_pl_pif = num(plPif[1])
+    // ---- Detect LOB section ----
+    if (/\b(auto(mobile)?|private passenger)\b/.test(n) && !/homeowner|home owner/.test(n)) {
+      lob = "auto"
+      console.log("[v0] Travelers: switched to AUTO at line", i, ":", line)
+    } else if (/\b(home(owner)?s?|ho|property)\b/.test(n) && !/auto/.test(n)) {
+      lob = "home"
+      console.log("[v0] Travelers: switched to HOME at line", i, ":", line)
+    }
 
-    const plLr = text.match(/Personal\s*Lines[\s\S]{0,200}?Loss\s*Ratio[:\s]*([\d.]+)/i)
-    if (plLr) result.prog_pl_loss_ratio = num(plLr[1])
+    // ---- Written Premium ----
+    if (/written\s*premium|direct\s*written|^wp\b/.test(n)) {
+      const v = firstNumber(line) ?? firstNumber(lines[i + 1] ?? "")
+      if (v !== null) {
+        const converted = wpVal(v)
+        if (lob === "auto") { result.travelers_auto_wp = converted; console.log("[v0] T: auto WP =", converted) }
+        else if (lob === "home") { result.travelers_home_wp = converted; console.log("[v0] T: home WP =", converted) }
+      }
+    }
+
+    // ---- Earned Premium (fallback for WP) ----
+    if (/earned\s*premium/.test(n) && !result.travelers_auto_wp && !result.travelers_home_wp) {
+      const v = firstNumber(line) ?? firstNumber(lines[i + 1] ?? "")
+      if (v !== null) {
+        const converted = wpVal(v)
+        if (lob === "auto") result.travelers_auto_wp = converted
+        else if (lob === "home") result.travelers_home_wp = converted
+      }
+    }
+
+    // ---- Loss Ratio ----
+    if (/loss\s*ratio|l\/r|\blr\b/.test(n)) {
+      const v = firstPercent(line) ?? firstPercent(lines[i + 1] ?? "")
+      if (v !== null) {
+        if (lob === "auto") { result.travelers_auto_lr = v; console.log("[v0] T: auto LR =", v) }
+        else if (lob === "home") { result.travelers_home_lr = v; console.log("[v0] T: home LR =", v) }
+        else {
+          // No LOB context yet — assign to both as fallback
+          if (!result.travelers_auto_lr) result.travelers_auto_lr = v
+          else if (!result.travelers_home_lr) result.travelers_home_lr = v
+        }
+      }
+    }
+
+    // ---- Retention ----
+    if (/\bretention\b/.test(n)) {
+      const v = firstPercent(line) ?? firstPercent(lines[i + 1] ?? "")
+      if (v !== null) {
+        if (lob === "auto") { result.travelers_auto_retention = v; console.log("[v0] T: auto ret =", v) }
+        else if (lob === "home") { result.travelers_home_retention = v; console.log("[v0] T: home ret =", v) }
+        else {
+          if (!result.travelers_auto_retention) result.travelers_auto_retention = v
+          else if (!result.travelers_home_retention) result.travelers_home_retention = v
+        }
+      }
+    }
+
+    // ---- PIF / Policies in Force ----
+    if (/policies?\s*in\s*force|\bpif\b|policy\s*count/.test(n)) {
+      const v = firstNumber(line) ?? firstNumber(lines[i + 1] ?? "")
+      if (v !== null) {
+        if (lob === "auto") { result.travelers_auto_pif = v; console.log("[v0] T: auto PIF =", v) }
+        else if (lob === "home") { result.travelers_home_pif = v; console.log("[v0] T: home PIF =", v) }
+      }
+    }
+
+    // ---- New Business Premium ----
+    if (/new\s*business|new\s*written/.test(n)) {
+      const v = firstNumber(line) ?? firstNumber(lines[i + 1] ?? "")
+      if (v !== null) {
+        if (!result.travelers_nb_premium) {
+          result.travelers_nb_premium = wpVal(v)
+          console.log("[v0] T: NB premium =", result.travelers_nb_premium)
+        }
+      }
+    }
+
+    // ---- Combined ratio ----
+    if (/combined\s*ratio/.test(n)) {
+      const v = firstPercent(line) ?? firstPercent(lines[i + 1] ?? "")
+      if (v !== null && !result.travelers_combined_ratio) {
+        result.travelers_combined_ratio = v
+        console.log("[v0] T: combined ratio =", v)
+      }
+    }
+
+    void next // suppress unused warning
   }
 
-  // Commercial Lines
-  const clMatch = text.match(
-    /Commercial\s*Lines[",\s]*\d*[",\s]*\$?([\d,]+)[",\s]*\$?[\d,]*[",\s]*(\d+)[",\s]*(\d+)%/i
-  )
-  if (clMatch) {
-    result.prog_cl_premium = num(clMatch[1])
-    result.prog_cl_pif = num(clMatch[2])
-    result.prog_cl_loss_ratio = num(clMatch[3])
+  // ---- Fallback: if no LOB detected, try full-text patterns ----
+  if (!result.travelers_auto_wp) {
+    const m = fullText.match(/auto(?:mobile)?\s*(?:written\s*)?(?:premium|wp)[:\s$]*([\d,]+)/i)
+    if (m) result.travelers_auto_wp = wpVal(num(m[1]))
+  }
+  if (!result.travelers_home_wp) {
+    const m = fullText.match(/home(?:owner)?s?\s*(?:written\s*)?(?:premium|wp)[:\s$]*([\d,]+)/i)
+    if (m) result.travelers_home_wp = wpVal(num(m[1]))
   }
 
-  if (!clMatch) {
-    const clAlt = text.match(/Commercial\s*Lines[\s\S]{0,200}?\$\s*([\d,]+)/i)
-    if (clAlt) result.prog_cl_premium = num(clAlt[1])
-
-    const clPif = text.match(/Commercial\s*Lines[\s\S]{0,200}?PIF[:\s]*(\d+)/i)
-    if (clPif) result.prog_cl_pif = num(clPif[1])
-
-    const clLr = text.match(/Commercial\s*Lines[\s\S]{0,200}?Loss\s*Ratio[:\s]*([\d.]+)/i)
-    if (clLr) result.prog_cl_loss_ratio = num(clLr[1])
-  }
-
-  // Bundle Rate
-  const bundleMatch = text.match(/Bundle\s*Rate[",\s]*\d*%?[",\s]*\d*%?[",\s]*\d*%?[",\s]*(\d+)%/i)
-  if (bundleMatch) result.prog_bundle_rate = num(bundleMatch[1])
-  if (!bundleMatch) {
-    const bundleAlt = text.match(/Bundle\s*Rate[:\s]*([\d.]+)/i)
-    if (bundleAlt) result.prog_bundle_rate = num(bundleAlt[1])
-  }
-
-  // YTD Apps
-  const appsMatch = text.match(/YTD\s*App[s]?[:\s]*(\d+)/i)
-  if (appsMatch) result.prog_ytd_apps = num(appsMatch[1])
-  if (!appsMatch) {
-    const appsAlt = text.match(/Total\s*Personal\s*Lines[\s\S]{0,200}?(\d+)\s*$/im)
-    if (appsAlt) result.prog_ytd_apps = num(appsAlt[1])
-  }
-
+  console.log("[v0] Travelers parsed result:", result)
   return result
 }
 
-// -------------------------------------------------------------------
-// Safeco
-// -------------------------------------------------------------------
-function parseSafeco(text: string): Partial<CarrierInputs> {
+// =====================================================
+// PROGRESSIVE — Account Production Report
+// =====================================================
+function parseProgressive(lines: string[]): Partial<CarrierInputs> {
   const result: Partial<CarrierInputs> = {}
 
-  // DWP / Total Written Premium
-  const dwp = text.match(/(?:Total|Direct)\s*(?:Written|DWP)[:\s]*\$?\s*([\d,]+)/i)
-  if (dwp) result.safeco_total_dwp = num(dwp[1])
+  type Lob = "pl" | "cl" | null
+  let lob: Lob = null
 
-  // PIF
-  const pif = text.match(/(?:Policies?\s*in\s*Force|PIF)[:\s]*([\d,]+)/i)
-  if (pif) result.safeco_pif = num(pif[1])
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const n = norm(line)
 
-  // Loss Ratio
-  const lr = text.match(/Loss\s*Ratio[:\s]*([\d.]+)/i)
-  if (lr) result.safeco_loss_ratio = num(lr[1])
+    // ---- LOB context ----
+    if (/personal\s*lines?|^pl\b|personal\s*auto/.test(n) && !/commercial/.test(n)) lob = "pl"
+    else if (/commercial\s*lines?|^cl\b|commercial\s*auto/.test(n)) lob = "cl"
 
-  // Retention
-  const ret = text.match(/Retention[:\s]*([\d.]+)/i)
-  if (ret) result.safeco_retention = num(ret[1])
+    // ---- Written Premium ----
+    if (/written\s*premium|^wp\b/.test(n)) {
+      const v = firstNumber(line) ?? firstNumber(lines[i + 1] ?? "")
+      if (v !== null) {
+        if (lob === "pl") result.prog_pl_premium = v
+        else if (lob === "cl") result.prog_cl_premium = v
+        else if (!result.prog_pl_premium) result.prog_pl_premium = v
+      }
+    }
 
-  // New Business Count
-  const nb = text.match(/(?:New\s*Business|NB)\s*(?:Count)?[:\s]*([\d,]+)/i)
-  if (nb) result.safeco_nb_count = num(nb[1])
+    // ---- PIF ----
+    if (/policies?\s*in\s*force|\bpif\b/.test(n)) {
+      const v = firstNumber(line) ?? firstNumber(lines[i + 1] ?? "")
+      if (v !== null) {
+        if (lob === "pl") result.prog_pl_pif = v
+        else if (lob === "cl") result.prog_cl_pif = v
+        else if (!result.prog_pl_pif) result.prog_pl_pif = v
+      }
+    }
 
-  return result
-}
+    // ---- Loss Ratio ----
+    if (/loss\s*ratio|l\/r|\blr\b/.test(n)) {
+      const v = firstPercent(line) ?? firstPercent(lines[i + 1] ?? "")
+      if (v !== null) {
+        if (lob === "pl") result.prog_pl_loss_ratio = v
+        else if (lob === "cl") result.prog_cl_loss_ratio = v
+        else if (!result.prog_pl_loss_ratio) result.prog_pl_loss_ratio = v
+      }
+    }
 
-// -------------------------------------------------------------------
-// Hartford
-// -------------------------------------------------------------------
-function parseHartford(text: string): Partial<CarrierInputs> {
-  const result: Partial<CarrierInputs> = {}
+    // ---- Bundle Rate ----
+    if (/bundle\s*rate|bundled|multi.?policy/.test(n)) {
+      const v = firstPercent(line) ?? firstPercent(lines[i + 1] ?? "")
+      if (v !== null) result.prog_bundle_rate = v
+    }
 
-  // Personal Lines TWP (in thousands)
-  const plTwp = text.match(/Personal\s*Lines[\s\S]{0,200}?(?:TWP|Written\s*Premium)[:\s]*\$?\s*([\d,]+)/i)
-  if (plTwp) {
-    const val = num(plTwp[1])
-    // If value > 100000 it's in dollars, convert to thousands
-    result.hartford_pl_twp = val && val > 100000 ? Math.round(val / 1000) : val
+    // ---- YTD Apps ----
+    if (/ytd\s*(?:new\s*)?app|new\s*business\s*(?:app|count)/.test(n)) {
+      const v = firstNumber(line) ?? firstNumber(lines[i + 1] ?? "")
+      if (v !== null) result.prog_ytd_apps = v
+    }
   }
 
-  const plLr = text.match(/Personal\s*Lines[\s\S]{0,200}?Loss\s*Ratio[:\s]*([\d.]+)/i)
-  if (plLr) result.hartford_pl_lr = num(plLr[1])
-
-  const plRet = text.match(/Personal\s*Lines[\s\S]{0,200}?Retention[:\s]*([\d.]+)/i)
-  if (plRet) result.hartford_pl_retention = num(plRet[1])
-
-  // Commercial / Small Commercial
-  const clTwp = text.match(/(?:Commercial|Small\s*Commercial)[\s\S]{0,200}?(?:TWP|Written\s*Premium)[:\s]*\$?\s*([\d,]+)/i)
-  if (clTwp) {
-    const val = num(clTwp[1])
-    result.hartford_cl_twp = val && val > 100000 ? Math.round(val / 1000) : val
-  }
-
-  const clLr = text.match(/(?:Commercial|Small\s*Commercial)[\s\S]{0,200}?Loss\s*Ratio[:\s]*([\d.]+)/i)
-  if (clLr) result.hartford_cl_lr = num(clLr[1])
-
-  const clRet = text.match(/(?:Commercial|Small\s*Commercial)[\s\S]{0,200}?Retention[:\s]*([\d.]+)/i)
-  if (clRet) result.hartford_cl_retention = num(clRet[1])
-
-  return result
-}
-
-// -------------------------------------------------------------------
-// Travelers
-// -------------------------------------------------------------------
-function parseTravelers(text: string): Partial<CarrierInputs> {
-  const result: Partial<CarrierInputs> = {}
-
-  // Auto
-  const autoWp = text.match(/Auto[\s\S]{0,200}?(?:Written\s*Premium|WP)[:\s]*\$?\s*([\d,]+)/i)
-  if (autoWp) {
-    const val = num(autoWp[1])
-    result.travelers_auto_wp = val && val > 100000 ? Math.round(val / 1000) : val
-  }
-
-  const autoLr = text.match(/Auto[\s\S]{0,200}?Loss\s*Ratio[:\s]*([\d.]+)/i)
-  if (autoLr) result.travelers_auto_lr = num(autoLr[1])
-
-  const autoRet = text.match(/Auto[\s\S]{0,200}?Retention[:\s]*([\d.]+)/i)
-  if (autoRet) result.travelers_auto_retention = num(autoRet[1])
-
-  // Homeowners
-  const homeWp = text.match(/(?:Home|Homeowner)[\s\S]{0,200}?(?:Written\s*Premium|WP)[:\s]*\$?\s*([\d,]+)/i)
-  if (homeWp) {
-    const val = num(homeWp[1])
-    result.travelers_home_wp = val && val > 100000 ? Math.round(val / 1000) : val
-  }
-
-  const homeLr = text.match(/(?:Home|Homeowner)[\s\S]{0,200}?Loss\s*Ratio[:\s]*([\d.]+)/i)
-  if (homeLr) result.travelers_home_lr = num(homeLr[1])
-
-  const homeRet = text.match(/(?:Home|Homeowner)[\s\S]{0,200}?Retention[:\s]*([\d.]+)/i)
-  if (homeRet) result.travelers_home_retention = num(homeRet[1])
-
-  return result
-}
-
-// -------------------------------------------------------------------
-// MSA
-// -------------------------------------------------------------------
-function parseMSA(text: string): Partial<CarrierInputs> {
-  const result: Partial<CarrierInputs> = {}
-
-  const dwp = text.match(/(?:Total|Direct)\s*(?:Written|DWP)[:\s]*\$?\s*([\d,]+)/i)
-  if (dwp) result.msa_total_dwp = num(dwp[1])
-
-  const pif = text.match(/(?:Policies?\s*in\s*Force|PIF)[:\s]*([\d,]+)/i)
-  if (pif) result.msa_pif = num(pif[1])
-
-  const lr = text.match(/Loss\s*Ratio[:\s]*([\d.]+)/i)
-  if (lr) result.msa_loss_ratio = num(lr[1])
-
-  const ret = text.match(/Retention[:\s]*([\d.]+)/i)
-  if (ret) result.msa_retention = num(ret[1])
-
-  const nb = text.match(/(?:New\s*Business|NB)\s*(?:Premium)?[:\s]*\$?\s*([\d,]+)/i)
-  if (nb) result.msa_nb_premium = num(nb[1])
-
+  console.log("[v0] Progressive parsed result:", result)
   return result
 }
