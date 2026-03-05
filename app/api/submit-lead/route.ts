@@ -119,7 +119,6 @@ async function getPipedriveCustomFields(): Promise<Record<string, string>> {
       ["carrierDiv", ["carrier diversification", "carrier div", "top carrier %"]],
       ["scope", ["scope of sale", "scope", "sale type", "deal type"]],
       ["yearEstablished", ["year established", "year est", "founded", "established"]],
-      ["source", ["lead source", "tool used", "source channel"]],
     ]
 
     for (const [logicalKey, patterns] of mappings) {
@@ -347,7 +346,7 @@ export async function POST(req: Request) {
             const scopeLabels: Record<number, string> = { 1: "Full Agency", 0.95: "Book Purchase", 0.9: "Fragmented" }
             customFields.scope = scopeLabels[Number(valuationData.scopeOfSale)] || String(valuationData.scopeOfSale)
           }
-          customFields.source = toolUsed || "Agency Valuation"
+          // Note: "source" is intentionally omitted — Pipedrive's "origin" field is system-generated and cannot be set via the API
         }
         console.log("[v0] Custom fields to send:", JSON.stringify(customFields))
 

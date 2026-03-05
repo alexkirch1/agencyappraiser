@@ -721,7 +721,7 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
                         {deal.status.charAt(0).toUpperCase() + deal.status.slice(1)}
                       </span>
                     </p>
-                    {deal.details?.notes && (
+                    {deal.details?.notes != null && (
                       <p className="mt-1 truncate text-xs text-muted-foreground/70 italic">
                         {String(deal.details.notes)}
                       </p>
