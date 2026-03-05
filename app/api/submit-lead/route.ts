@@ -92,10 +92,13 @@ async function getPipedriveCustomFields(): Promise<Record<string, string>> {
     const map: Record<string, string> = {}
     const fields: { key: string; name: string; type: string }[] = json.data
 
+    // Only match against custom fields (40-char hex key) — never Pipedrive system fields
+    const customFields = fields.filter((f) => /^[a-f0-9]{40}$/.test(f.key))
+
     // Build a helper to find a field by trying multiple patterns in order
     function findField(patterns: string[]): string | null {
       for (const pattern of patterns) {
-        const match = fields.find(f => {
+        const match = customFields.find(f => {
           const n = f.name.toLowerCase()
           return n === pattern.toLowerCase() || n.includes(pattern.toLowerCase())
         })
@@ -116,7 +119,7 @@ async function getPipedriveCustomFields(): Promise<Record<string, string>> {
       ["carrierDiv", ["carrier diversification", "carrier div", "top carrier %"]],
       ["scope", ["scope of sale", "scope", "sale type", "deal type"]],
       ["yearEstablished", ["year established", "year est", "founded", "established"]],
-      ["source", ["lead source", "source", "tool used", "origin"]],
+      ["source", ["lead source", "tool used", "source channel"]],
     ]
 
     for (const [logicalKey, patterns] of mappings) {

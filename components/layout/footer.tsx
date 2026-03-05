@@ -2,8 +2,8 @@ import Link from "next/link"
 import { TrendingUp } from "lucide-react"
 
 // Version bumped on each meaningful release
-const APP_VERSION = "1.4.2"
-const BUILD_DATE = "2026-03-03T14:22:09"
+const APP_VERSION = "1.5.0"
+const BUILD_DATE = "2026-03-05T10:14:00"
 
 export function Footer() {
   return (
@@ -20,12 +20,14 @@ export function Footer() {
           </div>
 
           <nav className="flex flex-wrap items-center justify-center gap-6">
-            <Link href="/calculator" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-              Valuation Calculator
+            <Link href="/quick-value" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+              Quick Value
             </Link>
-
-            <Link href="/quiz" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-              Readiness Quiz
+            <Link href="/calculator" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+              Full Valuation
+            </Link>
+            <Link href="/carrier" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+              Carrier Report
             </Link>
             <Link href="/readiness" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
               Seller Scorecard
