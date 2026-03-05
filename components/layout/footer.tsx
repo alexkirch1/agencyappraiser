@@ -2,8 +2,8 @@ import Link from "next/link"
 import { TrendingUp } from "lucide-react"
 
 // Version bumped on each meaningful release
-const APP_VERSION = "1.5.0"
-const BUILD_DATE = "2026-03-05T10:14:00"
+const APP_VERSION = "1.5.1"
+const BUILD_DATE = "2026-03-05T12:30:00"
 
 export function Footer() {
   return (

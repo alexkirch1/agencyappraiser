@@ -1,44 +1,30 @@
 // =====================================================
 // Carrier Report PDF Parser — Travelers & Progressive
 // =====================================================
-// Strategy: extract text preserving row structure, then
-// scan line by line for known label patterns. This is
-// far more robust than single-regex full-text matching
-// because pdfjs outputs items in visual/column order.
-// =====================================================
 
 import type { CarrierInputs, CarrierName } from "./carrier-engine"
 
-// Strip $, commas, %, leading/trailing whitespace and parse float
+// Strip $, commas, parentheses (negatives), %, spaces and parse float
 function num(s: string | undefined | null): number | null {
   if (!s) return null
+  // parentheses = negative in accounting notation
+  const neg = /^\(.*\)$/.test(s.trim())
   const cleaned = s.replace(/[$,%()\s]/g, "")
   const n = parseFloat(cleaned)
-  return isNaN(n) ? null : n
+  if (isNaN(n)) return null
+  return neg ? -n : n
 }
 
-// Find the first number-like token in a string
-function firstNumber(s: string): number | null {
-  const m = s.match(/([\d,]+(?:\.\d+)?)/)
-  return m ? num(m[1]) : null
+// Split a line into tokens, ignoring empty strings
+function tokens(line: string): string[] {
+  return line.trim().split(/\s+/).filter(Boolean)
 }
 
-// Find the first percentage-like token (e.g. "42.5" or "42.5%")
-function firstPercent(s: string): number | null {
-  const m = s.match(/([\d]+(?:\.\d+)?)\s*%/)
-  if (m) return num(m[1])
-  // also accept bare decimals that look like a ratio (< 200)
-  const m2 = s.match(/([\d]+\.\d+)/)
-  if (m2) {
-    const v = parseFloat(m2[1])
-    return v < 200 ? v : null
-  }
-  return null
-}
-
-// Normalise a string for label comparison — lowercase, collapse spaces
-function norm(s: string): string {
-  return s.toLowerCase().replace(/\s+/g, " ").trim()
+// Get all numeric tokens from a line (in order)
+function numTokens(line: string): number[] {
+  return tokens(line)
+    .map(t => num(t))
+    .filter((v): v is number => v !== null)
 }
 
 export function parseCarrierReport(
@@ -46,153 +32,203 @@ export function parseCarrierReport(
   carrier: CarrierName
 ): Partial<CarrierInputs> {
   const lines = text.split("\n").map(l => l.trim()).filter(Boolean)
-  console.log("[v0] Parser got", lines.length, "lines for carrier:", carrier)
-  console.log("[v0] First 40 lines:", lines.slice(0, 40))
 
   switch (carrier) {
     case "progressive":
       return parseProgressive(lines)
     case "travelers":
-      return parseTravelers(lines, text)
+      return parseTravelers(lines)
     default:
       return {}
   }
 }
 
 // =====================================================
-// TRAVELERS — Agency Results Report
+// TRAVELERS — Production Data Summary
 // =====================================================
-// Travelers reports are tabular. The left column has the
-// label, the right column(s) have values. Because pdfjs
-// extracts by row, a line might look like:
-//   "Written Premium 1,234,567"  — label + value on same line
-// OR the label and value end up on adjacent lines if the
-// columns are widely spaced.
 //
-// We use two passes:
-//   1. Same-line: does this line contain a known label AND a number?
-//   2. Next-line: does the NEXT line contain a bare number?
+// The report has named sections. Each section has a header
+// line followed by LOB rows: AUTO, HOME, OTHER, TOTAL.
+//
+// Section: "Actual to Prior Year" table (top of report)
+//   Columns: [PYTD_Quotes, CYTD_Quotes, Var, %Var,
+//             PYTD_NB, CYTD_NB, Var, %Var,
+//             PYE_PIF, CYTD_PIF, Var, %Var,
+//             PYE_Retention, YTD_Retention, Var,
+//             PYTD_LR, YTD_LR, Var]
+//   Indices:   0          1                4    5
+//              8          9                12   13      (15)
+//                                          16   17
+//
+// Section: "WP (,000)" — 13-month + YTD + YE columns
+//   Last two tokens are YE 2025 and YE 2024 (after the month cols)
+//   Row looks like: AUTO $14 $39 ... $21 $20 5.5% $206 $233
+//   The $206 is 2025 annual WP (in $000s)
+//
+// Section: "PIF Count"
+//   Row: AUTO 80 81 ... 216 235  (13 months + YTD + PYTD + % + 2025 + 2024)
+//   YTD PIF is 13th number (index 12), 2025 YE is second-to-last pure number
+//
 // =====================================================
-function parseTravelers(lines: string[], fullText: string): Partial<CarrierInputs> {
+
+type TravSection = "actuals" | "wp" | "pif" | "nb" | "quotes" | "sales" | null
+
+function parseTravelers(lines: string[]): Partial<CarrierInputs> {
   const result: Partial<CarrierInputs> = {}
-
-  // Track which LOB context we're in as we scan lines
-  type Lob = "auto" | "home" | null
-  let lob: Lob = null
-
-  // Helper: convert raw WP value — Travelers sometimes reports in $000s
-  const wpVal = (v: number | null): number | null => {
-    if (v === null) return null
-    // If value looks like thousands denomination (< 10,000 but plausible as $k)
-    // leave as-is; if it's clearly full dollars (> 50,000) convert to $k
-    return v > 50_000 ? Math.round(v / 1_000) : v
-  }
+  let section: TravSection = null
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
-    const n = norm(line)
-    const next = lines[i + 1] ? norm(lines[i + 1]) : ""
+    const lower = line.toLowerCase()
 
-    // ---- Detect LOB section ----
-    if (/\b(auto(mobile)?|private passenger)\b/.test(n) && !/homeowner|home owner/.test(n)) {
-      lob = "auto"
-      console.log("[v0] Travelers: switched to AUTO at line", i, ":", line)
-    } else if (/\b(home(owner)?s?|ho|property)\b/.test(n) && !/auto/.test(n)) {
-      lob = "home"
-      console.log("[v0] Travelers: switched to HOME at line", i, ":", line)
+    // ---- Detect section by header ----
+    if (/actual\s*to\s*prior\s*year/i.test(line)) {
+      section = "actuals"; continue
+    }
+    if (/^wp\s*[\(（]/.test(line) || /written\s*premium\s*[\(（]/i.test(line)) {
+      section = "wp"; continue
+    }
+    if (/^pif\s*count/i.test(line) || /policies?\s*in\s*force\s*count/i.test(line)) {
+      section = "pif"; continue
+    }
+    if (/^booked\s*nb/i.test(line) || /^new\s*business/i.test(line)) {
+      section = "nb"; continue
+    }
+    if (/^quotes$/i.test(line.trim())) {
+      section = "quotes"; continue
+    }
+    if (/^sales\s*ratio/i.test(line)) {
+      section = "sales"; continue
+    }
+    // Reset section on blank-ish header rows that don't match known sections
+    if (/^13\s*month\s*trend/i.test(line)) {
+      // Leave current section — data rows follow the 13-month header
+      continue
     }
 
-    // ---- Written Premium ----
-    if (/written\s*premium|direct\s*written|^wp\b/.test(n)) {
-      const v = firstNumber(line) ?? firstNumber(lines[i + 1] ?? "")
-      if (v !== null) {
-        const converted = wpVal(v)
-        if (lob === "auto") { result.travelers_auto_wp = converted; console.log("[v0] T: auto WP =", converted) }
-        else if (lob === "home") { result.travelers_home_wp = converted; console.log("[v0] T: home WP =", converted) }
-      }
-    }
+    // ---- Skip header/label rows within sections ----
+    // (rows that don't start with AUTO, HOME, OTHER, TOTAL)
+    const lobMatch = line.match(/^(AUTO|HOME|OTHER|TOTAL)\b/i)
+    if (!lobMatch) continue
 
-    // ---- Earned Premium (fallback for WP) ----
-    if (/earned\s*premium/.test(n) && !result.travelers_auto_wp && !result.travelers_home_wp) {
-      const v = firstNumber(line) ?? firstNumber(lines[i + 1] ?? "")
-      if (v !== null) {
-        const converted = wpVal(v)
-        if (lob === "auto") result.travelers_auto_wp = converted
-        else if (lob === "home") result.travelers_home_wp = converted
-      }
-    }
+    const lob = lobMatch[1].toUpperCase() as "AUTO" | "HOME" | "OTHER" | "TOTAL"
+    const nums = numTokens(line)
 
-    // ---- Loss Ratio ----
-    if (/loss\s*ratio|l\/r|\blr\b/.test(n)) {
-      const v = firstPercent(line) ?? firstPercent(lines[i + 1] ?? "")
-      if (v !== null) {
-        if (lob === "auto") { result.travelers_auto_lr = v; console.log("[v0] T: auto LR =", v) }
-        else if (lob === "home") { result.travelers_home_lr = v; console.log("[v0] T: home LR =", v) }
-        else {
-          // No LOB context yet — assign to both as fallback
-          if (!result.travelers_auto_lr) result.travelers_auto_lr = v
-          else if (!result.travelers_home_lr) result.travelers_home_lr = v
+    if (nums.length === 0) continue
+
+    switch (section) {
+      case "actuals": {
+        // Row format (18 values, see column map above):
+        // [PYTD_Q, CYTD_Q, Var_Q, %Var_Q,
+        //  PYTD_NB, CYTD_NB, Var_NB, %Var_NB,
+        //  PYE_PIF, CYTD_PIF, Var_PIF, %Var_PIF,
+        //  PYE_Ret, YTD_Ret, Var_Ret (pts),
+        //  PYTD_LR, YTD_LR, Var_LR (pts)]
+        // Note: parenthetical negatives like (43.4%) are parsed as negative numbers
+        // We need indices: CYTD_PIF=9, YTD_Ret=13, YTD_LR=16
+        // But parenthetical values expand the token count — use a smarter pass.
+
+        // Re-tokenise treating parenthetical groups as single tokens
+        const rawTokens = parseAccountingTokens(line.replace(/^(AUTO|HOME|OTHER|TOTAL)\s*/i, ""))
+
+        // Positions (0-based after LOB label stripped):
+        // 0: PYTD_Q  1: CYTD_Q  2: Var_Q  3: %Var_Q
+        // 4: PYTD_NB 5: CYTD_NB 6: Var_NB 7: %Var_NB
+        // 8: PYE_PIF 9: CYTD_PIF 10: Var_PIF 11: %Var_PIF
+        // 12: PYE_Ret 13: YTD_Ret 14: Var_Ret(pts)
+        // 15: PYTD_LR 16: YTD_LR 17: Var_LR
+        if (rawTokens.length >= 17) {
+          const cytdPif  = num(rawTokens[9])
+          const ytdRet   = num(rawTokens[13])
+          const ytdLr    = num(rawTokens[16])
+
+          if (lob === "AUTO") {
+            if (cytdPif !== null) result.travelers_auto_pif = cytdPif
+            if (ytdRet !== null)  result.travelers_auto_retention = ytdRet
+            if (ytdLr !== null)   result.travelers_auto_lr = ytdLr
+          } else if (lob === "HOME") {
+            if (cytdPif !== null) result.travelers_home_pif = cytdPif
+            if (ytdRet !== null)  result.travelers_home_retention = ytdRet
+            if (ytdLr !== null)   result.travelers_home_lr = ytdLr
+          }
         }
+        break
       }
-    }
 
-    // ---- Retention ----
-    if (/\bretention\b/.test(n)) {
-      const v = firstPercent(line) ?? firstPercent(lines[i + 1] ?? "")
-      if (v !== null) {
-        if (lob === "auto") { result.travelers_auto_retention = v; console.log("[v0] T: auto ret =", v) }
-        else if (lob === "home") { result.travelers_home_retention = v; console.log("[v0] T: home ret =", v) }
-        else {
-          if (!result.travelers_auto_retention) result.travelers_auto_retention = v
-          else if (!result.travelers_home_retention) result.travelers_home_retention = v
+      case "wp": {
+        // Row: AUTO $14 $39 $10 $16 $7 $7 $17 $29 $28 $27 $5 $3 $18  $21 $20 5.5% $206 $233
+        // Months: 13 values, then YTD, PYTD, %Var, YE2025, YE2024
+        // We want: YE2025 = nums[nums.length - 2]  (in $000s already)
+        // YTD WP  = nums[13]  (13th 0-based = 14th value)
+        if (nums.length >= 16) {
+          const ytdWp     = nums[13]   // YTD ($000s)
+          const annualWp  = nums[nums.length - 2] // YE 2025 ($000s)
+          if (lob === "AUTO") {
+            result.travelers_auto_wp = annualWp  // use annual
+          } else if (lob === "HOME") {
+            result.travelers_home_wp = annualWp
+          }
+          void ytdWp
         }
+        break
       }
-    }
 
-    // ---- PIF / Policies in Force ----
-    if (/policies?\s*in\s*force|\bpif\b|policy\s*count/.test(n)) {
-      const v = firstNumber(line) ?? firstNumber(lines[i + 1] ?? "")
-      if (v !== null) {
-        if (lob === "auto") { result.travelers_auto_pif = v; console.log("[v0] T: auto PIF =", v) }
-        else if (lob === "home") { result.travelers_home_pif = v; console.log("[v0] T: home PIF =", v) }
-      }
-    }
-
-    // ---- New Business Premium ----
-    if (/new\s*business|new\s*written/.test(n)) {
-      const v = firstNumber(line) ?? firstNumber(lines[i + 1] ?? "")
-      if (v !== null) {
-        if (!result.travelers_nb_premium) {
-          result.travelers_nb_premium = wpVal(v)
-          console.log("[v0] T: NB premium =", result.travelers_nb_premium)
+      case "pif": {
+        // Row: AUTO 80 81 81 79 ... 74 71 75  75 80 (6.2%) 74 79
+        // 13 monthly values + YTD + PYTD + %Var + YE2025 + YE2024
+        // YTD PIF = nums[13], YE2025 = nums[nums.length - 2]
+        if (nums.length >= 15) {
+          const currentPif = nums[13]  // YTD (current)
+          if (lob === "AUTO") {
+            result.travelers_auto_pif = currentPif
+          } else if (lob === "HOME") {
+            result.travelers_home_pif = currentPif
+          }
         }
+        break
       }
-    }
 
-    // ---- Combined ratio ----
-    if (/combined\s*ratio/.test(n)) {
-      const v = firstPercent(line) ?? firstPercent(lines[i + 1] ?? "")
-      if (v !== null && !result.travelers_combined_ratio) {
-        result.travelers_combined_ratio = v
-        console.log("[v0] T: combined ratio =", v)
+      case "nb": {
+        // Booked New Business — YTD = nums[13]
+        if (nums.length >= 14) {
+          const ytdNb = nums[13]
+          if (lob === "TOTAL" && !result.travelers_nb_premium) {
+            result.travelers_nb_premium = ytdNb
+          }
+        }
+        break
       }
-    }
 
-    void next // suppress unused warning
+      default:
+        break
+    }
   }
 
-  // ---- Fallback: if no LOB detected, try full-text patterns ----
-  if (!result.travelers_auto_wp) {
-    const m = fullText.match(/auto(?:mobile)?\s*(?:written\s*)?(?:premium|wp)[:\s$]*([\d,]+)/i)
-    if (m) result.travelers_auto_wp = wpVal(num(m[1]))
-  }
-  if (!result.travelers_home_wp) {
-    const m = fullText.match(/home(?:owner)?s?\s*(?:written\s*)?(?:premium|wp)[:\s$]*([\d,]+)/i)
-    if (m) result.travelers_home_wp = wpVal(num(m[1]))
-  }
+  // If actuals table gave us PIF, prefer pif section values (more explicit)
+  // (already handled by section priority — actuals runs first, pif overwrites)
 
-  console.log("[v0] Travelers parsed result:", result)
   return result
+}
+
+// =====================================================
+// Tokeniser that keeps parenthetical groups as one token
+// e.g. "(43.4%)" stays as one token instead of three
+// =====================================================
+function parseAccountingTokens(s: string): string[] {
+  const out: string[] = []
+  let buf = ""
+  let depth = 0
+  for (const ch of s) {
+    if (ch === "(" ) { depth++; buf += ch }
+    else if (ch === ")") { depth--; buf += ch; if (depth === 0) { out.push(buf); buf = "" } }
+    else if (/\s/.test(ch) && depth === 0) {
+      if (buf) { out.push(buf); buf = "" }
+    } else {
+      buf += ch
+    }
+  }
+  if (buf) out.push(buf)
+  return out.filter(Boolean)
 }
 
 // =====================================================
@@ -206,15 +242,19 @@ function parseProgressive(lines: string[]): Partial<CarrierInputs> {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
-    const n = norm(line)
+    const n = line.toLowerCase().replace(/\s+/g, " ").trim()
 
-    // ---- LOB context ----
     if (/personal\s*lines?|^pl\b|personal\s*auto/.test(n) && !/commercial/.test(n)) lob = "pl"
     else if (/commercial\s*lines?|^cl\b|commercial\s*auto/.test(n)) lob = "cl"
 
-    // ---- Written Premium ----
+    const getNum = (): number | null => {
+      const v = numTokens(line)[0] ?? null
+      if (v !== null) return v
+      return numTokens(lines[i + 1] ?? "")[0] ?? null
+    }
+
     if (/written\s*premium|^wp\b/.test(n)) {
-      const v = firstNumber(line) ?? firstNumber(lines[i + 1] ?? "")
+      const v = getNum()
       if (v !== null) {
         if (lob === "pl") result.prog_pl_premium = v
         else if (lob === "cl") result.prog_cl_premium = v
@@ -222,9 +262,8 @@ function parseProgressive(lines: string[]): Partial<CarrierInputs> {
       }
     }
 
-    // ---- PIF ----
     if (/policies?\s*in\s*force|\bpif\b/.test(n)) {
-      const v = firstNumber(line) ?? firstNumber(lines[i + 1] ?? "")
+      const v = getNum()
       if (v !== null) {
         if (lob === "pl") result.prog_pl_pif = v
         else if (lob === "cl") result.prog_cl_pif = v
@@ -232,9 +271,8 @@ function parseProgressive(lines: string[]): Partial<CarrierInputs> {
       }
     }
 
-    // ---- Loss Ratio ----
     if (/loss\s*ratio|l\/r|\blr\b/.test(n)) {
-      const v = firstPercent(line) ?? firstPercent(lines[i + 1] ?? "")
+      const v = getNum()
       if (v !== null) {
         if (lob === "pl") result.prog_pl_loss_ratio = v
         else if (lob === "cl") result.prog_cl_loss_ratio = v
@@ -242,19 +280,16 @@ function parseProgressive(lines: string[]): Partial<CarrierInputs> {
       }
     }
 
-    // ---- Bundle Rate ----
     if (/bundle\s*rate|bundled|multi.?policy/.test(n)) {
-      const v = firstPercent(line) ?? firstPercent(lines[i + 1] ?? "")
+      const v = getNum()
       if (v !== null) result.prog_bundle_rate = v
     }
 
-    // ---- YTD Apps ----
     if (/ytd\s*(?:new\s*)?app|new\s*business\s*(?:app|count)/.test(n)) {
-      const v = firstNumber(line) ?? firstNumber(lines[i + 1] ?? "")
+      const v = getNum()
       if (v !== null) result.prog_ytd_apps = v
     }
   }
 
-  console.log("[v0] Progressive parsed result:", result)
   return result
 }
