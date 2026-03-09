@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Users, TrendingUp, Calculator, ClipboardCheck, DollarSign, RefreshCw, FolderKanban, Trophy } from "lucide-react"
+import { Users, TrendingUp, Calculator, ClipboardCheck, DollarSign, RefreshCw, FolderKanban, Trophy, X, ChevronRight, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { CompleteDealModal } from "@/components/admin/complete-deal-modal"
+import { useMarketIntel } from "@/lib/use-market-intel"
 import type { Deal } from "@/components/admin/admin-dashboard"
 
 interface LeadRow {
@@ -69,13 +71,18 @@ function toolBadge(tool: string | null) {
 interface LeadsTabProps {
   deals?: Deal[]
   onNavigateToPipeline?: () => void
+  onAddDeal?: (deal: Deal) => void
+  onUpdateDeal?: (id: string, updates: Partial<Deal>) => void
 }
 
-export function LeadsTab({ deals = [], onNavigateToPipeline }: LeadsTabProps) {
+export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdateDeal }: LeadsTabProps) {
   const [leads, setLeads] = useState<LeadRow[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [viewingLead, setViewingLead] = useState<LeadRow | null>(null)
+  const [wonDeal, setWonDeal] = useState<Deal | null>(null)
+  const { mutate: mutateIntel } = useMarketIntel()
 
   const fetchLeads = async () => {
     setLoading(true)
@@ -99,6 +106,39 @@ export function LeadsTab({ deals = [], onNavigateToPipeline }: LeadsTabProps) {
   const completedDeals = deals.filter((d) => d.status === "completed")
   const pipelineValue = activeDeals.reduce((s, d) => s + d.valuation, 0)
   const wonValue = completedDeals.reduce((s, d) => s + d.valuation, 0)
+
+  // Build a Deal object from a LeadRow so we can pass it to CompleteDealModal
+  function leadToDeal(lead: LeadRow): Deal {
+    const valuation = parseFloat(lead.estimated_value ?? lead.quick_mid ?? "0") || 0
+    const premiumBase = parseFloat(lead.revenue_ltm ?? lead.quick_revenue ?? "0") || 0
+    return {
+      id: `lead-${lead.id}`,
+      deal_name: lead.agency_name ?? lead.name,
+      deal_type: (lead.tool_used?.includes("book") ? "book" : "full") as "full" | "book",
+      valuation,
+      premium_base: premiumBase,
+      status: "active",
+      date_saved: lead.created_at,
+      details: {
+        carrier: null,
+        loss_ratio: lead.quick_retention ? null : null,
+        book_retention_pct: lead.retention_rate ? parseFloat(lead.retention_rate) : null,
+        revenue: premiumBase || null,
+        retention: lead.retention_rate ? parseFloat(lead.retention_rate) : null,
+        lossRatio: null,
+        riskGrade: lead.risk_grade ?? lead.quiz_grade,
+        coreScore: lead.core_score ? parseFloat(lead.core_score) : null,
+        multiple: lead.calculated_multiple ? parseFloat(lead.calculated_multiple) : null,
+        notes: null,
+      },
+    }
+  }
+
+  function fmtStat(v: string | null | undefined, prefix = "") {
+    if (!v) return "—"
+    const n = parseFloat(v)
+    return isNaN(n) ? v : prefix + n.toLocaleString("en-US", { maximumFractionDigits: 1 })
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -186,35 +226,33 @@ export function LeadsTab({ deals = [], onNavigateToPipeline }: LeadsTabProps) {
                 <thead>
                   <tr className="border-b border-border bg-secondary/30">
                     <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Name</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Email</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Agency</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Tool</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">Est. Value</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">Range</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">Multiple</th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground">Risk</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">Date</th>
+                    <th className="px-4 py-3" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {leads.map((lead) => {
-                    const low = lead.low_offer ?? lead.quick_low
-                    const high = lead.high_offer ?? lead.quick_high
                     const multi = lead.calculated_multiple ?? lead.suggested_mult
                     const grade = lead.risk_grade ?? lead.quiz_grade
                     const val = lead.estimated_value ?? lead.quick_mid
                     return (
-                      <tr key={lead.id} className="hover:bg-secondary/20 transition-colors">
-                        <td className="px-4 py-3 font-medium text-foreground">{lead.name}</td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          <a href={`mailto:${lead.email}`} className="hover:text-primary">{lead.email}</a>
+                      <tr
+                        key={lead.id}
+                        className="group cursor-pointer hover:bg-secondary/30 transition-colors"
+                        onClick={() => setViewingLead(lead)}
+                      >
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-foreground">{lead.name}</p>
+                          <p className="text-xs text-muted-foreground">{lead.email}</p>
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">{lead.agency_name ?? "—"}</td>
                         <td className="px-4 py-3">{toolBadge(lead.tool_used)}</td>
-                        <td className="px-4 py-3 text-right font-mono text-foreground">{fmt(val)}</td>
-                        <td className="px-4 py-3 text-right font-mono text-xs text-muted-foreground whitespace-nowrap">
-                          {low && high ? `${fmt(low)} – ${fmt(high)}` : "—"}
-                        </td>
+                        <td className="px-4 py-3 text-right font-mono font-semibold text-foreground">{fmt(val)}</td>
                         <td className="px-4 py-3 text-right font-mono text-foreground">
                           {multi ? `${parseFloat(multi).toFixed(2)}x` : "—"}
                         </td>
@@ -223,6 +261,9 @@ export function LeadsTab({ deals = [], onNavigateToPipeline }: LeadsTabProps) {
                         </td>
                         <td className="px-4 py-3 text-right text-xs text-muted-foreground whitespace-nowrap">
                           {new Date(lead.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
                         </td>
                       </tr>
                     )
@@ -233,6 +274,150 @@ export function LeadsTab({ deals = [], onNavigateToPipeline }: LeadsTabProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Lead Detail Drawer */}
+      {viewingLead && !wonDeal && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setViewingLead(null)} />
+          <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col bg-card shadow-2xl">
+            {/* Drawer header */}
+            <div className="flex items-start justify-between border-b border-border px-6 py-4">
+              <div className="min-w-0 flex-1">
+                <h3 className="truncate text-base font-semibold text-foreground">
+                  {viewingLead.agency_name ?? viewingLead.name}
+                </h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {viewingLead.name} &bull;{" "}
+                  <a href={`mailto:${viewingLead.email}`} className="hover:text-primary" onClick={(e) => e.stopPropagation()}>
+                    {viewingLead.email}
+                  </a>
+                  {viewingLead.phone && <> &bull; {viewingLead.phone}</>}
+                </p>
+              </div>
+              <button
+                onClick={() => setViewingLead(null)}
+                className="ml-4 rounded p-1 text-muted-foreground hover:text-foreground"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Drawer body */}
+            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+              {/* Tool badge + date */}
+              <div className="flex items-center justify-between">
+                {toolBadge(viewingLead.tool_used)}
+                <span className="text-xs text-muted-foreground">{new Date(viewingLead.created_at).toLocaleDateString()}</span>
+              </div>
+
+              {/* Key valuation stats */}
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: "Est. Value", value: fmt(viewingLead.estimated_value ?? viewingLead.quick_mid), highlight: true },
+                  { label: "Multiple", value: (viewingLead.calculated_multiple ?? viewingLead.suggested_mult) ? `${parseFloat(viewingLead.calculated_multiple ?? viewingLead.suggested_mult ?? "0").toFixed(2)}x` : "—" },
+                  { label: "Range Low", value: fmt(viewingLead.low_offer ?? viewingLead.quick_low) },
+                  { label: "Range High", value: fmt(viewingLead.high_offer ?? viewingLead.quick_high) },
+                ].map(({ label, value, highlight }) => (
+                  <div key={label} className="rounded-lg border border-border bg-secondary/30 p-3">
+                    <p className="text-xs text-muted-foreground">{label}</p>
+                    <p className={`mt-0.5 text-base font-bold ${highlight ? "text-success" : "text-foreground"}`}>{value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Full valuation details */}
+              {(viewingLead.core_score || viewingLead.risk_grade || viewingLead.retention_rate || viewingLead.revenue_ltm) && (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Full Valuation Details</p>
+                  <div className="divide-y divide-border rounded-lg border border-border bg-secondary/20">
+                    {[
+                      { label: "Risk Grade", value: viewingLead.risk_grade },
+                      { label: "Core Score", value: viewingLead.core_score ? fmtStat(viewingLead.core_score) : null },
+                      { label: "Revenue (LTM)", value: viewingLead.revenue_ltm ? fmt(viewingLead.revenue_ltm) : null },
+                      { label: "Retention Rate", value: viewingLead.retention_rate ? `${fmtStat(viewingLead.retention_rate)}%` : null },
+                    ].filter(({ value }) => value != null).map(({ label, value }) => (
+                      <div key={label} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                        <span className="text-muted-foreground">{label}</span>
+                        <span className="font-medium text-foreground">{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Quick valuation details */}
+              {(viewingLead.quick_revenue || viewingLead.tier || viewingLead.quick_retention) && (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quick Valuation Details</p>
+                  <div className="divide-y divide-border rounded-lg border border-border bg-secondary/20">
+                    {[
+                      { label: "Revenue", value: viewingLead.quick_revenue ? fmt(viewingLead.quick_revenue) : null },
+                      { label: "Retention", value: viewingLead.quick_retention ? `${viewingLead.quick_retention}%` : null },
+                      { label: "Tier", value: viewingLead.tier },
+                      { label: "Growth", value: viewingLead.growth },
+                      { label: "Policy Ratio", value: viewingLead.policy_ratio },
+                      { label: "Quiz Grade", value: viewingLead.quiz_grade },
+                      { label: "Quiz Score", value: viewingLead.total_score != null && viewingLead.max_score != null ? `${viewingLead.total_score}/${viewingLead.max_score} (${viewingLead.quiz_pct}%)` : null },
+                    ].filter(({ value }) => value != null).map(({ label, value }) => (
+                      <div key={label} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                        <span className="text-muted-foreground">{label}</span>
+                        <span className="font-medium text-foreground">{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Pipedrive link */}
+              {viewingLead.pipedrive_deal_id && (
+                <a
+                  href={`https://app.pipedrive.com/deal/${viewingLead.pipedrive_deal_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm text-primary hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  View in Pipedrive
+                </a>
+              )}
+            </div>
+
+            {/* Drawer footer */}
+            <div className="border-t border-border px-6 py-4 flex gap-3">
+              <Button
+                className="flex-1 gap-2 bg-success hover:bg-success/90 text-white border-0"
+                onClick={() => {
+                  const deal = leadToDeal(viewingLead)
+                  setViewingLead(null)
+                  setWonDeal(deal)
+                }}
+              >
+                <Trophy className="h-4 w-4" />
+                Mark as Won
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Won / CompleteDealModal */}
+      {wonDeal && (() => {
+        const captured = wonDeal
+        return (
+          <CompleteDealModal
+            deal={captured}
+            onClose={() => setWonDeal(null)}
+            onSaved={() => {
+              // Add to the pipeline as completed if callback exists
+              onAddDeal?.({ ...captured, status: "completed" })
+              setWonDeal(null)
+              mutateIntel()
+            }}
+          />
+        )
+      })()}
     </div>
   )
 }
