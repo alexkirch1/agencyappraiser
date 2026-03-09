@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Switch } from "@/components/ui/switch"
 import { ReportUpload } from "./report-upload"
+import { CommissionUpload } from "./commission-upload"
 import type { CarrierInputs, CarrierName, BookType } from "./carrier-engine"
 
 interface Props {
@@ -143,6 +144,9 @@ export function CarrierForm({ inputs, onChange }: Props) {
               </div>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
+              <CommissionUpload
+                onParsed={(fields) => update(fields)}
+              />
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <NumField
                   label="Preferred / Standard Book (%)"
