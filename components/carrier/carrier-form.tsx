@@ -113,24 +113,89 @@ export function CarrierForm({ inputs, onChange }: Props) {
 
       {/* Step 3 — Metrics */}
       {showMetrics && (
-        <Card className="border-border bg-card">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold text-foreground">
-              {stepOffset + 1}. Book Metrics
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            {carrier === "progressive" && (
-              <ProgressiveFields inputs={inputs} update={update} bookType={bookType as BookType} />
-            )}
-            {carrier === "travelers" && (
-              <TravelersFields inputs={inputs} update={update} bookType={bookType as BookType} />
-            )}
-            {carrier === "hartford" && (
-              <HartfordFields inputs={inputs} update={update} bookType={bookType as BookType} />
-            )}
-          </CardContent>
-        </Card>
+        <>
+          <Card className="border-border bg-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold text-foreground">
+                {stepOffset + 1}. Carrier Metrics
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              {carrier === "progressive" && (
+                <ProgressiveFields inputs={inputs} update={update} bookType={bookType as BookType} />
+              )}
+              {carrier === "travelers" && (
+                <TravelersFields inputs={inputs} update={update} bookType={bookType as BookType} />
+              )}
+              {carrier === "hartford" && (
+                <HartfordFields inputs={inputs} update={update} bookType={bookType as BookType} />
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Book Quality — sourced from commission statements & active policy list */}
+          <Card className="border-border bg-card">
+            <CardHeader className="pb-3">
+              <div>
+                <CardTitle className="text-base font-semibold text-foreground">
+                  {stepOffset + 2}. Book Quality <span className="text-xs font-normal text-muted-foreground ml-1">(optional — from commission statements / active policy list)</span>
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <NumField
+                  label="Preferred / Standard Book (%)"
+                  value={inputs.book_preferred_pct}
+                  onChange={(v) => update({ book_preferred_pct: v })}
+                  placeholder="e.g. 78"
+                  type="percent"
+                  hint="% of policies in preferred or standard tier (vs non-standard/high-risk)"
+                />
+                <NumField
+                  label="Policies per Customer"
+                  value={inputs.book_policies_per_customer}
+                  onChange={(v) => update({ book_policies_per_customer: v })}
+                  placeholder="e.g. 1.9"
+                  type="number"
+                  hint="Total policies ÷ total customers — higher means stronger multi-line"
+                />
+                <NumField
+                  label="Avg Premium per Policy ($)"
+                  value={inputs.book_avg_premium_per_policy}
+                  onChange={(v) => update({ book_avg_premium_per_policy: v })}
+                  placeholder="e.g. 1,200"
+                  type="currency"
+                  hint="Total written premium ÷ total policies in force"
+                />
+                <NumField
+                  label="New Business % (last 12 mo)"
+                  value={inputs.book_new_business_pct}
+                  onChange={(v) => update({ book_new_business_pct: v })}
+                  placeholder="e.g. 15"
+                  type="percent"
+                  hint="New policies written in past 12 months ÷ total PIF — from commission statement"
+                />
+                <NumField
+                  label="Monoline Customers (%)"
+                  value={inputs.book_monoline_pct}
+                  onChange={(v) => update({ book_monoline_pct: v })}
+                  placeholder="e.g. 42"
+                  type="percent"
+                  hint="% of customers with only one policy — lower is better (multi-line = stickier)"
+                />
+                <NumField
+                  label="Paperless / e-Docs (%)"
+                  value={inputs.book_digital_docs_pct}
+                  onChange={(v) => update({ book_digital_docs_pct: v })}
+                  placeholder="e.g. 65"
+                  type="percent"
+                  hint="% of customers enrolled in paperless — higher engagement = lower lapse rate"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </>
       )}
     </div>
   )
@@ -148,6 +213,8 @@ const defaultFieldReset: Partial<CarrierInputs> = {
   hartford_pl_auto_twp: null, hartford_pl_auto_pif: null, hartford_pl_auto_lr: null, hartford_pl_auto_retention: null,
   hartford_pl_home_twp: null, hartford_pl_home_pif: null, hartford_pl_home_lr: null, hartford_pl_home_retention: null,
   hartford_cl_twp: null, hartford_cl_lr: null, hartford_cl_retention: null,
+  book_preferred_pct: null, book_policies_per_customer: null, book_avg_premium_per_policy: null,
+  book_new_business_pct: null, book_monoline_pct: null, book_digital_docs_pct: null,
 }
 
 function getBookTypeOptions(carrier: string) {

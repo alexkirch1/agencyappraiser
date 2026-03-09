@@ -28,17 +28,24 @@ export interface CarrierInputs {
   travelers_home_retention: number | null
   travelers_home_pif: number | null
   // ---- Hartford ----
-  hartford_pl_auto_twp: number | null    // PL Auto TWP $k (2025 annual)
+  hartford_pl_auto_twp: number | null    // PL Auto TWP $k
   hartford_pl_auto_pif: number | null
   hartford_pl_auto_lr: number | null
   hartford_pl_auto_retention: number | null
-  hartford_pl_home_twp: number | null    // PL Home TWP $k (2025 annual)
+  hartford_pl_home_twp: number | null    // PL Home TWP $k
   hartford_pl_home_pif: number | null
   hartford_pl_home_lr: number | null
   hartford_pl_home_retention: number | null
   hartford_cl_twp: number | null         // Small Commercial TWP $k
   hartford_cl_lr: number | null
   hartford_cl_retention: number | null
+  // ---- Book Quality (all carriers) — sourced from commission statements / active policy list ----
+  book_preferred_pct: number | null      // % policies in preferred/standard tier (vs non-standard)
+  book_policies_per_customer: number | null  // avg policies per customer (multi-line indicator)
+  book_avg_premium_per_policy: number | null // avg premium per policy ($)
+  book_new_business_pct: number | null   // % of book that is new business (last 12 months)
+  book_monoline_pct: number | null       // % customers with only 1 policy (single-line risk)
+  book_digital_docs_pct: number | null   // % customers on paperless/e-docs (stickiness indicator)
 }
 
 export interface CarrierResults {
@@ -204,6 +211,51 @@ export function calculateCarrierValuation(inputs: CarrierInputs): CarrierResults
     }
   }
 
+  // -------------------------------------------------------
+  // Book Quality adjustments (apply to all carriers when data available)
+  // -------------------------------------------------------
+  if (basePremium > 0) {
+    const preferredPct   = inputs.book_preferred_pct
+    const policiesPerCx  = inputs.book_policies_per_customer
+    const avgPremPerPol  = inputs.book_avg_premium_per_policy
+    const newBizPct      = inputs.book_new_business_pct
+    const monolinePct    = inputs.book_monoline_pct
+    const digitalDocsPct = inputs.book_digital_docs_pct
+
+    // Preferred/standard book tier
+    if (preferredPct != null) {
+      if (preferredPct >= 80)      finalMultiple += 0.12
+      else if (preferredPct >= 65) finalMultiple += 0.06
+      else if (preferredPct < 45)  finalMultiple -= 0.10
+    }
+    // Multi-line density — higher policies/customer = stickier book
+    if (policiesPerCx != null) {
+      if (policiesPerCx >= 2.2)      finalMultiple += 0.10
+      else if (policiesPerCx >= 1.7) finalMultiple += 0.05
+      else if (policiesPerCx < 1.3)  finalMultiple -= 0.07
+    }
+    // Average premium per policy — higher = more valuable commercial/preferred mix
+    if (avgPremPerPol != null) {
+      if (avgPremPerPol >= 1500)      finalMultiple += 0.06
+      else if (avgPremPerPol >= 1000) finalMultiple += 0.03
+      else if (avgPremPerPol < 500)   finalMultiple -= 0.04
+    }
+    // New business % — too high means volatile book
+    if (newBizPct != null) {
+      if (newBizPct > 30)      finalMultiple -= 0.08
+      else if (newBizPct < 10) finalMultiple += 0.04
+    }
+    // Monoline % — high monoline = lower stickiness
+    if (monolinePct != null) {
+      if (monolinePct > 60)      finalMultiple -= 0.08
+      else if (monolinePct < 30) finalMultiple += 0.07
+    }
+    // Digital docs — higher engagement = lower lapse rate
+    if (digitalDocsPct != null) {
+      if (digitalDocsPct >= 70) finalMultiple += 0.04
+    }
+  }
+
   finalMultiple = Math.max(0.75, Math.min(3.0, parseFloat(finalMultiple.toFixed(2))))
 
   if (basePremium <= 0) {
@@ -247,4 +299,10 @@ export const defaultCarrierInputs: CarrierInputs = {
   hartford_cl_twp: null,
   hartford_cl_lr: null,
   hartford_cl_retention: null,
+  book_preferred_pct: null,
+  book_policies_per_customer: null,
+  book_avg_premium_per_policy: null,
+  book_new_business_pct: null,
+  book_monoline_pct: null,
+  book_digital_docs_pct: null,
 }
