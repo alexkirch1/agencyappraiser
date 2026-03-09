@@ -19,20 +19,45 @@ interface LeadRow {
   estimated_value: string | null
   pipedrive_deal_id: number | null
   created_at: string
-  // Full val
+  // Full valuation
   low_offer: string | null
   high_offer: string | null
   core_score: string | null
   calculated_multiple: string | null
   risk_grade: string | null
   revenue_ltm: string | null
+  revenue_y2: string | null
+  revenue_y3: string | null
   retention_rate: string | null
-  // Quick val
+  sde_ebitda: string | null
+  year_established: number | null
+  employee_count: number | null
+  owner_compensation: string | null
+  annual_payroll_cost: string | null
+  revenue_per_employee: string | null
+  client_concentration: string | null
+  carrier_diversification: string | null
+  scope_of_sale: string | null
+  avg_client_tenure: string | null
+  new_business_value: string | null
+  staff_retention_risk: string | null
+  office_structure: string | null
+  top_carriers: string | null
+  producer_agreements: string | null
+  closing_timeline: string | null
+  primary_state: string | null
+  eo_claims: number | null
+  policy_mix: string | null
+  agency_description: string | null
+  // Quick valuation
   quick_revenue: string | null
   quick_retention: string | null
   book_type: string | null
   growth: string | null
   policy_ratio: string | null
+  quick_policies: number | null
+  quick_customers: number | null
+  quick_multiplier: string | null
   suggested_mult: string | null
   quick_low: string | null
   quick_mid: string | null
@@ -43,6 +68,7 @@ interface LeadRow {
   max_score: number | null
   quiz_pct: string | null
   quiz_grade: string | null
+  quiz_answers: Record<string, unknown> | null
 }
 
 interface Stats {
@@ -66,6 +92,29 @@ function toolBadge(tool: string | null) {
   if (tool.includes("quick")) return <Badge className="bg-[hsl(var(--success))]/10 text-[hsl(var(--success))] border border-[hsl(var(--success))]/20 text-[10px]">Quick Val</Badge>
   if (tool.includes("quiz")) return <Badge className="bg-[hsl(var(--warning))]/10 text-[hsl(var(--warning))] border border-[hsl(var(--warning))]/20 text-[10px]">Quiz</Badge>
   return <Badge variant="outline" className="text-[10px]">{tool}</Badge>
+}
+
+function Section({ label, children }: { label: string; children: React.ReactNode }) {
+  const rows = Array.isArray(children) ? children.filter(Boolean) : [children].filter(Boolean)
+  if (rows.length === 0) return null
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <div className="divide-y divide-border rounded-lg border border-border bg-secondary/20">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function Row({ label, value, tooltip }: { label: string; value: string | null | undefined; tooltip?: string }) {
+  if (!value) return null
+  return (
+    <div className="flex items-center justify-between px-4 py-2.5 text-sm">
+      <span className="text-muted-foreground" title={tooltip}>{label}{tooltip && <span className="ml-1 cursor-help text-muted-foreground/50">?</span>}</span>
+      <span className="font-medium text-foreground text-right max-w-[55%] break-words">{value}</span>
+    </div>
+  )
 }
 
 interface LeadsTabProps {
@@ -304,69 +353,111 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
             </div>
 
             {/* Drawer body */}
-            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-              {/* Tool badge + date */}
-              <div className="flex items-center justify-between">
-                {toolBadge(viewingLead.tool_used)}
-                <span className="text-xs text-muted-foreground">{new Date(viewingLead.created_at).toLocaleDateString()}</span>
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+              {/* Tool badge + date + state */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {toolBadge(viewingLead.tool_used)}
+                  {viewingLead.primary_state && (
+                    <Badge variant="outline" className="text-[10px]">{viewingLead.primary_state}</Badge>
+                  )}
+                </div>
+                <span className="text-xs text-muted-foreground shrink-0">{new Date(viewingLead.created_at).toLocaleDateString()}</span>
               </div>
 
-              {/* Key valuation stats */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Agency description */}
+              {viewingLead.agency_description && (
+                <p className="text-sm text-muted-foreground italic border-l-2 border-border pl-3">
+                  {viewingLead.agency_description}
+                </p>
+              )}
+
+              {/* Valuation offer band — top priority */}
+              <div className="grid grid-cols-3 gap-2">
                 {[
-                  { label: "Est. Value", value: fmt(viewingLead.estimated_value ?? viewingLead.quick_mid), highlight: true },
-                  { label: "Multiple", value: (viewingLead.calculated_multiple ?? viewingLead.suggested_mult) ? `${parseFloat(viewingLead.calculated_multiple ?? viewingLead.suggested_mult ?? "0").toFixed(2)}x` : "—" },
-                  { label: "Range Low", value: fmt(viewingLead.low_offer ?? viewingLead.quick_low) },
-                  { label: "Range High", value: fmt(viewingLead.high_offer ?? viewingLead.quick_high) },
+                  { label: "Low", value: fmt(viewingLead.low_offer ?? viewingLead.quick_low) },
+                  { label: "Mid / Est.", value: fmt(viewingLead.estimated_value ?? viewingLead.quick_mid), highlight: true },
+                  { label: "High", value: fmt(viewingLead.high_offer ?? viewingLead.quick_high) },
                 ].map(({ label, value, highlight }) => (
-                  <div key={label} className="rounded-lg border border-border bg-secondary/30 p-3">
-                    <p className="text-xs text-muted-foreground">{label}</p>
-                    <p className={`mt-0.5 text-base font-bold ${highlight ? "text-success" : "text-foreground"}`}>{value}</p>
+                  <div key={label} className={`rounded-lg border p-3 text-center ${highlight ? "border-success/30 bg-success/5" : "border-border bg-secondary/30"}`}>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</p>
+                    <p className={`mt-0.5 text-sm font-bold ${highlight ? "text-success" : "text-foreground"}`}>{value}</p>
                   </div>
                 ))}
               </div>
 
-              {/* Full valuation details */}
-              {(viewingLead.core_score || viewingLead.risk_grade || viewingLead.retention_rate || viewingLead.revenue_ltm) && (
-                <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Full Valuation Details</p>
-                  <div className="divide-y divide-border rounded-lg border border-border bg-secondary/20">
-                    {[
-                      { label: "Risk Grade", value: viewingLead.risk_grade },
-                      { label: "Core Score", value: viewingLead.core_score ? fmtStat(viewingLead.core_score) : null },
-                      { label: "Revenue (LTM)", value: viewingLead.revenue_ltm ? fmt(viewingLead.revenue_ltm) : null },
-                      { label: "Retention Rate", value: viewingLead.retention_rate ? `${fmtStat(viewingLead.retention_rate)}%` : null },
-                    ].filter(({ value }) => value != null).map(({ label, value }) => (
-                      <div key={label} className="flex items-center justify-between px-4 py-2.5 text-sm">
-                        <span className="text-muted-foreground">{label}</span>
-                        <span className="font-medium text-foreground">{value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              {/* Core scoring */}
+              {(viewingLead.core_score || viewingLead.risk_grade || viewingLead.calculated_multiple) && (
+                <Section label="Scoring">
+                  <Row label="Core Score" value={viewingLead.core_score ? fmtStat(viewingLead.core_score) : null}
+                    tooltip="Composite score (0–100) computed from revenue trend, retention, owner dependency, carrier mix, staff risk, and market position. Higher = more valuable, lower-risk agency." />
+                  <Row label="Risk Grade" value={viewingLead.risk_grade} />
+                  <Row label="Calculated Multiple" value={viewingLead.calculated_multiple ? `${parseFloat(viewingLead.calculated_multiple).toFixed(2)}x` : null} />
+                </Section>
               )}
 
-              {/* Quick valuation details */}
-              {(viewingLead.quick_revenue || viewingLead.tier || viewingLead.quick_retention) && (
-                <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quick Valuation Details</p>
-                  <div className="divide-y divide-border rounded-lg border border-border bg-secondary/20">
-                    {[
-                      { label: "Revenue", value: viewingLead.quick_revenue ? fmt(viewingLead.quick_revenue) : null },
-                      { label: "Retention", value: viewingLead.quick_retention ? `${viewingLead.quick_retention}%` : null },
-                      { label: "Tier", value: viewingLead.tier },
-                      { label: "Growth", value: viewingLead.growth },
-                      { label: "Policy Ratio", value: viewingLead.policy_ratio },
-                      { label: "Quiz Grade", value: viewingLead.quiz_grade },
-                      { label: "Quiz Score", value: viewingLead.total_score != null && viewingLead.max_score != null ? `${viewingLead.total_score}/${viewingLead.max_score} (${viewingLead.quiz_pct}%)` : null },
-                    ].filter(({ value }) => value != null).map(({ label, value }) => (
-                      <div key={label} className="flex items-center justify-between px-4 py-2.5 text-sm">
-                        <span className="text-muted-foreground">{label}</span>
-                        <span className="font-medium text-foreground">{value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              {/* Financials */}
+              {(viewingLead.revenue_ltm || viewingLead.sde_ebitda || viewingLead.owner_compensation) && (
+                <Section label="Financials">
+                  <Row label="Revenue (LTM)" value={viewingLead.revenue_ltm ? fmt(viewingLead.revenue_ltm) : null} />
+                  <Row label="Revenue (Y-2)" value={viewingLead.revenue_y2 ? fmt(viewingLead.revenue_y2) : null} />
+                  <Row label="Revenue (Y-3)" value={viewingLead.revenue_y3 ? fmt(viewingLead.revenue_y3) : null} />
+                  <Row label="SDE / EBITDA" value={viewingLead.sde_ebitda ? fmt(viewingLead.sde_ebitda) : null} />
+                  <Row label="Owner Compensation" value={viewingLead.owner_compensation ? fmt(viewingLead.owner_compensation) : null} />
+                  <Row label="Annual Payroll" value={viewingLead.annual_payroll_cost ? fmt(viewingLead.annual_payroll_cost) : null} />
+                  <Row label="Revenue / Employee" value={viewingLead.revenue_per_employee ? fmt(viewingLead.revenue_per_employee) : null} />
+                  <Row label="New Business Value" value={viewingLead.new_business_value ? fmt(viewingLead.new_business_value) : null} />
+                </Section>
+              )}
+
+              {/* Book quality */}
+              {(viewingLead.retention_rate || viewingLead.client_concentration || viewingLead.carrier_diversification) && (
+                <Section label="Book Quality">
+                  <Row label="Retention Rate" value={viewingLead.retention_rate ? `${fmtStat(viewingLead.retention_rate)}%` : null} />
+                  <Row label="Avg Client Tenure" value={viewingLead.avg_client_tenure ? `${fmtStat(viewingLead.avg_client_tenure)} yrs` : null} />
+                  <Row label="Client Concentration" value={viewingLead.client_concentration ? `${fmtStat(viewingLead.client_concentration)}%` : null} />
+                  <Row label="Carrier Diversification" value={viewingLead.carrier_diversification ? `${fmtStat(viewingLead.carrier_diversification)}%` : null} />
+                  <Row label="Policy Mix Score" value={viewingLead.policy_mix ? fmtStat(viewingLead.policy_mix) : null} />
+                  <Row label="Top Carriers" value={viewingLead.top_carriers} />
+                </Section>
+              )}
+
+              {/* Agency profile */}
+              {(viewingLead.year_established || viewingLead.employee_count || viewingLead.office_structure) && (
+                <Section label="Agency Profile">
+                  <Row label="Year Established" value={viewingLead.year_established?.toString() ?? null} />
+                  <Row label="Employees" value={viewingLead.employee_count?.toString() ?? null} />
+                  <Row label="Office Structure" value={viewingLead.office_structure} />
+                  <Row label="Staff Retention Risk" value={viewingLead.staff_retention_risk} />
+                  <Row label="Producer Agreements" value={viewingLead.producer_agreements} />
+                  <Row label="E&O Claims" value={viewingLead.eo_claims != null ? viewingLead.eo_claims.toString() : null} />
+                  <Row label="Scope of Sale" value={viewingLead.scope_of_sale ? `${fmtStat(viewingLead.scope_of_sale)}%` : null} />
+                  <Row label="Closing Timeline" value={viewingLead.closing_timeline} />
+                </Section>
+              )}
+
+              {/* Quick valuation */}
+              {viewingLead.quick_revenue && (
+                <Section label="Quick Valuation">
+                  <Row label="Revenue" value={viewingLead.quick_revenue ? fmt(viewingLead.quick_revenue) : null} />
+                  <Row label="Retention" value={viewingLead.quick_retention ? `${viewingLead.quick_retention}%` : null} />
+                  <Row label="Book Type" value={viewingLead.book_type} />
+                  <Row label="Tier" value={viewingLead.tier} />
+                  <Row label="Growth" value={viewingLead.growth} />
+                  <Row label="Policy Ratio" value={viewingLead.policy_ratio} />
+                  <Row label="Policies" value={viewingLead.quick_policies?.toString() ?? null} />
+                  <Row label="Customers" value={viewingLead.quick_customers?.toString() ?? null} />
+                  <Row label="Suggested Multiple" value={viewingLead.quick_multiplier ? `${parseFloat(viewingLead.quick_multiplier).toFixed(2)}x` : viewingLead.suggested_mult ? `${parseFloat(viewingLead.suggested_mult).toFixed(2)}x` : null} />
+                </Section>
+              )}
+
+              {/* Quiz */}
+              {viewingLead.quiz_grade && (
+                <Section label="Quiz Results">
+                  <Row label="Grade" value={viewingLead.quiz_grade} />
+                  <Row label="Score" value={viewingLead.total_score != null && viewingLead.max_score != null ? `${viewingLead.total_score} / ${viewingLead.max_score}` : null} />
+                  <Row label="Percentage" value={viewingLead.quiz_pct ? `${fmtStat(viewingLead.quiz_pct)}%` : null} />
+                </Section>
               )}
 
               {/* Pipedrive link */}
