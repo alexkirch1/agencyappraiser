@@ -813,7 +813,7 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
                       <Button
                         size="sm"
                         className="gap-1.5 bg-success hover:bg-success/90 text-white border-0"
-                        onClick={(e) => { e.stopPropagation(); setCompletingDeal(deal) }}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewingDeal(null); setCompletingDeal(deal) }}
                       >
                         <Trophy className="h-3.5 w-3.5" />
                         Won
@@ -823,7 +823,7 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
                       size="sm"
                       variant="ghost"
                       className="text-muted-foreground hover:text-foreground"
-                      onClick={(e) => { e.stopPropagation(); openEdit(deal) }}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewingDeal(null); openEdit(deal) }}
                       aria-label="Edit deal"
                     >
                       <Pencil className="h-3.5 w-3.5" />
@@ -836,22 +836,26 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
           </div>
         )}
 
-        {/* Won Deal Modal */}
-        {completingDeal && (
-          <CompleteDealModal
-            deal={completingDeal}
-            onClose={() => setCompletingDeal(null)}
-            onSaved={() => {
-              onUpdateDeal(completingDeal.id, { status: "completed" })
-              setCompletingDeal(null)
-              setPipelineTab("completed")
-              mutateIntel()
-            }}
-          />
-        )}
+        {/* Won Deal Modal — rendered last so it is always on top */}
+        {completingDeal && (() => {
+          const captured = completingDeal
+          return (
+            <CompleteDealModal
+              deal={captured}
+              onClose={() => setCompletingDeal(null)}
+              onSaved={() => {
+                onUpdateDeal(captured.id, { status: "completed" })
+                setCompletingDeal(null)
+                setViewingDeal(null)
+                setPipelineTab("completed")
+                mutateIntel()
+              }}
+            />
+          )
+        })()}
 
         {/* Deal Detail Drawer */}
-        {viewingDeal && (
+        {viewingDeal && !completingDeal && (
           <>
             <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setViewingDeal(null)} />
             <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col bg-card shadow-2xl">
@@ -952,17 +956,24 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
 
               {/* Footer actions */}
               <div className="border-t border-border px-6 py-4 flex gap-3">
-                <Button variant="outline" className="flex-1" onClick={() => { setViewingDeal(null); openEdit(viewingDeal) }}>
-                  <Pencil className="mr-2 h-4 w-4" /> Edit
-                </Button>
-                {viewingDeal.status !== "completed" && (
-                  <Button
-                    className="flex-1 gap-2 bg-success hover:bg-success/90 text-white border-0"
-                    onClick={() => { setViewingDeal(null); setCompletingDeal(viewingDeal) }}
-                  >
-                    <Trophy className="h-4 w-4" /> Mark as Won
-                  </Button>
-                )}
+                {(() => {
+                  const d = viewingDeal
+                  return (
+                    <>
+                      <Button variant="outline" className="flex-1" onClick={() => { setViewingDeal(null); openEdit(d) }}>
+                        <Pencil className="mr-2 h-4 w-4" /> Edit
+                      </Button>
+                      {d.status !== "completed" && (
+                        <Button
+                          className="flex-1 gap-2 bg-success hover:bg-success/90 text-white border-0"
+                          onClick={() => { setViewingDeal(null); setCompletingDeal(d) }}
+                        >
+                          <Trophy className="h-4 w-4" /> Mark as Won
+                        </Button>
+                      )}
+                    </>
+                  )
+                })()}
               </div>
             </div>
           </>
