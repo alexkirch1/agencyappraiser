@@ -39,7 +39,7 @@ export function CarrierForm({ inputs, onChange }: Props) {
   }
 
   const resetAndSetCarrier = (v: CarrierName) => {
-    onChange({ ...defaultFieldReset, carrier: v, bookType: "" })
+    onChange({ ...defaultCarrierInputs, ...defaultFieldReset, carrier: v, bookType: "" })
   }
 
   const carrier  = inputs.carrier
