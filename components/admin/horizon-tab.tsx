@@ -891,7 +891,7 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
                       <span className="font-medium text-foreground">{parseFloat(String(editingDeal.details.multiple)).toFixed(2)}x</span>
                     </div>
                   )}
-                  {editingDeal.details?.policyCount && (
+                  {editingDeal.details?.policyCount != null && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Policies</span>
                       <span className="font-medium text-foreground">{String(editingDeal.details.policyCount)}</span>
