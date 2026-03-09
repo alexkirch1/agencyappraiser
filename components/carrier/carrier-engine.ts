@@ -1,32 +1,44 @@
 // =====================================================
-// Carrier Valuation Engine — Travelers & Progressive
+// Carrier Valuation Engine — Travelers, Progressive, Hartford
 // =====================================================
 
-export type CarrierName = "progressive" | "travelers"
+export type CarrierName = "progressive" | "travelers" | "hartford"
 export type BookType = "personal" | "commercial" | "both" | "auto" | "home"
 
 export interface CarrierInputs {
   carrier: CarrierName | ""
   bookType: BookType | ""
-  // Progressive
-  prog_pl_premium: number | null   // Personal Lines T12 Written Premium ($)
-  prog_pl_pif: number | null       // PL Policies in Force
+  // ---- Progressive ----
+  prog_pl_premium: number | null
+  prog_pl_pif: number | null
   prog_pl_loss_ratio: number | null
-  prog_cl_premium: number | null   // Commercial Lines T12 Written Premium ($)
+  prog_cl_premium: number | null
   prog_cl_pif: number | null
   prog_cl_loss_ratio: number | null
-  prog_bundle_rate: number | null  // %
+  prog_bundle_rate: number | null
   prog_ytd_apps: number | null
   prog_diamond_status: boolean
-  // Travelers
-  travelers_auto_wp: number | null      // Auto Written Premium ($k)
-  travelers_auto_lr: number | null      // Auto Loss Ratio %
+  // ---- Travelers ----
+  travelers_auto_wp: number | null       // $k
+  travelers_auto_lr: number | null
   travelers_auto_retention: number | null
   travelers_auto_pif: number | null
-  travelers_home_wp: number | null      // Homeowners Written Premium ($k)
+  travelers_home_wp: number | null       // $k
   travelers_home_lr: number | null
   travelers_home_retention: number | null
   travelers_home_pif: number | null
+  // ---- Hartford ----
+  hartford_pl_auto_twp: number | null    // PL Auto TWP $k (2025 annual)
+  hartford_pl_auto_pif: number | null
+  hartford_pl_auto_lr: number | null
+  hartford_pl_auto_retention: number | null
+  hartford_pl_home_twp: number | null    // PL Home TWP $k (2025 annual)
+  hartford_pl_home_pif: number | null
+  hartford_pl_home_lr: number | null
+  hartford_pl_home_retention: number | null
+  hartford_cl_twp: number | null         // Small Commercial TWP $k
+  hartford_cl_lr: number | null
+  hartford_cl_retention: number | null
 }
 
 export interface CarrierResults {
@@ -61,47 +73,35 @@ export function calculateCarrierValuation(inputs: CarrierInputs): CarrierResults
     const bookType = inputs.bookType
     if (!bookType) return null
 
-    const pl_premium = inputs.prog_pl_premium ?? 0
+    const pl_premium   = inputs.prog_pl_premium ?? 0
     const pl_loss_ratio = inputs.prog_pl_loss_ratio ?? 100
-    const cl_premium = inputs.prog_cl_premium ?? 0
+    const cl_premium   = inputs.prog_cl_premium ?? 0
     const cl_loss_ratio = inputs.prog_cl_loss_ratio ?? 100
-    const bundle_rate = inputs.prog_bundle_rate ?? 0
-    const ytd_apps = inputs.prog_ytd_apps ?? 0
-    const is_diamond = inputs.prog_diamond_status
+    const bundle_rate  = inputs.prog_bundle_rate ?? 0
+    const ytd_apps     = inputs.prog_ytd_apps ?? 0
+    const is_diamond   = inputs.prog_diamond_status
 
     if (bookType === "both") {
       basePremium = pl_premium + cl_premium
-      if (basePremium > 0) {
-        // PL: excellent <40%, poor >55%
-        if (pl_loss_ratio < 40) finalMultiple += 0.18
-        else if (pl_loss_ratio > 55) finalMultiple -= 0.17
-        // CL: excellent <35%, poor >55%
-        if (cl_loss_ratio < 35) finalMultiple += 0.22
-        else if (cl_loss_ratio > 55) finalMultiple -= 0.12
-      }
+      if (pl_loss_ratio < 40) finalMultiple += 0.18
+      else if (pl_loss_ratio > 55) finalMultiple -= 0.17
+      if (cl_loss_ratio < 35) finalMultiple += 0.22
+      else if (cl_loss_ratio > 55) finalMultiple -= 0.12
     } else if (bookType === "personal") {
       basePremium = pl_premium
-      if (basePremium > 0) {
-        if (pl_loss_ratio < 40) finalMultiple += 0.27
-        else if (pl_loss_ratio > 55) finalMultiple -= 0.22
-      }
+      if (pl_loss_ratio < 40) finalMultiple += 0.27
+      else if (pl_loss_ratio > 55) finalMultiple -= 0.22
     } else if (bookType === "commercial") {
       basePremium = cl_premium
-      if (basePremium > 0) {
-        if (cl_loss_ratio < 35) finalMultiple += 0.32
-        else if (cl_loss_ratio > 55) finalMultiple -= 0.18
-      }
+      if (cl_loss_ratio < 35) finalMultiple += 0.32
+      else if (cl_loss_ratio > 55) finalMultiple -= 0.18
     }
 
     if (basePremium > 0) {
-      // Bundle rate bonus: >65% is strong
       if (bundle_rate > 65) finalMultiple += 0.12
       else if (bundle_rate < 45) finalMultiple -= 0.06
-      // Growth signal via YTD apps
       if (ytd_apps > 50) finalMultiple += 0.07
-      // Diamond/preferred status
       if (is_diamond) finalMultiple += 0.06
-      // Volume tier bonus
       if (basePremium > 3_000_000) finalMultiple += 0.08
       else if (basePremium > 1_000_000) finalMultiple += 0.04
     }
@@ -114,47 +114,93 @@ export function calculateCarrierValuation(inputs: CarrierInputs): CarrierResults
     const bookType = inputs.bookType
     if (!bookType) return null
 
-    // Convert $k to $ for calculations
-    const auto_wp = (inputs.travelers_auto_wp ?? 0) * 1000
-    const auto_lr = inputs.travelers_auto_lr ?? 100
+    const auto_wp  = (inputs.travelers_auto_wp ?? 0) * 1000
+    const auto_lr  = inputs.travelers_auto_lr ?? 100
     const auto_ret = inputs.travelers_auto_retention ?? 0
-    const home_wp = (inputs.travelers_home_wp ?? 0) * 1000
-    const home_lr = inputs.travelers_home_lr ?? 100
+    const home_wp  = (inputs.travelers_home_wp ?? 0) * 1000
+    const home_lr  = inputs.travelers_home_lr ?? 100
     const home_ret = inputs.travelers_home_retention ?? 0
 
     if (bookType === "both") {
       basePremium = auto_wp + home_wp
-      if (basePremium > 0) {
-        // Travelers auto: excellent <65%, poor >80%
-        if (auto_lr < 65) finalMultiple += 0.12
-        else if (auto_lr > 80) finalMultiple -= 0.14
-        // Home: excellent <75%, poor >100%
-        if (home_lr < 75) finalMultiple += 0.14
-        else if (home_lr > 100) finalMultiple -= 0.22
-      }
+      if (auto_lr < 65) finalMultiple += 0.12
+      else if (auto_lr > 80) finalMultiple -= 0.14
+      if (home_lr < 75) finalMultiple += 0.14
+      else if (home_lr > 100) finalMultiple -= 0.22
     } else if (bookType === "auto") {
       basePremium = auto_wp
-      if (basePremium > 0) {
-        if (auto_lr < 65) finalMultiple += 0.22
-        else if (auto_lr > 80) finalMultiple -= 0.22
-      }
+      if (auto_lr < 65) finalMultiple += 0.22
+      else if (auto_lr > 80) finalMultiple -= 0.22
     } else if (bookType === "home") {
       basePremium = home_wp
-      if (basePremium > 0) {
-        if (home_lr < 75) finalMultiple += 0.24
-        else if (home_lr > 100) finalMultiple -= 0.30
-      }
+      if (home_lr < 75) finalMultiple += 0.24
+      else if (home_lr > 100) finalMultiple -= 0.30
     }
 
     if (basePremium > 0) {
-      // Retention bonuses
       if (auto_ret > 75) finalMultiple += 0.08
       else if (auto_ret > 0 && auto_ret < 65) finalMultiple -= 0.07
       if (home_ret > 80) finalMultiple += 0.09
       else if (home_ret > 0 && home_ret < 70) finalMultiple -= 0.07
-      // Volume tier
       if (basePremium > 3_000_000) finalMultiple += 0.08
       else if (basePremium > 1_000_000) finalMultiple += 0.04
+    }
+  }
+
+  // -------------------------------------------------------
+  // Hartford
+  // -------------------------------------------------------
+  else if (carrier === "hartford") {
+    const bookType = inputs.bookType
+    if (!bookType) return null
+
+    // Convert $k → $
+    const pl_auto_wp  = (inputs.hartford_pl_auto_twp ?? 0) * 1000
+    const pl_home_wp  = (inputs.hartford_pl_home_twp ?? 0) * 1000
+    const cl_wp       = (inputs.hartford_cl_twp ?? 0) * 1000
+
+    const pl_auto_lr  = inputs.hartford_pl_auto_lr ?? 100
+    const pl_home_lr  = inputs.hartford_pl_home_lr ?? 100
+    const cl_lr       = inputs.hartford_cl_lr ?? 100
+
+    const pl_auto_ret = inputs.hartford_pl_auto_retention ?? 0
+    const pl_home_ret = inputs.hartford_pl_home_retention ?? 0
+    const cl_ret      = inputs.hartford_cl_retention ?? 0
+
+    if (bookType === "personal") {
+      basePremium = pl_auto_wp + pl_home_wp
+      // Hartford PL LR benchmarks: Auto good <75%, Home good <65%
+      if (pl_auto_lr < 75) finalMultiple += 0.10
+      else if (pl_auto_lr > 90) finalMultiple -= 0.12
+      if (pl_home_lr < 65) finalMultiple += 0.12
+      else if (pl_home_lr > 85) finalMultiple -= 0.14
+    } else if (bookType === "commercial") {
+      basePremium = cl_wp
+      // Hartford Small Commercial: good LR <50%, poor >75%
+      if (cl_lr < 50) finalMultiple += 0.22
+      else if (cl_lr > 75) finalMultiple -= 0.15
+    } else if (bookType === "both") {
+      basePremium = pl_auto_wp + pl_home_wp + cl_wp
+      if (pl_auto_lr < 75) finalMultiple += 0.08
+      else if (pl_auto_lr > 90) finalMultiple -= 0.10
+      if (pl_home_lr < 65) finalMultiple += 0.10
+      else if (pl_home_lr > 85) finalMultiple -= 0.12
+      if (cl_lr < 50) finalMultiple += 0.14
+      else if (cl_lr > 75) finalMultiple -= 0.10
+    }
+
+    if (basePremium > 0) {
+      // Retention bonuses (Hartford benchmarks slightly lower)
+      if (pl_auto_ret > 72) finalMultiple += 0.07
+      else if (pl_auto_ret > 0 && pl_auto_ret < 60) finalMultiple -= 0.07
+      if (pl_home_ret > 72) finalMultiple += 0.08
+      else if (pl_home_ret > 0 && pl_home_ret < 60) finalMultiple -= 0.07
+      if (cl_ret > 75) finalMultiple += 0.06
+      else if (cl_ret > 0 && cl_ret < 60) finalMultiple -= 0.05
+      // Volume tier
+      if (basePremium > 5_000_000) finalMultiple += 0.10
+      else if (basePremium > 2_000_000) finalMultiple += 0.06
+      else if (basePremium > 1_000_000) finalMultiple += 0.03
     }
   }
 
@@ -165,7 +211,7 @@ export function calculateCarrierValuation(inputs: CarrierInputs): CarrierResults
   }
 
   const highOffer = Math.round(basePremium * finalMultiple)
-  const lowOffer = Math.max(0, Math.round(basePremium * (finalMultiple - 0.22)))
+  const lowOffer  = Math.max(0, Math.round(basePremium * (finalMultiple - 0.22)))
 
   return { lowOffer, highOffer, premium: basePremium, finalMultiple }
 }
@@ -190,4 +236,15 @@ export const defaultCarrierInputs: CarrierInputs = {
   travelers_home_lr: null,
   travelers_home_retention: null,
   travelers_home_pif: null,
+  hartford_pl_auto_twp: null,
+  hartford_pl_auto_pif: null,
+  hartford_pl_auto_lr: null,
+  hartford_pl_auto_retention: null,
+  hartford_pl_home_twp: null,
+  hartford_pl_home_pif: null,
+  hartford_pl_home_lr: null,
+  hartford_pl_home_retention: null,
+  hartford_cl_twp: null,
+  hartford_cl_lr: null,
+  hartford_cl_retention: null,
 }
