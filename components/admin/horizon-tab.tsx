@@ -885,10 +885,10 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
                     <span className="text-muted-foreground">Premium Base</span>
                     <span className="font-medium text-foreground">{formatCurrency(editingDeal.premium_base)}</span>
                   </div>
-                  {editingDeal.details?.multiple && (
+                  {editingDeal.details?.multiple != null && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Multiple</span>
-                      <span className="font-medium text-foreground">{Number(editingDeal.details.multiple).toFixed(2)}x</span>
+                      <span className="font-medium text-foreground">{parseFloat(String(editingDeal.details.multiple)).toFixed(2)}x</span>
                     </div>
                   )}
                   {editingDeal.details?.policyCount && (
