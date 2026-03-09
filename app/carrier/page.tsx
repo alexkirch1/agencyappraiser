@@ -13,6 +13,7 @@ import {
   defaultCarrierInputs,
   type CarrierInputs,
 } from "@/components/carrier/carrier-engine"
+import { MarketIntelPanel } from "@/components/market-intel-panel"
 
 export default function CarrierPage() {
   const [inputs, setInputs] = useState<CarrierInputs>(defaultCarrierInputs)
@@ -111,6 +112,12 @@ export default function CarrierPage() {
         {/* Sidebar */}
         <div className="w-full lg:sticky lg:top-24 lg:w-[40%] lg:self-start">
           <div className="flex flex-col gap-4">
+            {results && results.premium > 0 && (
+              <MarketIntelPanel
+                modelMultiple={results.finalMultiple}
+                dealType="book"
+              />
+            )}
             {/* Offer display */}
             <Card className="border-primary/30 bg-card">
               <CardHeader className="pb-2">

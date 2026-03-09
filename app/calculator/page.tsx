@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Lock, Unlock, AlertCircle, ClipboardCheck, ArrowRight, Pencil, Download } from "lucide-react"
 import Link from "next/link"
 import { downloadValuationPDF } from "@/lib/generate-pdf"
+import { MarketIntelPanel } from "@/components/market-intel-panel"
 
 const defaultInputs: ValuationInputs = {
   scopeOfSale: null,
@@ -311,6 +312,11 @@ export default function CalculatorPage() {
               {pdfLoading ? "Generating..." : "Download PDF Report"}
             </Button>
           </div>
+          <MarketIntelPanel
+            modelMultiple={results?.calculatedMultiple}
+            dealType="full"
+            className="mb-8"
+          />
           <div className="grid gap-8 lg:grid-cols-2">
             {/* Deal Simulator */}
             <div>
