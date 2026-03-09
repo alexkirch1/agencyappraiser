@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Users, TrendingUp, Calculator, ClipboardCheck, DollarSign, RefreshCw } from "lucide-react"
+import { Users, TrendingUp, Calculator, ClipboardCheck, DollarSign, RefreshCw, FolderKanban, Trophy } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import type { Deal } from "@/components/admin/admin-dashboard"
 
 interface LeadRow {
   id: number
@@ -65,7 +66,12 @@ function toolBadge(tool: string | null) {
   return <Badge variant="outline" className="text-[10px]">{tool}</Badge>
 }
 
-export function LeadsTab() {
+interface LeadsTabProps {
+  deals?: Deal[]
+  onNavigateToPipeline?: () => void
+}
+
+export function LeadsTab({ deals = [], onNavigateToPipeline }: LeadsTabProps) {
   const [leads, setLeads] = useState<LeadRow[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -89,8 +95,47 @@ export function LeadsTab() {
 
   useEffect(() => { fetchLeads() }, [])
 
+  const activeDeals = deals.filter((d) => d.status === "active")
+  const completedDeals = deals.filter((d) => d.status === "completed")
+  const pipelineValue = activeDeals.reduce((s, d) => s + d.valuation, 0)
+  const wonValue = completedDeals.reduce((s, d) => s + d.valuation, 0)
+
   return (
     <div className="flex flex-col gap-6">
+      {/* Horizon Pipeline summary */}
+      {deals.length > 0 && (
+        <div
+          className="flex cursor-pointer flex-wrap items-center gap-4 rounded-lg border border-primary/20 bg-primary/5 px-5 py-4 transition-colors hover:bg-primary/10"
+          onClick={onNavigateToPipeline}
+          role="button"
+          aria-label="Go to Horizon Pipeline"
+        >
+          <FolderKanban className="h-5 w-5 shrink-0 text-primary" />
+          <div className="flex flex-1 flex-wrap gap-6">
+            <div>
+              <p className="text-xs text-muted-foreground">Active Pipeline</p>
+              <p className="text-base font-bold text-foreground">
+                {activeDeals.length} deal{activeDeals.length !== 1 ? "s" : ""}{" "}
+                <span className="text-sm font-normal text-muted-foreground">
+                  — ${pipelineValue.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                </span>
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Completed Deals</p>
+              <p className="text-base font-bold text-foreground">
+                <Trophy className="mb-0.5 mr-1 inline h-4 w-4 text-warning" />
+                {completedDeals.length}{" "}
+                <span className="text-sm font-normal text-muted-foreground">
+                  — ${wonValue.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                </span>
+              </p>
+            </div>
+          </div>
+          <span className="text-xs text-primary font-medium">View Pipeline &rarr;</span>
+        </div>
+      )}
+
       {/* Summary stats */}
       {stats && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">

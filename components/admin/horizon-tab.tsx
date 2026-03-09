@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SmartInput } from "@/components/ui/smart-input"
 import { Card, CardContent } from "@/components/ui/card"
-import { Plus, Upload, FileText, Search, ChevronLeft, ChevronRight, FolderKanban, BarChart3, Pencil, X, Save, CheckCircle2 } from "lucide-react"
+import { Plus, Upload, FileText, Search, ChevronLeft, ChevronRight, FolderKanban, BarChart3, Pencil, X, Save, Trophy, ChevronRight as ArrowRight } from "lucide-react"
 import { CompleteDealModal } from "@/components/admin/complete-deal-modal"
 import { useMarketIntel } from "@/lib/use-market-intel"
 import { cn } from "@/lib/utils"
@@ -139,6 +139,12 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
   const [showForm, setShowForm] = useState(false)
   const [dealName, setDealName] = useState("")
   const [dealType, setDealType] = useState<"full" | "book">("full")
+
+  // --- Pipeline sub-tab ---
+  const [pipelineTab, setPipelineTab] = useState<"active" | "completed">("active")
+
+  // --- Deal detail drawer ---
+  const [viewingDeal, setViewingDeal] = useState<Deal | null>(null)
 
   // --- Complete deal modal state ---
   const [completingDeal, setCompletingDeal] = useState<Deal | null>(null)
@@ -692,11 +698,23 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
     declined: "text-destructive",
   }
 
+  const activeDeals = deals.filter((d) => d.status === "active")
+  const completedDeals = deals.filter((d) => d.status === "completed")
+
+  function fmtStat(v: unknown): string {
+    if (v == null) return "—"
+    const n = parseFloat(String(v))
+    return isNaN(n) ? String(v) : n.toLocaleString("en-US", { maximumFractionDigits: 1 })
+  }
+
   // ----- List View (no form open) -----
   if (!showForm) {
+    const visibleDeals = pipelineTab === "active" ? activeDeals : completedDeals
+
     return (
       <div className="relative">
-        <div className="mb-6 flex items-center justify-between">
+        {/* Header */}
+        <div className="mb-5 flex items-center justify-between">
           <h2 className="text-lg font-bold text-foreground">Horizon Pipeline</h2>
           <Button onClick={() => setShowForm(true)}>
             <Plus className="mr-2 h-4 w-4" />
@@ -704,24 +722,73 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
           </Button>
         </div>
 
-        {deals.length === 0 ? (
+        {/* Sub-tabs */}
+        <div className="mb-5 flex gap-1 border-b border-border">
+          {(["active", "completed"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setPipelineTab(tab)}
+              className={cn(
+                "flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors",
+                pipelineTab === tab
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {tab === "active" ? (
+                <><FolderKanban className="h-4 w-4" /> Active Pipeline <span className="ml-1 rounded-full bg-primary/10 px-1.5 text-xs text-primary">{activeDeals.length}</span></>
+              ) : (
+                <><Trophy className="h-4 w-4" /> Completed Deals <span className="ml-1 rounded-full bg-success/10 px-1.5 text-xs text-success">{completedDeals.length}</span></>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Market Intel bar — only on completed tab */}
+        {pipelineTab === "completed" && intel.sampleSize > 0 && (
+          <div className="mb-4 flex flex-wrap items-center gap-5 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
+            <span className="text-xs font-semibold uppercase tracking-wide text-primary">Market Intel</span>
+            {intel.medianMultiple != null && (
+              <span className="text-foreground">Median multiple: <strong>{intel.medianMultiple.toFixed(2)}x</strong></span>
+            )}
+            {intel.earnoutRate != null && intel.earnoutRate > 0 && (
+              <span className="text-foreground">Earnout rate: <strong>{Math.round(intel.earnoutRate * 100)}%</strong></span>
+            )}
+            {intel.medianSellerStay != null && (
+              <span className="text-foreground">Avg stay-on: <strong>{intel.medianSellerStay} mo</strong></span>
+            )}
+          </div>
+        )}
+
+        {/* Deal list */}
+        {visibleDeals.length === 0 ? (
           <Card className="border-border">
             <CardContent className="py-12 text-center">
-              <FolderKanban className="mx-auto mb-3 h-12 w-12 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">
-                No deals in the pipeline. Click "New Deal" to get started.
-              </p>
+              {pipelineTab === "active" ? (
+                <><FolderKanban className="mx-auto mb-3 h-12 w-12 text-muted-foreground/40" /><p className="text-sm text-muted-foreground">No active deals. Click "New Deal" to get started.</p></>
+              ) : (
+                <><Trophy className="mx-auto mb-3 h-12 w-12 text-muted-foreground/40" /><p className="text-sm text-muted-foreground">No completed deals yet. Mark a deal as Won to record it here.</p></>
+              )}
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4">
-            {deals.map((deal) => (
-              <Card key={deal.id} className="border-border transition-shadow hover:shadow-md">
+          <div className="grid gap-3">
+            {visibleDeals.map((deal) => (
+              <Card
+                key={deal.id}
+                className="group cursor-pointer border-border transition-all hover:border-primary/30 hover:shadow-md"
+                onClick={() => setViewingDeal(deal)}
+              >
                 <CardContent className="flex items-center justify-between gap-4 p-4">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-bold text-foreground">{deal.deal_name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {deal.deal_type.toUpperCase()} &bull;{" "}
+                    <div className="flex items-center gap-2">
+                      <p className="truncate font-bold text-foreground">{deal.deal_name}</p>
+                      {deal.status === "completed" && (
+                        <Trophy className="h-3.5 w-3.5 shrink-0 text-warning" />
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {deal.deal_type === "full" ? "Full Agency" : "Book Purchase"} &bull;{" "}
                       {new Date(deal.date_saved).toLocaleDateString()} &bull;{" "}
                       <span className={statusColors[deal.status]}>
                         {deal.status.charAt(0).toUpperCase() + deal.status.slice(1)}
@@ -733,30 +800,35 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
                       </p>
                     )}
                   </div>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <p className="text-lg font-extrabold text-success">
-                      {formatCurrency(deal.valuation)}
-                    </p>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5"
-                      onClick={() => openEdit(deal)}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                      Edit
-                    </Button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <div className="text-right">
+                      <p className="text-base font-extrabold text-success">{formatCurrency(deal.valuation)}</p>
+                      {deal.premium_base > 0 && (
+                        <p className="text-[10px] text-muted-foreground">
+                          {(deal.valuation / deal.premium_base).toFixed(2)}x premium
+                        </p>
+                      )}
+                    </div>
                     {deal.status !== "completed" && (
                       <Button
                         size="sm"
-                        variant="outline"
-                        className="gap-1.5 border-success/40 text-success hover:bg-success/10"
-                        onClick={() => setCompletingDeal(deal)}
+                        className="gap-1.5 bg-success hover:bg-success/90 text-white border-0"
+                        onClick={(e) => { e.stopPropagation(); setCompletingDeal(deal) }}
                       >
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        Complete
+                        <Trophy className="h-3.5 w-3.5" />
+                        Won
                       </Button>
                     )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={(e) => { e.stopPropagation(); openEdit(deal) }}
+                      aria-label="Edit deal"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
                   </div>
                 </CardContent>
               </Card>
@@ -764,33 +836,7 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
           </div>
         )}
 
-        {/* Market Intel summary */}
-        {intel.sampleSize > 0 && (
-          <div className="mt-6 rounded-lg border border-primary/20 bg-primary/5 p-4">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">
-              Market Intelligence — {intel.sampleSize} Closed Deal{intel.sampleSize !== 1 ? "s" : ""}
-            </p>
-            <div className="flex flex-wrap gap-4 text-sm">
-              {intel.medianMultiple != null && (
-                <span className="text-foreground">
-                  Median multiple: <strong>{intel.medianMultiple.toFixed(2)}x</strong>
-                </span>
-              )}
-              {intel.earnoutRate != null && intel.earnoutRate > 0 && (
-                <span className="text-foreground">
-                  Earnout rate: <strong>{Math.round(intel.earnoutRate * 100)}%</strong>
-                </span>
-              )}
-              {intel.medianSellerStay != null && (
-                <span className="text-foreground">
-                  Median stay-on: <strong>{intel.medianSellerStay} mo</strong>
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Complete Deal Modal */}
+        {/* Won Deal Modal */}
         {completingDeal && (
           <CompleteDealModal
             deal={completingDeal}
@@ -798,9 +844,128 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
             onSaved={() => {
               onUpdateDeal(completingDeal.id, { status: "completed" })
               setCompletingDeal(null)
+              setPipelineTab("completed")
               mutateIntel()
             }}
           />
+        )}
+
+        {/* Deal Detail Drawer */}
+        {viewingDeal && (
+          <>
+            <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setViewingDeal(null)} />
+            <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col bg-card shadow-2xl">
+              <div className="flex items-center justify-between border-b border-border px-6 py-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="truncate text-base font-semibold text-foreground">{viewingDeal.deal_name}</h3>
+                    {viewingDeal.status === "completed" && <Trophy className="h-4 w-4 shrink-0 text-warning" />}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {viewingDeal.deal_type === "full" ? "Full Agency" : "Book Purchase"} &bull; {new Date(viewingDeal.date_saved).toLocaleDateString()}
+                  </p>
+                </div>
+                <button onClick={() => setViewingDeal(null)} className="ml-4 rounded p-1 text-muted-foreground hover:text-foreground" aria-label="Close">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+                {/* Key stats grid */}
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label: "Valuation", value: formatCurrency(viewingDeal.valuation), highlight: true },
+                    { label: "Premium Base", value: viewingDeal.premium_base > 0 ? formatCurrency(viewingDeal.premium_base) : "—" },
+                    { label: "Multiple", value: viewingDeal.premium_base > 0 ? `${(viewingDeal.valuation / viewingDeal.premium_base).toFixed(2)}x` : "—" },
+                    { label: "Status", value: viewingDeal.status.charAt(0).toUpperCase() + viewingDeal.status.slice(1) },
+                  ].map(({ label, value, highlight }) => (
+                    <div key={label} className="rounded-lg border border-border bg-secondary/30 p-3">
+                      <p className="text-xs text-muted-foreground">{label}</p>
+                      <p className={cn("mt-0.5 text-base font-bold", highlight ? "text-success" : "text-foreground")}>{value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Book / financial details from deal.details */}
+                {viewingDeal.details && Object.keys(viewingDeal.details).filter((k) => viewingDeal.details![k] != null && k !== "notes").length > 0 && (
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Deal Details</p>
+                    <div className="divide-y divide-border rounded-lg border border-border bg-secondary/20">
+                      {[
+                        { key: "carrier", label: "Carrier" },
+                        { key: "pif_count", label: "Policies in Force" },
+                        { key: "loss_ratio", label: "Loss Ratio", suffix: "%" },
+                        { key: "book_retention_pct", label: "Book Retention", suffix: "%" },
+                        { key: "multiple", label: "Multiplier" },
+                        { key: "policyCount", label: "Policy Count" },
+                        { key: "revenue", label: "Revenue" },
+                        { key: "ebitda", label: "EBITDA" },
+                        { key: "retention", label: "Retention", suffix: "%" },
+                        { key: "lossRatio", label: "Loss Ratio", suffix: "%" },
+                        { key: "riskGrade", label: "Risk Grade" },
+                        { key: "coreScore", label: "Core Score" },
+                      ].filter(({ key }) => viewingDeal.details?.[key] != null).map(({ key, label, suffix }) => (
+                        <div key={key} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                          <span className="text-muted-foreground">{label}</span>
+                          <span className="font-medium text-foreground">
+                            {fmtStat(viewingDeal.details![key])}{suffix ?? ""}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Completed deal terms */}
+                {viewingDeal.status === "completed" && viewingDeal.details?.deal_terms != null && (
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Deal Terms</p>
+                    <div className="divide-y divide-border rounded-lg border border-border bg-secondary/20">
+                      {[
+                        { key: "deal_terms", label: "Structure" },
+                        { key: "final_offer", label: "Final Price", fmt: (v: unknown) => formatCurrency(Number(v)) },
+                        { key: "final_multiple", label: "Final Multiple", suffix: "x" },
+                        { key: "earnout_pct", label: "Earnout %", suffix: "%" },
+                        { key: "seller_stay", label: "Seller Stay-On", suffix: " mo" },
+                      ].filter(({ key }) => viewingDeal.details?.[key] != null).map(({ key, label, suffix, fmt: fmtFn }) => (
+                        <div key={key} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                          <span className="text-muted-foreground">{label}</span>
+                          <span className="font-medium text-foreground">
+                            {fmtFn ? fmtFn(viewingDeal.details![key]) : `${fmtStat(viewingDeal.details![key])}${suffix ?? ""}`}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Notes */}
+                {viewingDeal.details?.notes != null && (
+                  <div>
+                    <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes</p>
+                    <p className="rounded-lg border border-border bg-secondary/20 px-4 py-3 text-sm text-foreground/80 italic">
+                      {String(viewingDeal.details.notes)}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer actions */}
+              <div className="border-t border-border px-6 py-4 flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={() => { setViewingDeal(null); openEdit(viewingDeal) }}>
+                  <Pencil className="mr-2 h-4 w-4" /> Edit
+                </Button>
+                {viewingDeal.status !== "completed" && (
+                  <Button
+                    className="flex-1 gap-2 bg-success hover:bg-success/90 text-white border-0"
+                    onClick={() => { setViewingDeal(null); setCompletingDeal(viewingDeal) }}
+                  >
+                    <Trophy className="h-4 w-4" /> Mark as Won
+                  </Button>
+                )}
+              </div>
+            </div>
+          </>
         )}
 
         {/* Edit Drawer / Slide-over */}
