@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SmartInput } from "@/components/ui/smart-input"
 import { Card, CardContent } from "@/components/ui/card"
-import { Plus, Upload, FileText, Search, ChevronLeft, ChevronRight, FolderKanban, BarChart3, Pencil, X, Save } from "lucide-react"
+import { Plus, Upload, FileText, Search, ChevronLeft, ChevronRight, FolderKanban, BarChart3, Pencil, X, Save, CheckCircle2 } from "lucide-react"
+import { CompleteDealModal } from "@/components/admin/complete-deal-modal"
+import { useMarketIntel } from "@/lib/use-market-intel"
 import { cn } from "@/lib/utils"
 import type { Deal } from "./admin-dashboard"
 import { ValuationReport } from "./valuation-report"
@@ -137,6 +139,10 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
   const [showForm, setShowForm] = useState(false)
   const [dealName, setDealName] = useState("")
   const [dealType, setDealType] = useState<"full" | "book">("full")
+
+  // --- Complete deal modal state ---
+  const [completingDeal, setCompletingDeal] = useState<Deal | null>(null)
+  const { intel, mutate: mutateIntel } = useMarketIntel()
 
   // --- Edit drawer state ---
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null)
@@ -740,11 +746,61 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
                       <Pencil className="h-3.5 w-3.5" />
                       Edit
                     </Button>
+                    {deal.status !== "completed" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5 border-success/40 text-success hover:bg-success/10"
+                        onClick={() => setCompletingDeal(deal)}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Complete
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
+        )}
+
+        {/* Market Intel summary */}
+        {intel.sampleSize > 0 && (
+          <div className="mt-6 rounded-lg border border-primary/20 bg-primary/5 p-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">
+              Market Intelligence — {intel.sampleSize} Closed Deal{intel.sampleSize !== 1 ? "s" : ""}
+            </p>
+            <div className="flex flex-wrap gap-4 text-sm">
+              {intel.medianMultiple != null && (
+                <span className="text-foreground">
+                  Median multiple: <strong>{intel.medianMultiple.toFixed(2)}x</strong>
+                </span>
+              )}
+              {intel.earnoutRate != null && intel.earnoutRate > 0 && (
+                <span className="text-foreground">
+                  Earnout rate: <strong>{Math.round(intel.earnoutRate * 100)}%</strong>
+                </span>
+              )}
+              {intel.medianSellerStay != null && (
+                <span className="text-foreground">
+                  Median stay-on: <strong>{intel.medianSellerStay} mo</strong>
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Complete Deal Modal */}
+        {completingDeal && (
+          <CompleteDealModal
+            deal={completingDeal}
+            onClose={() => setCompletingDeal(null)}
+            onSaved={() => {
+              onUpdateDeal(completingDeal.id, { status: "completed" })
+              setCompletingDeal(null)
+              mutateIntel()
+            }}
+          />
         )}
 
         {/* Edit Drawer / Slide-over */}
@@ -829,10 +885,10 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
                     <span className="text-muted-foreground">Premium Base</span>
                     <span className="font-medium text-foreground">{formatCurrency(editingDeal.premium_base)}</span>
                   </div>
-                  {editingDeal.details?.multiple && (
+                  {editingDeal.details?.multiple != null && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Multiple</span>
-                      <span className="font-medium text-foreground">{Number(editingDeal.details.multiple).toFixed(2)}x</span>
+                      <span className="font-medium text-foreground">{parseFloat(String(editingDeal.details.multiple)).toFixed(2)}x</span>
                     </div>
                   )}
                   {editingDeal.details?.policyCount && (

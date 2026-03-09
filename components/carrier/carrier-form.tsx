@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Switch } from "@/components/ui/switch"
 import { ReportUpload } from "./report-upload"
+import { CommissionUpload } from "./commission-upload"
 import type { CarrierInputs, CarrierName, BookType } from "./carrier-engine"
 
 interface Props {
@@ -25,6 +26,11 @@ const carriers: { value: CarrierName; label: string; description: string }[] = [
     label: "Progressive",
     description: "Personal and commercial auto & specialty",
   },
+  {
+    value: "hartford",
+    label: "The Hartford",
+    description: "Personal Lines, Small Commercial & specialty",
+  },
 ]
 
 export function CarrierForm({ inputs, onChange }: Props) {
@@ -33,29 +39,26 @@ export function CarrierForm({ inputs, onChange }: Props) {
   }
 
   const resetAndSetCarrier = (v: CarrierName) => {
-    onChange({
-      ...defaultFieldReset,
-      carrier: v,
-      bookType: "",
-    })
+    onChange({ ...defaultFieldReset, carrier: v, bookType: "" })
   }
 
-  const carrier = inputs.carrier
+  const carrier  = inputs.carrier
   const bookType = inputs.bookType
-  const needsBookType = carrier === "progressive" || carrier === "travelers"
   const bookTypeOptions = getBookTypeOptions(carrier)
-  const showMetrics = carrier && (!needsBookType || bookType)
+  const showMetrics = carrier && bookType
+
+  const stepOffset = 2  // step 1 = carrier, step 2 = book type, step 3 = metrics
 
   return (
     <div className="flex flex-col gap-6">
 
-      {/* Step 1: Carrier Selection */}
+      {/* Step 1 — Carrier Selection */}
       <Card className="border-border bg-card">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold text-foreground">1. Select Carrier</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             {carriers.map((c) => (
               <button
                 key={c.value}
@@ -83,8 +86,8 @@ export function CarrierForm({ inputs, onChange }: Props) {
         />
       )}
 
-      {/* Step 2: Book Type */}
-      {carrier && needsBookType && (
+      {/* Step 2 — Book Type */}
+      {carrier && (
         <Card className="border-border bg-card">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold text-foreground">2. Book Type</CardTitle>
@@ -109,23 +112,94 @@ export function CarrierForm({ inputs, onChange }: Props) {
         </Card>
       )}
 
-      {/* Step 3: Metrics */}
+      {/* Step 3 — Metrics */}
       {showMetrics && (
-        <Card className="border-border bg-card">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold text-foreground">
-              {needsBookType ? "3" : "2"}. {carrier === "travelers" ? "Travelers" : "Progressive"} Book Metrics
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            {carrier === "progressive" && (
-              <ProgressiveFields inputs={inputs} update={update} bookType={bookType as BookType} />
-            )}
-            {carrier === "travelers" && (
-              <TravelersFields inputs={inputs} update={update} bookType={bookType as BookType} />
-            )}
-          </CardContent>
-        </Card>
+        <>
+          <Card className="border-border bg-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold text-foreground">
+                {stepOffset + 1}. Carrier Metrics
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              {carrier === "progressive" && (
+                <ProgressiveFields inputs={inputs} update={update} bookType={bookType as BookType} />
+              )}
+              {carrier === "travelers" && (
+                <TravelersFields inputs={inputs} update={update} bookType={bookType as BookType} />
+              )}
+              {carrier === "hartford" && (
+                <HartfordFields inputs={inputs} update={update} bookType={bookType as BookType} />
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Book Quality — sourced from commission statements & active policy list */}
+          <Card className="border-border bg-card">
+            <CardHeader className="pb-3">
+              <div>
+                <CardTitle className="text-base font-semibold text-foreground">
+                  {stepOffset + 2}. Book Quality <span className="text-xs font-normal text-muted-foreground ml-1">(optional — from commission statements / active policy list)</span>
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <CommissionUpload
+                onParsed={(fields) => update(fields)}
+              />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <NumField
+                  label="Preferred / Standard Book (%)"
+                  value={inputs.book_preferred_pct}
+                  onChange={(v) => update({ book_preferred_pct: v })}
+                  placeholder="e.g. 78"
+                  type="percent"
+                  hint="% of policies in preferred or standard tier (vs non-standard/high-risk)"
+                />
+                <NumField
+                  label="Policies per Customer"
+                  value={inputs.book_policies_per_customer}
+                  onChange={(v) => update({ book_policies_per_customer: v })}
+                  placeholder="e.g. 1.9"
+                  type="number"
+                  hint="Total policies ÷ total customers — higher means stronger multi-line"
+                />
+                <NumField
+                  label="Avg Premium per Policy ($)"
+                  value={inputs.book_avg_premium_per_policy}
+                  onChange={(v) => update({ book_avg_premium_per_policy: v })}
+                  placeholder="e.g. 1,200"
+                  type="currency"
+                  hint="Total written premium ÷ total policies in force"
+                />
+                <NumField
+                  label="New Business % (last 12 mo)"
+                  value={inputs.book_new_business_pct}
+                  onChange={(v) => update({ book_new_business_pct: v })}
+                  placeholder="e.g. 15"
+                  type="percent"
+                  hint="New policies written in past 12 months ÷ total PIF — from commission statement"
+                />
+                <NumField
+                  label="Monoline Customers (%)"
+                  value={inputs.book_monoline_pct}
+                  onChange={(v) => update({ book_monoline_pct: v })}
+                  placeholder="e.g. 42"
+                  type="percent"
+                  hint="% of customers with only one policy — lower is better (multi-line = stickier)"
+                />
+                <NumField
+                  label="Paperless / e-Docs (%)"
+                  value={inputs.book_digital_docs_pct}
+                  onChange={(v) => update({ book_digital_docs_pct: v })}
+                  placeholder="e.g. 65"
+                  type="percent"
+                  hint="% of customers enrolled in paperless — higher engagement = lower lapse rate"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </>
       )}
     </div>
   )
@@ -140,21 +214,33 @@ const defaultFieldReset: Partial<CarrierInputs> = {
   prog_bundle_rate: null, prog_ytd_apps: null, prog_diamond_status: false,
   travelers_auto_wp: null, travelers_auto_lr: null, travelers_auto_retention: null, travelers_auto_pif: null,
   travelers_home_wp: null, travelers_home_lr: null, travelers_home_retention: null, travelers_home_pif: null,
+  hartford_pl_auto_twp: null, hartford_pl_auto_pif: null, hartford_pl_auto_lr: null, hartford_pl_auto_retention: null,
+  hartford_pl_home_twp: null, hartford_pl_home_pif: null, hartford_pl_home_lr: null, hartford_pl_home_retention: null,
+  hartford_cl_twp: null, hartford_cl_lr: null, hartford_cl_retention: null,
+  book_preferred_pct: null, book_policies_per_customer: null, book_avg_premium_per_policy: null,
+  book_new_business_pct: null, book_monoline_pct: null, book_digital_docs_pct: null,
 }
 
 function getBookTypeOptions(carrier: string) {
   if (carrier === "travelers") {
     return [
-      { value: "auto", label: "Auto" },
-      { value: "home", label: "Homeowners" },
-      { value: "both", label: "Both" },
+      { value: "auto",     label: "Auto" },
+      { value: "home",     label: "Homeowners" },
+      { value: "both",     label: "Both" },
+    ]
+  }
+  if (carrier === "hartford") {
+    return [
+      { value: "personal",    label: "Personal Lines" },
+      { value: "commercial",  label: "Small Commercial" },
+      { value: "both",        label: "Both" },
     ]
   }
   // Progressive
   return [
-    { value: "personal", label: "Personal Lines" },
+    { value: "personal",   label: "Personal Lines" },
     { value: "commercial", label: "Commercial Lines" },
-    { value: "both", label: "Both" },
+    { value: "both",       label: "Both" },
   ]
 }
 
@@ -162,17 +248,10 @@ function getBookTypeOptions(carrier: string) {
 // Progressive Fields
 // -----------------------------------------------------------------------
 function ProgressiveFields({
-  inputs,
-  update,
-  bookType,
-}: {
-  inputs: CarrierInputs
-  update: (p: Partial<CarrierInputs>) => void
-  bookType: BookType
-}) {
+  inputs, update, bookType,
+}: { inputs: CarrierInputs; update: (p: Partial<CarrierInputs>) => void; bookType: BookType }) {
   const showPL = bookType === "personal" || bookType === "both"
   const showCL = bookType === "commercial" || bookType === "both"
-
   return (
     <>
       {showPL && (
@@ -208,35 +287,68 @@ function ProgressiveFields({
 // Travelers Fields
 // -----------------------------------------------------------------------
 function TravelersFields({
-  inputs,
-  update,
-  bookType,
-}: {
-  inputs: CarrierInputs
-  update: (p: Partial<CarrierInputs>) => void
-  bookType: BookType
-}) {
+  inputs, update, bookType,
+}: { inputs: CarrierInputs; update: (p: Partial<CarrierInputs>) => void; bookType: BookType }) {
   const showAuto = bookType === "auto" || bookType === "both"
   const showHome = bookType === "home" || bookType === "both"
-
   return (
     <>
       {showAuto && (
         <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
           <p className="text-sm font-semibold text-foreground">Auto</p>
-          <NumField label="Written Premium ($k)" value={inputs.travelers_auto_wp} onChange={(v) => update({ travelers_auto_wp: v })} placeholder="e.g. 3,500" type="currency" hint="Enter in thousands — e.g. 3,500 = $3.5M" />
-          <NumField label="Policies in Force (PIF)" value={inputs.travelers_auto_pif} onChange={(v) => update({ travelers_auto_pif: v })} placeholder="e.g. 1,400" type="count" />
-          <NumField label="Loss Ratio (%)" value={inputs.travelers_auto_lr} onChange={(v) => update({ travelers_auto_lr: v })} placeholder="e.g. 62.0" type="percent" />
-          <NumField label="Retention (%)" value={inputs.travelers_auto_retention} onChange={(v) => update({ travelers_auto_retention: v })} placeholder="e.g. 75.0" type="percent" />
+          <NumField label="Annual Written Premium ($k)" value={inputs.travelers_auto_wp} onChange={(v) => update({ travelers_auto_wp: v })} placeholder="e.g. 3,500" type="currency" hint="From WP (,000) YE column — e.g. 206 = $206k" />
+          <NumField label="Policies in Force (PIF)" value={inputs.travelers_auto_pif} onChange={(v) => update({ travelers_auto_pif: v })} placeholder="e.g. 75" type="count" />
+          <NumField label="Calendar Year Loss Ratio (%)" value={inputs.travelers_auto_lr} onChange={(v) => update({ travelers_auto_lr: v })} placeholder="e.g. 77.2" type="percent" />
+          <NumField label="Retention (%)" value={inputs.travelers_auto_retention} onChange={(v) => update({ travelers_auto_retention: v })} placeholder="e.g. 76.2" type="percent" />
         </div>
       )}
       {showHome && (
         <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
           <p className="text-sm font-semibold text-foreground">Homeowners</p>
-          <NumField label="Written Premium ($k)" value={inputs.travelers_home_wp} onChange={(v) => update({ travelers_home_wp: v })} placeholder="e.g. 4,500" type="currency" hint="Enter in thousands — e.g. 4,500 = $4.5M" />
-          <NumField label="Policies in Force (PIF)" value={inputs.travelers_home_pif} onChange={(v) => update({ travelers_home_pif: v })} placeholder="e.g. 1,800" type="count" />
-          <NumField label="Loss Ratio (%)" value={inputs.travelers_home_lr} onChange={(v) => update({ travelers_home_lr: v })} placeholder="e.g. 40.0" type="percent" />
+          <NumField label="Annual Written Premium ($k)" value={inputs.travelers_home_wp} onChange={(v) => update({ travelers_home_wp: v })} placeholder="e.g. 4,500" type="currency" hint="From WP (,000) YE column — e.g. 221 = $221k" />
+          <NumField label="Policies in Force (PIF)" value={inputs.travelers_home_pif} onChange={(v) => update({ travelers_home_pif: v })} placeholder="e.g. 122" type="count" />
+          <NumField label="Calendar Year Loss Ratio (%)" value={inputs.travelers_home_lr} onChange={(v) => update({ travelers_home_lr: v })} placeholder="e.g. 40.0" type="percent" />
           <NumField label="Retention (%)" value={inputs.travelers_home_retention} onChange={(v) => update({ travelers_home_retention: v })} placeholder="e.g. 88.0" type="percent" />
+        </div>
+      )}
+    </>
+  )
+}
+
+// -----------------------------------------------------------------------
+// Hartford Fields
+// -----------------------------------------------------------------------
+function HartfordFields({
+  inputs, update, bookType,
+}: { inputs: CarrierInputs; update: (p: Partial<CarrierInputs>) => void; bookType: BookType }) {
+  const showPL = bookType === "personal" || bookType === "both"
+  const showCL = bookType === "commercial" || bookType === "both"
+  return (
+    <>
+      {showPL && (
+        <>
+          <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+            <p className="text-sm font-semibold text-foreground">Personal Lines — Auto</p>
+            <NumField label="Total Written Premium ($k)" value={inputs.hartford_pl_auto_twp} onChange={(v) => update({ hartford_pl_auto_twp: v })} placeholder="e.g. 1,991" type="currency" hint="All Auto TWP — most recent full year column in Production & Growth" />
+            <NumField label="Policies in Force (Year-End)" value={inputs.hartford_pl_auto_pif} onChange={(v) => update({ hartford_pl_auto_pif: v })} placeholder="e.g. 2,569" type="count" hint="Total Policy Inforce — All Auto YE Total from Flow section" />
+            <NumField label="Calendar Year Loss Ratio (%)" value={inputs.hartford_pl_auto_lr} onChange={(v) => update({ hartford_pl_auto_lr: v })} placeholder="e.g. 32.9" type="percent" hint="CYLR most recent year — All Auto row in Profitability" />
+            <NumField label="Premium Retention (%)" value={inputs.hartford_pl_auto_retention} onChange={(v) => update({ hartford_pl_auto_retention: v })} placeholder="e.g. 77.0" type="percent" hint="Premium Retention % most recent year — All Auto row" />
+          </div>
+          <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+            <p className="text-sm font-semibold text-foreground">Personal Lines — Home</p>
+            <NumField label="Total Written Premium ($k)" value={inputs.hartford_pl_home_twp} onChange={(v) => update({ hartford_pl_home_twp: v })} placeholder="e.g. 3,989" type="currency" hint="All Home TWP — most recent full year column in Production & Growth" />
+            <NumField label="Policies in Force (Year-End)" value={inputs.hartford_pl_home_pif} onChange={(v) => update({ hartford_pl_home_pif: v })} placeholder="e.g. 1,442" type="count" hint="Total Policy Inforce — All Home YE Total from Flow section" />
+            <NumField label="Calendar Year Loss Ratio (%)" value={inputs.hartford_pl_home_lr} onChange={(v) => update({ hartford_pl_home_lr: v })} placeholder="e.g. 20.4" type="percent" hint="CYLR most recent year — All Home row in Profitability" />
+            <NumField label="Premium Retention (%)" value={inputs.hartford_pl_home_retention} onChange={(v) => update({ hartford_pl_home_retention: v })} placeholder="e.g. 68.0" type="percent" hint="Premium Retention % most recent year — All Home row" />
+          </div>
+        </>
+      )}
+      {showCL && (
+        <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+          <p className="text-sm font-semibold text-foreground">Small Commercial</p>
+          <NumField label="Total Written Premium ($k)" value={inputs.hartford_cl_twp} onChange={(v) => update({ hartford_cl_twp: v })} placeholder="e.g. 2,043" type="currency" hint="Small Commercial Total TWP — most recent full year, Production & Growth" />
+          <NumField label="Calendar Year Loss Ratio (%)" value={inputs.hartford_cl_lr} onChange={(v) => update({ hartford_cl_lr: v })} placeholder="e.g. 24.7" type="percent" hint="CYLR most recent year — Small Commercial Total row (negative = profitable)" />
+          <NumField label="Retention (%)" value={inputs.hartford_cl_retention} onChange={(v) => update({ hartford_cl_retention: v })} placeholder="e.g. 73.9" type="percent" hint="Premium Retention Rate (PRR) most recent year — Total row in Retention table" />
         </div>
       )}
     </>
@@ -247,12 +359,7 @@ function TravelersFields({
 // Shared numeric input
 // -----------------------------------------------------------------------
 function NumField({
-  label,
-  value,
-  onChange,
-  placeholder,
-  type,
-  hint,
+  label, value, onChange, placeholder, type, hint,
 }: {
   label: string
   value: number | null
