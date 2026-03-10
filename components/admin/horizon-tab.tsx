@@ -19,6 +19,9 @@ import {
   parsePdfCommissionRow,
   scoreCommissionRow,
   scorePolicyParse,
+  detectCommStatementFormat,
+  setCommStatementFormat,
+  resetCommStatementFormat,
   type ParseConfidence,
   type ConfidenceLevel,
 } from "@/lib/parse-utils"
@@ -371,6 +374,21 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
             const pdf = await pdfjsLib.getDocument(new Uint8Array(ab)).promise
             log(`  PDF has ${pdf.numPages} page(s)`)
 
+            // ── Detect statement format from first page text ──
+            // Collect raw text from page 1 (or 2 if page 1 is a cover) to identify format.
+            let formatSampleText = ""
+            for (let pi = 1; pi <= Math.min(2, pdf.numPages); pi++) {
+              const pg = await pdf.getPage(pi)
+              const tc = await pg.getTextContent()
+              formatSampleText += tc.items
+                .filter((it): it is typeof it & { str: string } => "str" in it)
+                .map(it => it.str)
+                .join(" ") + "\n"
+            }
+            const detectedFmt = detectCommStatementFormat(formatSampleText)
+            setCommStatementFormat(detectedFmt)
+            log(`  Detected format: ${detectedFmt}`)
+
             for (let pageIdx = 1; pageIdx <= pdf.numPages; pageIdx++) {
               const page = await pdf.getPage(pageIdx)
               const tc = await page.getTextContent()
@@ -458,7 +476,9 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
             }
 
             log(`  Found ${parsedRows} commission records (${skippedRows} rows skipped)`)
+            resetCommStatementFormat()
           } catch (err) {
+            resetCommStatementFormat()
             log(`Error parsing PDF: ${(err as Error).message}`)
           }
         } else {
@@ -1346,6 +1366,78 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
               className="hidden"
               onChange={handleCommUpload}
             />
+
+            {/* ── Parse Verification Panel ── */}
+            {comm.loaded && comm.data.length > 0 && (() => {
+              const sample = comm.data.slice(0, 8)
+              const lowConf = comm.data.filter(c => (c.confidence?.score ?? 0) < 50).length
+              const pct = Math.round(((comm.data.length - lowConf) / comm.data.length) * 100)
+              return (
+                <div className="mt-3 rounded-lg border border-border bg-card">
+                  <div className="flex items-center justify-between border-b border-border px-3 py-2">
+                    <p className="text-xs font-semibold text-foreground">Parse Verification</p>
+                    <span className={cn(
+                      "rounded-full px-2 py-0.5 text-xs font-medium",
+                      pct >= 75 ? "bg-success/15 text-success" : pct >= 50 ? "bg-warning/15 text-warning" : "bg-destructive/15 text-destructive"
+                    )}>
+                      {pct}% high-confidence
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[560px] text-xs">
+                      <thead>
+                        <tr className="border-b border-border bg-secondary/40">
+                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Conf</th>
+                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Policy #</th>
+                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Client</th>
+                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Carrier</th>
+                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">LOB</th>
+                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">TRX</th>
+                          <th className="px-3 py-1.5 text-right font-medium text-muted-foreground">Premium</th>
+                          <th className="px-3 py-1.5 text-right font-medium text-muted-foreground">Split Comm</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {sample.map(row => (
+                          <tr key={row.id} className="group hover:bg-secondary/30" title={row.raw_line}>
+                            <td className="px-3 py-1.5">
+                              <span className={cn(
+                                "rounded px-1.5 py-0.5 font-mono font-bold text-[10px]",
+                                row.confidence?.level === "high" ? "bg-success/15 text-success" :
+                                row.confidence?.level === "medium" ? "bg-warning/15 text-warning" :
+                                "bg-destructive/15 text-destructive"
+                              )}>
+                                {row.confidence?.score ?? "?"}
+                              </span>
+                            </td>
+                            <td className="px-3 py-1.5 font-mono text-foreground">{row.policy_number || <span className="text-destructive">MISSING</span>}</td>
+                            <td className="max-w-[120px] truncate px-3 py-1.5 text-foreground">{row.client_name || "—"}</td>
+                            <td className="px-3 py-1.5 text-muted-foreground">{row.carrier || "—"}</td>
+                            <td className="px-3 py-1.5 text-muted-foreground">{row.lob || "—"}</td>
+                            <td className="px-3 py-1.5 text-muted-foreground">{row.trans_type || "—"}</td>
+                            <td className="px-3 py-1.5 text-right text-muted-foreground">{row.premium > 0 ? formatCurrency(row.premium) : "—"}</td>
+                            <td className={cn(
+                              "px-3 py-1.5 text-right font-medium",
+                              row.commission < 0 ? "text-destructive" : "text-foreground"
+                            )}>
+                              {formatCurrency(row.commission)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {comm.data.length > 8 && (
+                    <p className="px-3 py-2 text-xs text-muted-foreground">
+                      Showing first 8 of {comm.data.length} records — hover any row to see the raw source line.
+                      {lowConf > 0 && (
+                        <span className="ml-1 text-warning"> {lowConf} low-confidence rows — check that this is an EZLynx Horizon commission statement PDF.</span>
+                      )}
+                    </p>
+                  )}
+                </div>
+              )
+            })()}
 
             {/* Commission Files List -- clickable to filter */}
             {Object.keys(comm.files).length > 0 && (
