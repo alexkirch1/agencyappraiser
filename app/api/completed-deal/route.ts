@@ -10,31 +10,32 @@ export async function POST(req: Request) {
       deal_name,
       deal_type,
       premium_base,
-      estimated_valuation,
+      appraised_low,
+      appraised_high,
       final_offer,
       final_multiple,
-      deal_terms,        // e.g. "100% cash", "80% cash / 20% earnout"
+      deal_structure,    // e.g. "100% Cash at Close", "Cash + Earnout"
       earnout_pct,       // 0-100
-      seller_stay,       // months seller agreed to stay on
-      book_retention_pct,
+      seller_stay_months, // months seller agreed to stay on
+      retention_rate,
       loss_ratio,
-      pif_count,
-      state,
+      policies_per_cx,
+      primary_state,
       carrier,
       notes,
     } = body
 
     await sql`
       INSERT INTO completed_deals (
-        deal_name, deal_type, premium_base, estimated_valuation,
-        final_offer, final_multiple, deal_terms, earnout_pct,
-        seller_stay, book_retention_pct, loss_ratio, pif_count,
-        state, carrier, notes
+        deal_name, deal_type, premium_base, appraised_low,
+        appraised_high, final_offer, final_multiple, deal_structure,
+        earnout_pct, seller_stay_months, retention_rate, loss_ratio,
+        policies_per_cx, primary_state, carrier, notes
       ) VALUES (
-        ${deal_name}, ${deal_type}, ${premium_base}, ${estimated_valuation},
-        ${final_offer}, ${final_multiple}, ${deal_terms}, ${earnout_pct},
-        ${seller_stay}, ${book_retention_pct}, ${loss_ratio}, ${pif_count},
-        ${state}, ${carrier}, ${notes}
+        ${deal_name}, ${deal_type}, ${premium_base}, ${appraised_low ?? null},
+        ${appraised_high ?? null}, ${final_offer}, ${final_multiple}, ${deal_structure},
+        ${earnout_pct}, ${seller_stay_months ?? null}, ${retention_rate ?? null}, ${loss_ratio ?? null},
+        ${policies_per_cx ?? null}, ${primary_state ?? null}, ${carrier ?? null}, ${notes ?? null}
       )
     `
 
@@ -50,7 +51,7 @@ export async function GET() {
     const rows = await sql`
       SELECT *
       FROM completed_deals
-      ORDER BY completed_at DESC
+      ORDER BY created_at DESC
       LIMIT 100
     `
     return NextResponse.json({ deals: rows })

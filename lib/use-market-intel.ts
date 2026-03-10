@@ -4,20 +4,22 @@ export interface CompletedDeal {
   id: number
   deal_name: string
   deal_type: "full" | "book"
-  premium_base: number
-  estimated_valuation: number
+  premium_base: number | null
+  appraised_low: number | null
+  appraised_high: number | null
   final_offer: number
   final_multiple: number
-  deal_terms: string | null
+  deal_structure: string | null
   earnout_pct: number | null
-  seller_stay: number | null
-  book_retention_pct: number | null
+  seller_stay_months: number | null
+  retention_rate: number | null
   loss_ratio: number | null
-  pif_count: number | null
-  state: string | null
+  policies_per_cx: number | null
+  primary_state: string | null
   carrier: string | null
   notes: string | null
-  completed_at: string
+  closed_at: string | null
+  created_at: string
 }
 
 export interface MarketIntel {
@@ -83,10 +85,10 @@ function buildIntel(deals: CompletedDeal[], modelMultiple?: number): MarketIntel
 
   const multiples = deals.map((d) => d.final_multiple).filter((m) => m > 0)
   const earnouts = deals.map((d) => d.earnout_pct ?? 0)
-  const stays = deals.filter((d) => d.seller_stay != null).map((d) => d.seller_stay as number)
+  const stays = deals.filter((d) => d.seller_stay_months != null).map((d) => d.seller_stay_months as number)
   const ratios = deals
-    .filter((d) => d.estimated_valuation > 0 && d.final_offer > 0)
-    .map((d) => d.final_offer / d.estimated_valuation)
+    .filter((d) => (d.appraised_low ?? 0) > 0 && d.final_offer > 0)
+    .map((d) => d.final_offer / ((d.appraised_low! + (d.appraised_high ?? d.appraised_low!)) / 2))
 
   const fullDeals = deals.filter((d) => d.deal_type === "full")
   const bookDeals = deals.filter((d) => d.deal_type === "book")
