@@ -3,8 +3,18 @@ import { cookies } from "next/headers"
 import sql from "@/lib/db"
 
 async function isAuthenticated() {
+  const SESSION_SECRET = process.env.SESSION_SECRET || "agency-appraiser-admin-secret-2024"
   const cookieStore = await cookies()
-  return cookieStore.get("admin-auth")?.value === process.env.ADMIN_SECRET
+  const session = cookieStore.get("admin_session")
+  if (!session?.value) return false
+  try {
+    const decoded = Buffer.from(session.value, "base64").toString()
+    const parts = decoded.split(":")
+    // Token format: username:timestamp:secret (secret may contain colons)
+    return parts.length >= 3 && parts.slice(2).join(":") === SESSION_SECRET
+  } catch {
+    return false
+  }
 }
 
 export async function GET() {
