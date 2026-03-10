@@ -314,19 +314,63 @@ export function scorePolicyParse(opts: {
   return { level, score, reasons }
 }
 
+// ─── Statement-level format context ─────────────────────────────────────────
+// Exported so horizon-tab.tsx can set it once per file and clear after.
+// "unknown" = fall back to generic heuristic.
+export type CommStatementFormat = "horizon_a" | "horizon_b" | "generic"
+let _currentStatementFormat: CommStatementFormat = "generic"
+
+/** Call once when you detect the statement format for the current file. */
+export function setCommStatementFormat(fmt: CommStatementFormat): void {
+  _currentStatementFormat = fmt
+}
+/** Call after finishing a file to reset to safe default. */
+export function resetCommStatementFormat(): void {
+  _currentStatementFormat = "generic"
+}
+
+/**
+ * Detect the Horizon EZLynx statement format from the first ~30 lines of text.
+ *
+ * FORMAT A — "Commissions By Producer" (older layout)
+ *   Columns (L→R): Producer  Customer  Carrier  Policy  LOB  TRX  WrittenPrem  TotalComm  SplitComm  Payee
+ *
+ * FORMAT B — "Commission Detail" (newer layout)
+ *   Columns (L→R): Producer  Customer  Carrier  Policy  LOB(optional)  TRX  EffDate  WrittenPrem  TotalComm  SplitComm
+ *
+ * For both formats the column order for money is:  [WrittenPrem, TotalComm, SplitComm]
+ * The SPLIT COMMISSION is what we want as `commission` (what the agent actually earns).
+ */
+export function detectCommStatementFormat(text: string): CommStatementFormat {
+  const lines = text.split("\n").slice(0, 30)
+  for (const line of lines) {
+    if (/commissions?\s+by\s+producer/i.test(line)) return "horizon_a"
+    if (/commission\s+detail/i.test(line))            return "horizon_b"
+    // Column header fingerprints
+    if (/lob\s+code.*transaction\s+type.*premium\s*[-–]\s*written/i.test(line)) return "horizon_a"
+    if (/lob.*trx.*eff.*date.*premium/i.test(line))   return "horizon_b"
+    if (/split\s+comm/i.test(line))                   return "horizon_a" // both have "Split Comm" header
+  }
+  return "generic"
+}
+
 /**
  * Parse a single PDF text row and extract commission data.
  *
- * Strategy:
- *  1. Find all money amounts and mark their positions.
- *  2. Find the best policy-number candidate and mark its position.
- *  3. Find all date tokens and mark their positions.
- *  4. Everything that remains (not money, not policy#, not date) is candidate
- *     name text.  We take the longest contiguous run of alpha-only words as
- *     the client name -- this avoids grabbing LOB codes, carrier abbrevs, etc.
- *     that tend to be single short tokens.
+ * Supports three layouts:
  *
- * Returns null if the row doesn't contain commission data.
+ *  horizon_a / horizon_b — Horizon EZLynx reports with 3 money columns:
+ *    [Written Premium]  [Total Commission]  [Split Commission]
+ *    We use Split Commission as `commission` and Written Premium as `premium`.
+ *    Double-check: splitComm < totalComm < writtenPrem (with tolerance for
+ *    unusual splits / carrier overrides).
+ *
+ *  generic — fall back to: last money = commission, first money = premium.
+ *
+ * Also extracts carrier, LOB, trans_type, and producer from Horizon rows
+ * by recognising known carrier keywords and short-code patterns.
+ *
+ * Returns null if the row doesn't contain usable commission data.
  */
 export function parsePdfCommissionRow(
   lineStr: string,
@@ -344,11 +388,15 @@ export function parsePdfCommissionRow(
     (lower.includes("commission") && lower.includes("policy") && lower.includes("premium")) ||
     /^(total|subtotal|grand total|sum|net total)/i.test(lineStr.trim()) ||
     (lower.startsWith("report") && lower.includes("date")) ||
-    /^\s*[-=]{3,}\s*$/.test(lineStr)
+    /^\s*[-=]{3,}\s*$/.test(lineStr) ||
+    // Horizon-specific header / footer lines
+    /^producer\s+account/i.test(lineStr.trim()) ||
+    /filter\s+values/i.test(lineStr) ||
+    /trx\s+type\s+key/i.test(lineStr)
   ) return null
 
-  // --- 1. Find money amounts ---
-  const moneyPattern = /[(-]?\$?\s*(\d{1,3}(?:[,\s]?\d{3})*)\.\d{2}\s*[)CR-]*/gi
+  // --- 1. Find money amounts (L→R order) ---
+  const moneyPattern = /\(?\$?\s*(\d{1,3}(?:[,]\d{3})*|\d+)\.\d{2}\s*\)?/gi
   const moneyMatches = [...lineStr.matchAll(moneyPattern)]
   const moneyCandidates = moneyMatches
     .map((match) => ({
@@ -358,21 +406,54 @@ export function parsePdfCommissionRow(
       start: match.index ?? 0,
       end: (match.index ?? 0) + match[0].length,
     }))
-    .filter((m) => m.val !== 0 && m.abs < 500000 && m.abs >= 0.01)
+    .filter((m) => m.val !== 0 && m.abs < 500_000 && m.abs >= 0.01)
 
   if (moneyCandidates.length === 0) return null
 
-  // Commission heuristic: last amount on line. Premium: first (if 2+).
-  let commAmount = moneyCandidates[moneyCandidates.length - 1]
-  let premAmount: typeof moneyCandidates[0] | null = null
-  if (moneyCandidates.length >= 2) {
-    const sorted = [...moneyCandidates].sort((a, b) => a.start - b.start)
+  // Sort left to right
+  const sorted = [...moneyCandidates].sort((a, b) => a.start - b.start)
+
+  let commAmount = sorted[sorted.length - 1]
+  let premAmount: typeof sorted[0] | null = null
+
+  const fmt = _currentStatementFormat
+
+  if ((fmt === "horizon_a" || fmt === "horizon_b") && sorted.length >= 3) {
+    // Horizon layout: [WrittenPrem, TotalComm, SplitComm]
+    // Take last 3 money values. SplitComm = last, WrittenPrem = first of the three.
+    const last3 = sorted.slice(-3)
+    const writtenPrem  = last3[0]
+    const totalComm    = last3[1]
+    const splitComm    = last3[2]
+
+    // Sanity check: splitComm ≤ totalComm ≤ writtenPrem (allow some slack for overrides)
+    const looksValid =
+      splitComm.abs <= totalComm.abs * 1.05 &&
+      totalComm.abs <= writtenPrem.abs * 1.05
+
+    if (looksValid) {
+      commAmount = splitComm
+      premAmount = writtenPrem
+    } else if (sorted.length >= 2) {
+      // Fallback: last = comm, first = prem
+      commAmount = sorted[sorted.length - 1]
+      premAmount = sorted[0]
+    }
+  } else if ((fmt === "horizon_a" || fmt === "horizon_b") && sorted.length === 2) {
+    // Only TotalComm and SplitComm present (no written prem on this row) —
+    // use the smaller as split comm
+    const [a, b] = sorted
+    commAmount = a.abs <= b.abs ? a : b
+    premAmount = a.abs <= b.abs ? b : a
+  } else {
+    // Generic: last amount = commission, first = premium (when 2+)
     commAmount = sorted[sorted.length - 1]
-    premAmount = sorted[0]
-    if (commAmount.abs > premAmount.abs * 3 && premAmount.abs > 0) {
-      const temp = commAmount
-      commAmount = premAmount
-      premAmount = temp
+    if (sorted.length >= 2) {
+      premAmount = sorted[0]
+      // Sanity: if the supposed commission is >3x the supposed premium, swap
+      if (commAmount.abs > premAmount.abs * 3 && premAmount.abs > 0) {
+        const temp = commAmount; commAmount = premAmount; premAmount = temp
+      }
     }
   }
 
@@ -546,6 +627,56 @@ export function parsePdfCommissionRow(
 
   if (!foundPol || commAmount.val === 0) return null
 
+  // --- 5. Extract carrier, LOB, trans_type, producer from Horizon rows ---
+  // Horizon rows always start with the producer name, and carrier appears as a
+  // recognisable keyword. LOB is a short code (AUTOP, HOME, BOAT, UMBR, etc.)
+  // and TRX is a short code (NBS, RWL, PCH, XLC, PRWL, etc.).
+  let detectedCarrier  = "-"
+  let detectedLob      = "-"
+  let detectedTransType = "-"
+  let detectedProducer = "-"
+
+  const fmt2 = _currentStatementFormat
+  if (fmt2 === "horizon_a" || fmt2 === "horizon_b") {
+    // Carrier detection from raw line (before money tokens are stripped)
+    const carrierMap: [RegExp, string][] = [
+      [/progressive/i,       "Progressive"],
+      [/travelers/i,         "Travelers"],
+      [/hartford/i,          "The Hartford"],
+      [/safeco/i,            "Safeco"],
+      [/allstate/i,          "Allstate"],
+      [/nationwide/i,        "Nationwide"],
+      [/liberty mutual/i,    "Liberty Mutual"],
+      [/permanent general/i, "Permanent General"],
+      [/hallmark/i,          "American Hallmark"],
+      [/state farm/i,        "State Farm"],
+    ]
+    for (const [re, name] of carrierMap) {
+      if (re.test(lineStr)) { detectedCarrier = name; break }
+    }
+
+    // LOB: scan segments for known LOB codes
+    const lobPattern = /\b(AUTOP?|HOME|BOAT|MOTO|UMBR|LIFE|BUSS|COMM|MC|RB|DWELL|FLOOD|FARM|RENTR?)\b/i
+    const lobMatch = lineStr.match(lobPattern)
+    if (lobMatch) detectedLob = lobMatch[1].toUpperCase()
+
+    // TRX: short transaction code (NBS, RWL, PCH, XLC, PRWL, PRWQ, RWQ, NB, XLN, etc.)
+    const trxPattern = /\b(NBS|NRWL|NB|RWL|PCH|XLC|XLN|PRWL|PRWQ|RWQ|WQL|WQ|PX|WL|BS|PNB|REWR|CANC|ENDO|INVR|INVN|AUDX|FLT)\b/i
+    const trxMatch = lineStr.match(trxPattern)
+    if (trxMatch) detectedTransType = trxMatch[1].toUpperCase()
+
+    // Producer: first segment before customer (first alpha run before a name-like segment)
+    // In Horizon PDFs the producer name is always the first column; grab from segments
+    if (candidateNameSegments.length > 0) {
+      // Try to grab first all-alpha segment that looks like a person's name
+      const firstSeg = segments[0] ?? ""
+      const firstWords = firstSeg.split(/\s+/).filter(w => /^[A-Za-z]/.test(w))
+      if (firstWords.length >= 2 && firstWords.length <= 4) {
+        detectedProducer = firstWords.join(" ")
+      }
+    }
+  }
+
   const polScore = Math.round(polConfidence * 100)
   return {
     policy_number: foundPol,
@@ -555,10 +686,10 @@ export function parsePdfCommissionRow(
     month: fileDate,
     file: fileName,
     raw_line: lineStr,
-    producer: "-",
-    carrier: "-",
-    lob: "-",
-    trans_type: "-",
+    producer: detectedProducer,
+    carrier: detectedCarrier,
+    lob: detectedLob,
+    trans_type: detectedTransType,
     confidence: {
       level: polScore >= 70 ? "high" : polScore >= 45 ? "medium" : "low",
       score: polScore,
