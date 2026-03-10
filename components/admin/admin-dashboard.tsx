@@ -133,7 +133,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           />
         )}
         {activeTab === "leads" && (
-          <LeadsTab />
+          <LeadsTab
+            deals={deals}
+            onNavigateToPipeline={() => setActiveTab("horizon")}
+            onAddDeal={addDeal}
+            onUpdateDeal={updateDeal}
+          />
         )}
         {activeTab === "horizon" && (
           <HorizonTab deals={deals} onSaveDeal={addDeal} onUpdateDeal={updateDeal} />

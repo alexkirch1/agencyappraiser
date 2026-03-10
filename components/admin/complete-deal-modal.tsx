@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { X, CheckCircle, Loader2 } from "lucide-react"
+import { X, CheckCircle, Loader2, Trophy, PartyPopper } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Deal } from "@/components/admin/admin-dashboard"
 
@@ -88,31 +88,35 @@ export function CompleteDealModal({ deal, onClose, onSaved }: CompleteDealModalP
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
       >
         <div className="relative w-full max-w-lg rounded-xl border border-border bg-card shadow-2xl">
-          {/* Header */}
-          <div className="flex items-start justify-between border-b border-border px-6 py-4">
-            <div>
-              <h2 id="complete-deal-title" className="text-base font-semibold text-foreground">
-                Mark Deal as Completed
-              </h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">{deal.deal_name}</p>
-            </div>
+          {/* Celebration Header */}
+          <div className="relative overflow-hidden rounded-t-xl bg-gradient-to-br from-success/20 via-success/10 to-primary/10 px-6 py-6 text-center">
             <button
               onClick={onClose}
-              className="ml-4 rounded p-1 text-muted-foreground hover:text-foreground"
+              className="absolute right-4 top-4 rounded p-1 text-muted-foreground hover:text-foreground"
               aria-label="Close"
             >
               <X className="h-5 w-5" />
             </button>
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <PartyPopper className="h-7 w-7 text-warning" />
+              <Trophy className="h-9 w-9 text-warning" />
+              <PartyPopper className="h-7 w-7 text-warning scale-x-[-1]" />
+            </div>
+            <h2 id="complete-deal-title" className="text-xl font-bold text-foreground">
+              Congratulations!
+            </h2>
+            <p className="mt-1 text-sm font-medium text-foreground/80">{deal.deal_name}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Record the final deal terms to improve future valuations</p>
           </div>
 
           {/* Body */}
           <div className="max-h-[70vh] overflow-y-auto px-6 py-5 space-y-5">
             {saved ? (
               <div className="flex flex-col items-center gap-3 py-8 text-center">
-                <CheckCircle className="h-12 w-12 text-success" />
-                <p className="text-base font-semibold text-foreground">Deal recorded!</p>
+                <Trophy className="h-14 w-14 text-warning" />
+                <p className="text-lg font-bold text-foreground">Deal recorded!</p>
                 <p className="text-sm text-muted-foreground">
-                  This data will improve future valuations.
+                  Moving to Completed Deals tab now.
                 </p>
               </div>
             ) : (
