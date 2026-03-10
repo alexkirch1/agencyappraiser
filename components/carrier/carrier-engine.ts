@@ -2,7 +2,7 @@
 // Carrier Valuation Engine — Travelers, Progressive, Hartford
 // =====================================================
 
-export type CarrierName = "progressive" | "travelers" | "hartford"
+export type CarrierName = "progressive" | "travelers" | "hartford" | "safeco"
 export type BookType = "personal" | "commercial" | "both" | "auto" | "home"
 
 export interface CarrierInputs {
@@ -39,7 +39,24 @@ export interface CarrierInputs {
   hartford_cl_twp: number | null         // Small Commercial TWP $k
   hartford_cl_lr: number | null
   hartford_cl_retention: number | null
+  // ---- Safeco ----
+  safeco_auto_dwp: number | null          // R12 Auto DWP ($)
+  safeco_auto_pif: number | null
+  safeco_auto_lr: number | null           // YTD Loss Ratio %
+  safeco_auto_retention: number | null    // PIF Retention %
+  safeco_home_dwp: number | null          // R12 Home DWP ($)
+  safeco_home_pif: number | null
+  safeco_home_lr: number | null
+  safeco_home_retention: number | null
+  safeco_other_dwp: number | null         // Condo + Renters + Umbrella + Landlord combined ($)
+  safeco_other_lr: number | null
+  safeco_other_retention: number | null
+  safeco_cross_sell_pct: number | null    // Cross-sell % (Home/Condo/Rent valid cross-sell %)
+  safeco_right_track_pct: number | null   // Right Track participation % of auto policies
+  safeco_nb_dwp: number | null            // YTD New Business DWP ($)
+  safeco_gold_service: boolean            // Gold Service designation
   // ---- Book Quality (all carriers) — sourced from commission statements / active policy list ----
+
   book_preferred_pct: number | null      // % policies in preferred/standard tier (vs non-standard)
   book_policies_per_customer: number | null  // avg policies per customer (multi-line indicator)
   book_avg_premium_per_policy: number | null // avg premium per policy ($)
@@ -212,6 +229,79 @@ export function calculateCarrierValuation(inputs: CarrierInputs): CarrierResults
   }
 
   // -------------------------------------------------------
+  // Safeco
+  // -------------------------------------------------------
+  else if (carrier === "safeco") {
+    const bookType = inputs.bookType
+    if (!bookType) return null
+
+    const auto_dwp  = inputs.safeco_auto_dwp ?? 0
+    const auto_lr   = inputs.safeco_auto_lr ?? 100
+    const auto_ret  = inputs.safeco_auto_retention ?? 0
+    const home_dwp  = inputs.safeco_home_dwp ?? 0
+    const home_lr   = inputs.safeco_home_lr ?? 100
+    const home_ret  = inputs.safeco_home_retention ?? 0
+    const other_dwp = inputs.safeco_other_dwp ?? 0
+    const other_lr  = inputs.safeco_other_lr ?? 100
+    const other_ret = inputs.safeco_other_retention ?? 0
+
+    // Safeco benchmarks (from ADP data): Auto LR target <65%, Home <60%
+    // Retention benchmark: ≥72% YTD (per ADP)
+    if (bookType === "auto") {
+      basePremium = auto_dwp
+      if (auto_lr < 55)       finalMultiple += 0.25
+      else if (auto_lr < 65)  finalMultiple += 0.12
+      else if (auto_lr > 80)  finalMultiple -= 0.18
+      else if (auto_lr > 70)  finalMultiple -= 0.08
+    } else if (bookType === "home") {
+      basePremium = home_dwp
+      if (home_lr < 45)       finalMultiple += 0.28
+      else if (home_lr < 60)  finalMultiple += 0.14
+      else if (home_lr > 80)  finalMultiple -= 0.22
+      else if (home_lr > 65)  finalMultiple -= 0.10
+    } else if (bookType === "both") {
+      basePremium = auto_dwp + home_dwp + other_dwp
+      if (auto_lr < 65)       finalMultiple += 0.10
+      else if (auto_lr > 80)  finalMultiple -= 0.14
+      if (home_lr < 60)       finalMultiple += 0.12
+      else if (home_lr > 80)  finalMultiple -= 0.16
+      if (other_dwp > 0) {
+        if (other_lr < 55)    finalMultiple += 0.06
+        else if (other_lr > 75) finalMultiple -= 0.06
+      }
+    }
+
+    if (basePremium > 0) {
+      // Retention — Safeco benchmark 71.3% YTD, good ≥75%
+      if (auto_ret >= 75)           finalMultiple += 0.09
+      else if (auto_ret > 0 && auto_ret < 65) finalMultiple -= 0.08
+      if (home_ret >= 75)           finalMultiple += 0.09
+      else if (home_ret > 0 && home_ret < 65) finalMultiple -= 0.08
+      if (bookType === "both" && other_ret >= 75) finalMultiple += 0.04
+
+      // Cross-sell — valid cross-sell % benchmark: Auto monoline 75.3% (room to improve = risk)
+      // Good cross-sell = Home valid % >50%
+      const crossSell = inputs.safeco_cross_sell_pct ?? 0
+      if (crossSell >= 55)     finalMultiple += 0.08
+      else if (crossSell < 35) finalMultiple -= 0.06
+
+      // Right Track telematics participation — higher = better risk data & stickiness
+      const rightTrack = inputs.safeco_right_track_pct ?? 0
+      if (rightTrack >= 35)    finalMultiple += 0.05
+      else if (rightTrack >= 20) finalMultiple += 0.02
+
+      // Gold Service designation
+      if (inputs.safeco_gold_service) finalMultiple += 0.05
+
+      // Volume tiers (R12 DWP)
+      if (basePremium >= 10_000_000) finalMultiple += 0.10
+      else if (basePremium >= 5_000_000) finalMultiple += 0.07
+      else if (basePremium >= 2_000_000) finalMultiple += 0.04
+      else if (basePremium >= 1_000_000) finalMultiple += 0.02
+    }
+  }
+
+  // -------------------------------------------------------
   // Book Quality adjustments (apply to all carriers when data available)
   // -------------------------------------------------------
   if (basePremium > 0) {
@@ -299,6 +389,21 @@ export const defaultCarrierInputs: CarrierInputs = {
   hartford_cl_twp: null,
   hartford_cl_lr: null,
   hartford_cl_retention: null,
+  safeco_auto_dwp: null,
+  safeco_auto_pif: null,
+  safeco_auto_lr: null,
+  safeco_auto_retention: null,
+  safeco_home_dwp: null,
+  safeco_home_pif: null,
+  safeco_home_lr: null,
+  safeco_home_retention: null,
+  safeco_other_dwp: null,
+  safeco_other_lr: null,
+  safeco_other_retention: null,
+  safeco_cross_sell_pct: null,
+  safeco_right_track_pct: null,
+  safeco_nb_dwp: null,
+  safeco_gold_service: false,
   book_preferred_pct: null,
   book_policies_per_customer: null,
   book_avg_premium_per_policy: null,
