@@ -533,8 +533,3 @@ function parseSafeco(lines: string[]): Partial<CarrierInputs> {
 
   return result
 }
-    }
-  }
-
-  return result
-}
