@@ -546,6 +546,7 @@ export function parsePdfCommissionRow(
 
   if (!foundPol || commAmount.val === 0) return null
 
+  const polScore = Math.round(polConfidence * 100)
   return {
     policy_number: foundPol,
     commission: commAmount.val,
@@ -558,6 +559,11 @@ export function parsePdfCommissionRow(
     carrier: "-",
     lob: "-",
     trans_type: "-",
+    confidence: {
+      level: polScore >= 70 ? "high" : polScore >= 45 ? "medium" : "low",
+      score: polScore,
+      reasons: [],
+    },
     policyConfidence: polConfidence,
   }
 }
