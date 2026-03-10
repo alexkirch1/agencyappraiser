@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { ValuationForm } from "@/components/calculator/valuation-form"
 import { ValuationSidebar } from "@/components/calculator/valuation-sidebar"
@@ -66,7 +66,7 @@ function getInvalidFieldKeys(inputs: ValuationInputs): string[] {
   }).map(({ key }) => key)
 }
 
-export default function CalculatorPage() {
+function CalculatorContent() {
   const searchParams = useSearchParams()
   const [inputs, setInputs] = useState<ValuationInputs>(() => {
     const rev = searchParams.get("rev")
@@ -404,5 +404,13 @@ export default function CalculatorPage() {
         <ValuationDisclaimerModal onContinue={handleDisclaimerContinue} />
       )}
     </div>
+  )
+}
+
+export default function CalculatorPage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-7xl px-4 py-8 lg:px-8"><p className="text-muted-foreground">Loading calculator...</p></div>}>
+      <CalculatorContent />
+    </Suspense>
   )
 }

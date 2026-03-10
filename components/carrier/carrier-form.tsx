@@ -8,6 +8,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Switch } from "@/components/ui/switch"
 import { ReportUpload } from "./report-upload"
 import { CommissionUpload } from "./commission-upload"
+import { defaultCarrierInputs } from "./carrier-engine"
 import type { CarrierInputs, CarrierName, BookType } from "./carrier-engine"
 
 interface Props {
@@ -30,6 +31,11 @@ const carriers: { value: CarrierName; label: string; description: string }[] = [
     value: "hartford",
     label: "The Hartford",
     description: "Personal Lines, Small Commercial & specialty",
+  },
+  {
+    value: "safeco",
+    label: "Safeco",
+    description: "Auto, Home, Condo, Renters, Umbrella & Landlord",
   },
 ]
 
@@ -58,7 +64,7 @@ export function CarrierForm({ inputs, onChange }: Props) {
           <CardTitle className="text-base font-semibold text-foreground">1. Select Carrier</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {carriers.map((c) => (
               <button
                 key={c.value}
@@ -130,6 +136,9 @@ export function CarrierForm({ inputs, onChange }: Props) {
               )}
               {carrier === "hartford" && (
                 <HartfordFields inputs={inputs} update={update} bookType={bookType as BookType} />
+              )}
+              {carrier === "safeco" && (
+                <SafecoFields inputs={inputs} update={update} bookType={bookType as BookType} />
               )}
             </CardContent>
           </Card>
@@ -217,6 +226,10 @@ const defaultFieldReset: Partial<CarrierInputs> = {
   hartford_pl_auto_twp: null, hartford_pl_auto_pif: null, hartford_pl_auto_lr: null, hartford_pl_auto_retention: null,
   hartford_pl_home_twp: null, hartford_pl_home_pif: null, hartford_pl_home_lr: null, hartford_pl_home_retention: null,
   hartford_cl_twp: null, hartford_cl_lr: null, hartford_cl_retention: null,
+  safeco_auto_dwp: null, safeco_auto_pif: null, safeco_auto_lr: null, safeco_auto_retention: null,
+  safeco_home_dwp: null, safeco_home_pif: null, safeco_home_lr: null, safeco_home_retention: null,
+  safeco_other_dwp: null, safeco_other_lr: null, safeco_other_retention: null,
+  safeco_cross_sell_pct: null, safeco_right_track_pct: null, safeco_nb_dwp: null, safeco_gold_service: false,
   book_preferred_pct: null, book_policies_per_customer: null, book_avg_premium_per_policy: null,
   book_new_business_pct: null, book_monoline_pct: null, book_digital_docs_pct: null,
 }
@@ -234,6 +247,13 @@ function getBookTypeOptions(carrier: string) {
       { value: "personal",    label: "Personal Lines" },
       { value: "commercial",  label: "Small Commercial" },
       { value: "both",        label: "Both" },
+    ]
+  }
+  if (carrier === "safeco") {
+    return [
+      { value: "auto",  label: "Auto Only" },
+      { value: "home",  label: "Home Only" },
+      { value: "both",  label: "Auto + Home + Other" },
     ]
   }
   // Progressive
@@ -351,6 +371,61 @@ function HartfordFields({
           <NumField label="Retention (%)" value={inputs.hartford_cl_retention} onChange={(v) => update({ hartford_cl_retention: v })} placeholder="e.g. 73.9" type="percent" hint="Premium Retention Rate (PRR) most recent year — Total row in Retention table" />
         </div>
       )}
+    </>
+  )
+}
+
+// -----------------------------------------------------------------------
+// Safeco Fields — keyed to Safeco Agency Development Profile (ADP)
+// -----------------------------------------------------------------------
+function SafecoFields({
+  inputs, update, bookType,
+}: { inputs: CarrierInputs; update: (p: Partial<CarrierInputs>) => void; bookType: BookType }) {
+  const showAuto  = bookType === "auto"  || bookType === "both"
+  const showHome  = bookType === "home"  || bookType === "both"
+  const showOther = bookType === "both"
+  return (
+    <>
+      {showAuto && (
+        <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+          <p className="text-sm font-semibold text-foreground">Auto</p>
+          <NumField label="R12 Auto DWP ($)" value={inputs.safeco_auto_dwp} onChange={(v) => update({ safeco_auto_dwp: v })} placeholder="e.g. 6,645,555" type="currency" hint="Rolling 12 Direct Written Premium — Auto row in the DWP table on your ADP" />
+          <NumField label="Current Auto PIF" value={inputs.safeco_auto_pif} onChange={(v) => update({ safeco_auto_pif: v })} placeholder="e.g. 2,485" type="count" hint="Current Policy Inforce — Auto row, Current PIF column" />
+          <NumField label="Auto YTD Loss Ratio (%)" value={inputs.safeco_auto_lr} onChange={(v) => update({ safeco_auto_lr: v })} placeholder="e.g. 74.0" type="percent" hint="YTD Loss Ratio — Auto row in Profitability section of ADP" />
+          <NumField label="Auto PIF Retention (%)" value={inputs.safeco_auto_retention} onChange={(v) => update({ safeco_auto_retention: v })} placeholder="e.g. 69.3" type="percent" hint="PIF Retention — Auto row, YTD column in DWP table" />
+        </div>
+      )}
+      {showHome && (
+        <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+          <p className="text-sm font-semibold text-foreground">Homeowners</p>
+          <NumField label="R12 Home DWP ($)" value={inputs.safeco_home_dwp} onChange={(v) => update({ safeco_home_dwp: v })} placeholder="e.g. 5,931,825" type="currency" hint="Rolling 12 Direct Written Premium — Home row in the DWP table" />
+          <NumField label="Current Home PIF" value={inputs.safeco_home_pif} onChange={(v) => update({ safeco_home_pif: v })} placeholder="e.g. 2,375" type="count" hint="Current Policy Inforce — Home row, Current PIF column" />
+          <NumField label="Home YTD Loss Ratio (%)" value={inputs.safeco_home_lr} onChange={(v) => update({ safeco_home_lr: v })} placeholder="e.g. -4.4" type="percent" hint="YTD Loss Ratio — Home row in Profitability section (can be negative = very profitable)" />
+          <NumField label="Home PIF Retention (%)" value={inputs.safeco_home_retention} onChange={(v) => update({ safeco_home_retention: v })} placeholder="e.g. 73.2" type="percent" hint="PIF Retention — Home row, YTD column in DWP table" />
+        </div>
+      )}
+      {showOther && (
+        <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+          <p className="text-sm font-semibold text-foreground">Other Lines (Condo + Renters + Umbrella + Landlord)</p>
+          <NumField label="Combined Other DWP ($)" value={inputs.safeco_other_dwp} onChange={(v) => update({ safeco_other_dwp: v })} placeholder="e.g. 1,986,255" type="currency" hint="Sum of R12 DWP for Condo, Renters, Umbrella, and Landlord rows" />
+          <NumField label="Blended Other Loss Ratio (%)" value={inputs.safeco_other_lr} onChange={(v) => update({ safeco_other_lr: v })} placeholder="e.g. 31.0" type="percent" hint="Blended YTD Loss Ratio across the other product lines" />
+          <NumField label="Blended Other Retention (%)" value={inputs.safeco_other_retention} onChange={(v) => update({ safeco_other_retention: v })} placeholder="e.g. 71.0" type="percent" hint="Average PIF Retention across other lines" />
+        </div>
+      )}
+      {/* Cross-sell & engagement metrics */}
+      <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+        <p className="text-sm font-semibold text-foreground">Engagement & Program</p>
+        <NumField label="Valid Cross-Sell % (Home/Condo/Rent)" value={inputs.safeco_cross_sell_pct} onChange={(v) => update({ safeco_cross_sell_pct: v })} placeholder="e.g. 39.8" type="percent" hint="Valid Cross Sell % for Home/Condo/Rent — from Cross Sell section of ADP" />
+        <NumField label="Right Track Participation (%)" value={inputs.safeco_right_track_pct} onChange={(v) => update({ safeco_right_track_pct: v })} placeholder="e.g. 26.9" type="percent" hint="RT % of Auto — YTD RT Issues ÷ YTD Auto Issues from Auto Term Length section" />
+        <NumField label="YTD New Business DWP ($)" value={inputs.safeco_nb_dwp} onChange={(v) => update({ safeco_nb_dwp: v })} placeholder="e.g. 722,941" type="currency" hint="YTD Total New Business DWP — Total row, YTD NB DWP column in ADP" />
+        <div className="flex items-center justify-between rounded-md border border-border px-4 py-3">
+          <div>
+            <p className="text-sm font-medium text-foreground">Gold Service Designation</p>
+            <p className="text-xs text-muted-foreground">Agency has earned Safeco Gold Service status — shows as "Y" on ADP header</p>
+          </div>
+          <Switch checked={inputs.safeco_gold_service} onCheckedChange={(v) => update({ safeco_gold_service: v })} />
+        </div>
+      </div>
     </>
   )
 }

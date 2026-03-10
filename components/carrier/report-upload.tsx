@@ -66,6 +66,7 @@ const carrierReportNames: Record<CarrierName, string> = {
   progressive: "Account Production Report",
   travelers:   "PI Production Report",
   hartford:    "Partner Breakdown Report",
+  safeco:      "Agency Development Profile (ADP)",
 }
 
 export function ReportUpload({ carrier, onParsed }: Props) {
@@ -108,6 +109,7 @@ export function ReportUpload({ carrier, onParsed }: Props) {
             progressive: 7,
             travelers:   8,
             hartford:    9,
+            safeco:      10,
           }
           const expected = expectedFields[carrier] || 5
           const conf = Math.min(100, Math.round((count / expected) * 80 + 20))
