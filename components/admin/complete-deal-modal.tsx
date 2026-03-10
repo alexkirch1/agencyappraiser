@@ -21,9 +21,9 @@ const DEAL_TERMS = [
 
 export function CompleteDealModal({ deal, onClose, onSaved }: CompleteDealModalProps) {
   const [finalOffer, setFinalOffer] = useState(deal.valuation)
-  const [dealTerms, setDealTerms] = useState("100% Cash at Close")
+  const [dealStructure, setDealStructure] = useState("100% Cash at Close")
   const [earnoutPct, setEarnoutPct] = useState(0)
-  const [sellerStay, setSellerStay] = useState(12)
+  const [sellerStayMonths, setSellerStayMonths] = useState(12)
   const [retention, setRetention] = useState<number | "">(deal.details?.book_retention_pct as number ?? "")
   const [lossRatio, setLossRatio] = useState<number | "">(deal.details?.loss_ratio as number ?? "")
   const [notes, setNotes] = useState("")
@@ -32,7 +32,7 @@ export function CompleteDealModal({ deal, onClose, onSaved }: CompleteDealModalP
   const [error, setError] = useState("")
 
   const finalMultiple = deal.premium_base > 0 ? finalOffer / deal.premium_base : 0
-  const hasEarnout = dealTerms.includes("Earnout")
+  const hasEarnout = dealStructure.includes("Earnout")
 
   const handleSave = async () => {
     if (finalOffer <= 0) {
@@ -49,15 +49,17 @@ export function CompleteDealModal({ deal, onClose, onSaved }: CompleteDealModalP
           deal_name: deal.deal_name,
           deal_type: deal.deal_type,
           premium_base: deal.premium_base,
-          estimated_valuation: deal.valuation,
+          appraised_low: deal.valuation * 0.9,
+          appraised_high: deal.valuation * 1.1,
           final_offer: finalOffer,
           final_multiple: parseFloat(finalMultiple.toFixed(3)),
-          deal_terms: dealTerms,
+          deal_structure: dealStructure,
           earnout_pct: hasEarnout ? earnoutPct : 0,
-          seller_stay: sellerStay,
-          book_retention_pct: retention !== "" ? retention : null,
+          seller_stay_months: sellerStayMonths,
+          retention_rate: retention !== "" ? retention : null,
           loss_ratio: lossRatio !== "" ? lossRatio : null,
-          pif_count: deal.details?.pif_count ?? null,
+          policies_per_cx: deal.details?.pif_count ?? null,
+          primary_state: deal.details?.state ?? null,
           carrier: deal.details?.carrier ?? null,
           notes,
         }),
@@ -160,8 +162,8 @@ export function CompleteDealModal({ deal, onClose, onSaved }: CompleteDealModalP
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-foreground">Deal Structure</label>
                   <select
-                    value={dealTerms}
-                    onChange={(e) => setDealTerms(e.target.value)}
+                    value={dealStructure}
+                    onChange={(e) => setDealStructure(e.target.value)}
                     className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                   >
                     {DEAL_TERMS.map((t) => (
@@ -195,8 +197,8 @@ export function CompleteDealModal({ deal, onClose, onSaved }: CompleteDealModalP
                   <input
                     type="number"
                     min={0}
-                    value={sellerStay}
-                    onChange={(e) => setSellerStay(parseInt(e.target.value) || 0)}
+                    value={sellerStayMonths}
+                    onChange={(e) => setSellerStayMonths(parseInt(e.target.value) || 0)}
                     className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>

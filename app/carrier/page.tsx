@@ -47,7 +47,7 @@ export default function CarrierPage() {
     }
   }
 
-  const handleLeadSubmit = () => {
+  const handleLeadSubmit = (_data: { name: string; email: string; phone: string; agencyName: string }, _leadId?: number | null) => {
     setUnlocked(true)
     setShowLeadCapture(false)
     setShowDisclaimer(true)
