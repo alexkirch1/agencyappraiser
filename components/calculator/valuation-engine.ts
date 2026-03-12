@@ -21,6 +21,11 @@ export interface ValuationInputs {
   carrierDiversification: number | null
   revenuePerEmployee: number | null
   topCarriers: string
+  // Revenue growth trend (quick-value style override)
+  revenueGrowthTrend: string // strong | moderate | flat | declining | ""
+  // Book quality counts
+  activeCustomers: number | null
+  activePolicies: number | null
   // Conditional (Full Agency only)
   closingTimeline: string // urgent | standard | long
   annualPayrollCost: number | null
@@ -153,6 +158,13 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
   let financialScore = 0.1
   if (CAGR >= 10) financialScore += 0.15
   else if (CAGR > 0) financialScore += 0.05
+  // If year-over-year revenues aren't provided, fall back to the growth trend radio
+  else if (CAGR === 0 && inputs.revenueGrowthTrend) {
+    if (inputs.revenueGrowthTrend === "strong")        financialScore += 0.15
+    else if (inputs.revenueGrowthTrend === "moderate") financialScore += 0.05
+    else if (inputs.revenueGrowthTrend === "flat")     financialScore += 0.0
+    else if (inputs.revenueGrowthTrend === "declining") financialScore -= 0.08
+  }
 
   if (sdeMargin >= 0.4) financialScore += 0.15
   else if (sdeMargin >= 0.2) financialScore += 0.1
@@ -190,7 +202,14 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
     if (mix >= 75) mixScore = 0.05
     else if (mix >= 50) mixScore = 0.02
   }
-  bookScore += concentrationScore + mixScore
+  // Policies-per-customer ratio bonus (>1.75 = well-rounded book, <1.33 = thin)
+  let polsPerCxScore = 0
+  if (inputs.activeCustomers && inputs.activePolicies && inputs.activeCustomers > 0) {
+    const ratio = inputs.activePolicies / inputs.activeCustomers
+    if (ratio > 1.75)      polsPerCxScore = 0.04
+    else if (ratio < 1.33) polsPerCxScore = -0.03
+  }
+  bookScore += concentrationScore + mixScore + polsPerCxScore
   bookScore = Math.max(0.1, Math.min(0.75, bookScore))
   totalRawScore += bookScore
 
@@ -302,8 +321,22 @@ export function runRiskAudit(inputs: ValuationInputs): RiskAuditResult {
     }
   }
 
+  // 1b. Policies-per-customer ratio
+  if (inputs.activeCustomers && inputs.activePolicies && inputs.activeCustomers > 0) {
+    const ratio = inputs.activePolicies / inputs.activeCustomers
+    if (ratio > 1.75) {
+      items.push({ level: "Strength", title: `Strong Cross-Sell Ratio (${ratio.toFixed(2)} policies/client)`, problem: "Clients hold multiple policies with you, signaling deep loyalty and higher lifetime value.", psychology: "Buyers see multi-policy households as stickier and harder for competitors to poach.", mitigation: null })
+      strengthCount++
+    } else if (ratio < 1.33) {
+      items.push({ level: "Moderate Risk", title: `Thin Cross-Sell Ratio (${ratio.toFixed(2)} policies/client)`, problem: "Most clients hold only a single policy. Revenue per household is below average.", psychology: "Buyers see single-policy clients as churn risk and untapped revenue.", mitigation: "Run a cross-sell campaign targeting your top 20% clients before going to market." })
+      moderateCount++
+    }
+  }
+
   // 2. Revenue Trend
   const trend = analyzeRevenueTrend(revLTM, revY2 ?? null, revY3 ?? null)
+  // If Y-2/Y-3 not provided, use the manual growth trend radio
+  const manualTrend = inputs.revenueGrowthTrend
   if (trend === "Decline") {
     items.push({ level: "High Risk", title: "Consistent Revenue Decline", problem: "Revenue has dropped for 3 consecutive periods.", psychology: "Buyers view this as a distressed asset (\"Falling Knife\").", mitigation: "Identify root cause of churn immediately." })
     severeCount++
@@ -313,6 +346,19 @@ export function runRiskAudit(inputs: ValuationInputs): RiskAuditResult {
   } else if (trend === "Growth") {
     items.push({ level: "Strength", title: "Consistent Growth", problem: "Revenue has increased year-over-year.", psychology: "Buyers pay a premium for organic growth engines.", mitigation: null })
     strengthCount++
+  } else if (trend === "Stable" && manualTrend) {
+    // No Y-2/Y-3 data — use the manually selected trend
+    if (manualTrend === "strong") {
+      items.push({ level: "Strength", title: "Strong Growth Trend", problem: "You reported 10%+ annual growth. This is a premium signal for buyers.", psychology: "Buyers pay a premium for organic growth engines.", mitigation: null })
+      strengthCount++
+    } else if (manualTrend === "moderate") {
+      items.push({ level: "Info", title: "Moderate Growth (3–9%/yr)", problem: "Steady growth is a positive indicator. Documenting this with 3 years of financials will strengthen your position.", psychology: "Buyers see moderate growth as stable and predictable.", mitigation: null })
+    } else if (manualTrend === "flat") {
+      items.push({ level: "Info", title: "Flat Revenue Trend", problem: "Revenue has remained roughly the same over the past few years.", psychology: "Flat is acceptable but limits upside. Buyers may negotiate harder on price.", mitigation: "Cross-selling and rate increases can quickly move this needle." })
+    } else if (manualTrend === "declining") {
+      items.push({ level: "High Risk", title: "Declining Revenue Trend", problem: "Revenue has been decreasing. This is a major concern for buyers.", psychology: "Buyers view declining revenue as a \"Falling Knife\" — risky and likely to continue.", mitigation: "Identify and fix the root cause of churn before entering the market." })
+      highCount++
+    }
   }
 
   // 3. Profit Margins
