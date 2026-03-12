@@ -16,6 +16,7 @@ export async function POST(req: Request) {
         revenue_per_employee, top_carriers,
         closing_timeline, annual_payroll_cost, owner_compensation,
         staff_retention_risk, new_business_value, avg_client_tenure,
+        revenue_growth_trend, active_customers, active_policies,
         low_offer, high_offer, core_score, calculated_multiple, risk_grade
       ) VALUES (
         ${leadId ?? null},
@@ -25,12 +26,14 @@ export async function POST(req: Request) {
         ${inputs.eoClaims ?? null}, ${inputs.producerAgreements ?? null},
         ${inputs.revenueLTM ?? null}, ${inputs.revenueY2 ?? null},
         ${inputs.revenueY3 ?? null}, ${inputs.sdeEbitda ?? null},
-        ${inputs.retentionRate ?? null}, ${inputs.commercialMix ?? null},
+        ${inputs.retentionRate ?? null}, ${inputs.policyMix ?? null},
         ${inputs.clientConcentration ?? null}, ${inputs.carrierDiversification ?? null},
         ${inputs.revenuePerEmployee ?? null}, ${inputs.topCarriers ?? null},
         ${inputs.closingTimeline ?? null}, ${inputs.annualPayrollCost ?? null},
         ${inputs.ownerCompensation ?? null}, ${inputs.staffRetentionRisk ?? null},
         ${inputs.newBusinessValue ?? null}, ${inputs.avgClientTenure ?? null},
+        ${inputs.revenueGrowthTrend || null}, ${inputs.activeCustomers ?? null},
+        ${inputs.activePolicies ?? null},
         ${results?.lowOffer ?? null}, ${results?.highOffer ?? null},
         ${results?.coreScore ?? null}, ${results?.calculatedMultiple ?? null},
         ${results?.riskGrade ?? null}

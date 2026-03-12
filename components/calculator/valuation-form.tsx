@@ -267,7 +267,7 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
                 <Label htmlFor="activeCustomers" className="text-xs text-muted-foreground">Active Customers</Label>
                 <SmartInput
                   id="activeCustomers"
-                  inputType="number"
+                  inputType="count"
                   placeholder="e.g. 850"
                   value={inputs.activeCustomers}
                   onValueChange={(v) => update({ activeCustomers: v })}
@@ -278,7 +278,7 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
                 <Label htmlFor="activePolicies" className="text-xs text-muted-foreground">Active Policies</Label>
                 <SmartInput
                   id="activePolicies"
-                  inputType="number"
+                  inputType="count"
                   placeholder="e.g. 1420"
                   value={inputs.activePolicies}
                   onValueChange={(v) => update({ activePolicies: v })}
