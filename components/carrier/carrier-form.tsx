@@ -39,6 +39,79 @@ const carriers: { value: CarrierName; label: string; description: string }[] = [
   },
 ]
 
+const comingSoonCarriers: string[] = [
+  "Aegis",
+  "Aflac",
+  "Alinsco",
+  "Allstate",
+  "AmTrust",
+  "American Collectors",
+  "American Modern",
+  "Attune",
+  "Berkley Management Protection",
+  "Berkshire Hathaway Protection",
+  "Berkshire Hathaway Guard",
+  "Berkshire Hathaway Homestate",
+  "BiBERK",
+  "Builders & Tradesmen (BTIS)",
+  "Burns & Wilcox",
+  "CA FAIR Plan",
+  "CNA",
+  "CNA Surety",
+  "CRC Group",
+  "Cabrillo / Pacific Coastal",
+  "Chubb Commercial Lines",
+  "Chubb Personal Lines",
+  "Church Mutual",
+  "Clearcover",
+  "Commonwealth Casualty",
+  "Coterie",
+  "Crump Life",
+  "Dairyland",
+  "Employers",
+  "Ethos Life",
+  "Foremost - Bristol West",
+  "Foremost Choice / Specialty",
+  "Gainsco",
+  "Geico",
+  "Hagerty",
+  "Halcyon Underwriters",
+  "Homeowners of America",
+  "Humana",
+  "ISC - Integrated Specialty Coverages",
+  "Johnson & Johnson",
+  "Kemper Infinity",
+  "Kemper Personal",
+  "Kemper Specialty",
+  "LamarGeneral Agency / Producers National",
+  "LegalShield",
+  "Lemonade",
+  "Liberty Mutual Commercial Lines",
+  "Local Edge",
+  "Markel",
+  "Mendota",
+  "Mercury",
+  "Mile Auto",
+  "National General (P&C)",
+  "Nationwide",
+  "Nationwide Pet Insurance",
+  "Neptune Flood",
+  "Open Road",
+  "Openly",
+  "Orchid",
+  "PIE (CL)",
+  "Pacific Gateway Insurance Agency",
+  "Personal Umbrella",
+  "Pinnacol Assurance",
+  "Reinsurepro",
+  "Ringwalt and Liesche",
+  "Texas FAIR Plan",
+  "The General",
+  "Tower Hill",
+  "Transamerica",
+  "Trexis",
+]
+
 export function CarrierForm({ inputs, onChange }: Props) {
   const update = (partial: Partial<CarrierInputs>) => {
     onChange({ ...inputs, ...partial })
@@ -80,6 +153,22 @@ export function CarrierForm({ inputs, onChange }: Props) {
                 <span className="mt-0.5 text-xs text-muted-foreground">{c.description}</span>
               </button>
             ))}
+          </div>
+
+          <div className="mt-6">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Coming Soon
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {comingSoonCarriers.map((name) => (
+                <span
+                  key={name}
+                  className="inline-flex cursor-default items-center rounded-md border border-border bg-secondary/40 px-2.5 py-1 text-xs text-muted-foreground"
+                >
+                  {name}
+                </span>
+              ))}
+            </div>
           </div>
         </CardContent>
       </Card>
