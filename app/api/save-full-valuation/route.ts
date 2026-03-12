@@ -25,7 +25,7 @@ export async function POST(req: Request) {
         ${inputs.eoClaims ?? null}, ${inputs.producerAgreements ?? null},
         ${inputs.revenueLTM ?? null}, ${inputs.revenueY2 ?? null},
         ${inputs.revenueY3 ?? null}, ${inputs.sdeEbitda ?? null},
-        ${inputs.retentionRate ?? null}, ${inputs.commercialMix ?? null},
+        ${inputs.retentionRate ?? null}, ${inputs.policyMix ?? null},
         ${inputs.clientConcentration ?? null}, ${inputs.carrierDiversification ?? null},
         ${inputs.revenuePerEmployee ?? null}, ${inputs.topCarriers ?? null},
         ${inputs.closingTimeline ?? null}, ${inputs.annualPayrollCost ?? null},
