@@ -192,6 +192,35 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
               <SmartInput id="revY3" inputType="currency" placeholder="2 years ago" value={inputs.revenueY3} onValueChange={(v) => update({ revenueY3: v })} className="mt-1.5" />
             </div>
           </div>
+          <div>
+            <Label className="mb-2 block text-sm text-muted-foreground">
+              Revenue Growth Trend (Last 3 Years)
+              <InfoTip text="If you do not have the exact Y-2/Y-3 numbers above, select the best description of your revenue trajectory. This will be used in your risk audit and valuation scoring." />
+            </Label>
+            <RadioGroup
+              value={inputs.revenueGrowthTrend}
+              onValueChange={(v) => update({ revenueGrowthTrend: v })}
+              className="flex flex-col gap-2"
+            >
+              {[
+                { value: "strong",    label: "Strong Growth",    sub: "10%+ per year" },
+                { value: "moderate",  label: "Moderate Growth",  sub: "3–9% per year" },
+                { value: "flat",      label: "Flat",             sub: "Roughly the same" },
+                { value: "declining", label: "Declining",        sub: "Revenue has decreased" },
+              ].map((opt) => (
+                <label
+                  key={opt.value}
+                  className="flex cursor-pointer items-center gap-3 rounded-md border border-border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/10"
+                >
+                  <RadioGroupItem value={opt.value} />
+                  <span className="flex-1">
+                    <span className="font-medium">{opt.label}</span>
+                    <span className="ml-2 text-xs text-muted-foreground">{opt.sub}</span>
+                  </span>
+                </label>
+              ))}
+            </RadioGroup>
+          </div>
           <div id="field-sdeEbitda">
             <Label htmlFor="sde" className="text-sm text-muted-foreground">{requiredStar("SDE / EBITDA")}<InfoTip text="Seller's Discretionary Earnings: net income plus owner compensation, non-recurring expenses, and depreciation. It shows what an owner actually takes home from the business." /></Label>
             <SmartInput id="sde" inputType="currency" placeholder="e.g. 400000" value={inputs.sdeEbitda} onValueChange={(v) => update({ sdeEbitda: v })} className={`mt-1.5 ${fieldBorder("sdeEbitda")}`} />
@@ -227,6 +256,44 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
             <SmartInput id="concentration" inputType="percent" placeholder="e.g. 15" value={inputs.clientConcentration} onValueChange={(v) => update({ clientConcentration: v })} className={`mt-1.5 ${fieldBorder("clientConcentration")}`} />
             <p className="mt-1 text-xs text-muted-foreground/70">% of revenue from your top 10 clients</p>
             {isInvalid("clientConcentration") && <p className="mt-0.5 text-xs text-destructive">Client concentration is required</p>}
+          </div>
+          <div>
+            <Label className="mb-1.5 block text-sm text-muted-foreground">
+              Active Customers &amp; Policies
+              <InfoTip text="Total active customers (households or accounts) and total active policies. We calculate your policies-per-customer ratio, which signals how well-rounded and sticky your book is." />
+            </Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="activeCustomers" className="text-xs text-muted-foreground">Active Customers</Label>
+                <SmartInput
+                  id="activeCustomers"
+                  inputType="number"
+                  placeholder="e.g. 850"
+                  value={inputs.activeCustomers}
+                  onValueChange={(v) => update({ activeCustomers: v })}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="activePolicies" className="text-xs text-muted-foreground">Active Policies</Label>
+                <SmartInput
+                  id="activePolicies"
+                  inputType="number"
+                  placeholder="e.g. 1420"
+                  value={inputs.activePolicies}
+                  onValueChange={(v) => update({ activePolicies: v })}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            {inputs.activeCustomers && inputs.activePolicies && inputs.activeCustomers > 0 && (
+              <div className="mt-2 flex items-center justify-between rounded-md bg-secondary/50 px-3 py-2">
+                <span className="text-xs text-muted-foreground">Policies per customer</span>
+                <span className="font-mono text-sm font-bold text-foreground">
+                  {(inputs.activePolicies / inputs.activeCustomers).toFixed(2)}
+                </span>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

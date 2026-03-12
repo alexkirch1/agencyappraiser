@@ -39,6 +39,9 @@ const defaultInputs: ValuationInputs = {
   annualPayrollCost: null,
   ownerCompensation: null,
   staffRetentionRisk: "",
+  revenueGrowthTrend: "",
+  activeCustomers: null,
+  activePolicies: null,
   newBusinessValue: null,
   avgClientTenure: null,
 }
