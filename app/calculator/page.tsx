@@ -42,6 +42,10 @@ const defaultInputs: ValuationInputs = {
   revenueGrowthTrend: "",
   activeCustomers: null,
   activePolicies: null,
+  lossRatio: null,
+  avgPremiumPerPolicy: null,
+  totalWrittenPremium: null,
+  sellerTransitionMonths: null,
   newBusinessValue: null,
   avgClientTenure: null,
 }

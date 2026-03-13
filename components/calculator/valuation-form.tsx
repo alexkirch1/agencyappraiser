@@ -295,6 +295,59 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
               </div>
             )}
           </div>
+          <div>
+            <Label htmlFor="lossRatio" className="text-sm text-muted-foreground">
+              Loss Ratio (%)
+              <InfoTip text="Your book's loss ratio from carrier reports — total claims paid divided by total premium. Lower is better. Under 50% is excellent, 50-65% is average, over 65% is a red flag for buyers." />
+            </Label>
+            <SmartInput
+              id="lossRatio"
+              inputType="percent"
+              placeholder="e.g. 45"
+              value={inputs.lossRatio}
+              onValueChange={(v) => update({ lossRatio: v })}
+              className="mt-1.5"
+            />
+            <p className="mt-1 text-xs text-muted-foreground/70">Claims paid ÷ premium earned</p>
+          </div>
+          <div>
+            <Label className="mb-1.5 block text-sm text-muted-foreground">
+              Average Premium Per Policy
+              <InfoTip text="Your total written premium divided by total policies. Higher average premiums (e.g., $2,000+) signal larger, stickier accounts. Enter your total premium and we'll calculate it, or enter the average directly." />
+            </Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="totalWrittenPremium" className="text-xs text-muted-foreground">Total Written Premium</Label>
+                <SmartInput
+                  id="totalWrittenPremium"
+                  inputType="currency"
+                  placeholder="e.g. 3500000"
+                  value={inputs.totalWrittenPremium}
+                  onValueChange={(v) => update({ totalWrittenPremium: v })}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="avgPremiumPerPolicy" className="text-xs text-muted-foreground">Avg Premium (or override)</Label>
+                <SmartInput
+                  id="avgPremiumPerPolicy"
+                  inputType="currency"
+                  placeholder="e.g. 2100"
+                  value={inputs.avgPremiumPerPolicy}
+                  onValueChange={(v) => update({ avgPremiumPerPolicy: v })}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            {inputs.totalWrittenPremium && inputs.activePolicies && inputs.activePolicies > 0 && !inputs.avgPremiumPerPolicy && (
+              <div className="mt-2 flex items-center justify-between rounded-md bg-secondary/50 px-3 py-2">
+                <span className="text-xs text-muted-foreground">Calculated avg premium</span>
+                <span className="font-mono text-sm font-bold text-foreground">
+                  ${Math.round(inputs.totalWrittenPremium / inputs.activePolicies).toLocaleString()}
+                </span>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -318,6 +371,35 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
           <div>
             <Label htmlFor="topCarriers" className="text-sm text-muted-foreground">Top 5 Carriers (Optional)</Label>
             <Textarea id="topCarriers" placeholder="e.g. Progressive, Safeco, Hartford..." value={inputs.topCarriers} onChange={(e) => update({ topCarriers: e.target.value })} className="mt-1.5" rows={2} />
+          </div>
+          <div>
+            <Label className="mb-2 block text-sm text-muted-foreground">
+              Seller Transition Commitment
+              <InfoTip text="How long are you willing to stay on after the sale to help transition clients and staff? Longer commitments increase buyer confidence and can command higher multiples." />
+            </Label>
+            <RadioGroup
+              value={inputs.sellerTransitionMonths != null ? String(inputs.sellerTransitionMonths) : ""}
+              onValueChange={(v) => update({ sellerTransitionMonths: parseInt(v) })}
+              className="flex flex-col gap-2"
+            >
+              {[
+                { value: "0",  label: "Immediate Exit",   sub: "Walk away at close" },
+                { value: "6",  label: "0–6 Months",       sub: "Short transition" },
+                { value: "12", label: "6–12 Months",      sub: "Standard transition" },
+                { value: "24", label: "12–24 Months",     sub: "Extended commitment" },
+              ].map((opt) => (
+                <label
+                  key={opt.value}
+                  className="flex cursor-pointer items-center gap-3 rounded-md border border-border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/10"
+                >
+                  <RadioGroupItem value={opt.value} />
+                  <span className="flex-1">
+                    <span className="font-medium">{opt.label}</span>
+                    <span className="ml-2 text-xs text-muted-foreground">{opt.sub}</span>
+                  </span>
+                </label>
+              ))}
+            </RadioGroup>
           </div>
         </CardContent>
       </Card>
