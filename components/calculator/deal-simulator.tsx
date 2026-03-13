@@ -90,21 +90,17 @@ export function DealSimulator({ highOffer, coreScore }: Props) {
         </CardContent>
       </Card>
 
-      {/* Sliders */}
-      <div className="flex flex-col gap-4">
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Cash at Closing</span>
-            <span className="text-xs font-semibold text-foreground">{cashPct}%</span>
-          </div>
-          <Slider value={[cashPct]} onValueChange={handleSliderChange} min={50} max={100} step={5} />
+      {/* Single slider: left = all cash, right = full earnout */}
+      <div>
+        <div className="mb-3 flex items-center justify-between text-xs font-semibold text-foreground">
+          <span>Cash at Close</span>
+          <span>Full Earnout</span>
         </div>
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Earn-out Potential</span>
-            <span className="text-xs font-semibold text-foreground">{earnoutPct}%</span>
-          </div>
-          <Slider value={[earnoutPct]} min={0} max={50} step={5} disabled className="opacity-60" />
+        <Slider value={[cashPct]} onValueChange={handleSliderChange} min={50} max={100} step={5} />
+        <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+          <span>50% Cash / 50% Earnout</span>
+          <span className="font-medium text-foreground">{cashPct}% Cash / {earnoutPct}% Earnout</span>
+          <span>100% Cash</span>
         </div>
       </div>
 
