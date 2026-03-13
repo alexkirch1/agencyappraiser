@@ -325,16 +325,16 @@ export function runRiskAudit(inputs: ValuationInputs): RiskAuditResult {
     if (retention < 80) {
       items.push({
         level: "High Risk",
-        title: "Critical Retention Issue (<80%)",
-        problem: "Buyers view low retention as a \"Leaky Bucket.\" It signals unhappy clients or poor service.",
-        psychology: "The buyer fears that if they buy the book, 20% of the value will evaporate in year one.",
+        title: `Low Retention (${retention}%)`,
+        problem: "Buyers view low retention as a \"Leaky Bucket\" — it signals unhappy clients or poor service.",
+        psychology: `With ${retention}% retention, ${100 - retention}% of your book churns annually. Buyers fear that value will evaporate quickly.`,
         mitigation: "Implement a proactive 90-day renewal call program immediately.",
       })
       severeCount++
     } else if (retention < 90) {
       items.push({
         level: "Moderate Risk",
-        title: "Average Retention (80-89%)",
+        title: `Average Retention (${retention}%)`,
         problem: "Your retention is stable but average. Top-tier valuations (3.0x+) are reserved for agencies with 92%+ retention.",
         psychology: "Buyers see \"Average\" retention as \"Average\" value.",
         mitigation: "Conduct a \"Lost Business Audit\" to identify why clients leave.",
@@ -343,7 +343,7 @@ export function runRiskAudit(inputs: ValuationInputs): RiskAuditResult {
     } else {
       items.push({
         level: "Strength",
-        title: "Elite Retention (90%+)",
+        title: `Elite Retention (${retention}%)`,
         problem: "Your client loyalty is exceptional. This is the primary driver for \"Premium\" valuations.",
         psychology: "Buyers are willing to pay more for predictable, recurring revenue.",
         mitigation: null,
@@ -366,11 +366,12 @@ export function runRiskAudit(inputs: ValuationInputs): RiskAuditResult {
 
   // 1c. Loss ratio
   if (inputs.lossRatio !== null) {
+    const lrDisplay = inputs.lossRatio.toFixed(0)
     if (inputs.lossRatio < 50) {
-      items.push({ level: "Strength", title: `Excellent Loss Ratio (${inputs.lossRatio}%)`, problem: "Your book runs clean with low claims activity. This protects carrier relationships post-acquisition.", psychology: "Buyers see low loss ratios as a sign of good underwriting and client selection.", mitigation: null })
+      items.push({ level: "Strength", title: `Excellent Loss Ratio (${lrDisplay}%)`, problem: "Your book runs clean with low claims activity. This protects carrier relationships post-acquisition.", psychology: "Buyers see low loss ratios as a sign of good underwriting and client selection.", mitigation: null })
       strengthCount++
     } else if (inputs.lossRatio > 65) {
-      items.push({ level: "High Risk", title: `High Loss Ratio (${inputs.lossRatio}%)`, problem: "Your loss ratio exceeds 65%, which is a red flag for carriers and buyers.", psychology: "Buyers worry that carriers may non-renew or reduce commissions on a high-loss book.", mitigation: "Review your worst-performing accounts and consider non-renewing chronic claimants before going to market." })
+      items.push({ level: "High Risk", title: `High Loss Ratio (${lrDisplay}%)`, problem: `Your loss ratio of ${lrDisplay}% exceeds the 65% threshold, which is a red flag for carriers and buyers.`, psychology: "Buyers worry that carriers may non-renew or reduce commissions on a high-loss book.", mitigation: "Review your worst-performing accounts and consider non-renewing chronic claimants before going to market." })
       highCount++
     }
   }
@@ -393,7 +394,8 @@ export function runRiskAudit(inputs: ValuationInputs): RiskAuditResult {
   // 1e. Seller transition commitment
   if (inputs.sellerTransitionMonths !== null) {
     if (inputs.sellerTransitionMonths >= 12) {
-      items.push({ level: "Strength", title: `Strong Transition Commitment (${inputs.sellerTransitionMonths}+ months)`, problem: "You're willing to stay on for an extended period to ensure client retention.", psychology: "Buyers pay more when the seller commits to a smooth handoff — it dramatically reduces integration risk.", mitigation: null })
+      const transitionLabel = inputs.sellerTransitionMonths >= 24 ? "12–24 months" : "6–12 months"
+      items.push({ level: "Strength", title: `Strong Transition Commitment (${transitionLabel})`, problem: "You're willing to stay on for an extended period to ensure client retention.", psychology: "Buyers pay more when the seller commits to a smooth handoff — it dramatically reduces integration risk.", mitigation: null })
       strengthCount++
     } else if (inputs.sellerTransitionMonths === 0) {
       items.push({ level: "High Risk", title: "Immediate Exit Plan", problem: "Planning to walk away at close is a major red flag for buyers.", psychology: "Buyers fear client attrition when the face of the agency disappears overnight.", mitigation: "Consider committing to at least 6 months of transition support — it can increase your multiple by 0.25–0.5x." })
@@ -443,7 +445,7 @@ export function runRiskAudit(inputs: ValuationInputs): RiskAuditResult {
 
   // 4. Solo Risk
   if (inputs.employeeCount === 1) {
-    items.push({ level: "High Risk", title: "Key Man / Solo Risk", problem: "As a solo operator, YOU are the business. If you leave, do the clients stay?", psychology: "Buyers worry that client loyalty is tied to you personally, not the brand.", mitigation: "A thorough transition plan (staying on for 6-12 months) is critical to getting full value." })
+    items.push({ level: "High Risk", title: "Key Man / Solo Risk", problem: "As a solo operator, YOU are the business. If you leave, do the clients stay?", psychology: "Buyers worry that client loyalty is tied to you personally, not the brand.", mitigation: "Committing to a 12+ month transition period is critical to getting full value as a solo operator." })
     highCount++
   }
 
