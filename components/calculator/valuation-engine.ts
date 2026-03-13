@@ -26,6 +26,12 @@ export interface ValuationInputs {
   // Book quality counts
   activeCustomers: number | null
   activePolicies: number | null
+  // Book quality metrics
+  lossRatio: number | null // percentage, e.g. 45 for 45%
+  avgPremiumPerPolicy: number | null // dollars
+  totalWrittenPremium: number | null // for auto-calculating avg premium
+  // Transition
+  sellerTransitionMonths: number | null // 0-6, 6-12, 12-24
   // Conditional (Full Agency only)
   closingTimeline: string // urgent | standard | long
   annualPayrollCost: number | null
@@ -209,7 +215,25 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
     if (ratio > 1.75)      polsPerCxScore = 0.04
     else if (ratio < 1.33) polsPerCxScore = -0.03
   }
-  bookScore += concentrationScore + mixScore + polsPerCxScore
+  // Loss ratio scoring (<50% excellent, 50-65% neutral, >65% penalty)
+  let lossRatioScore = 0
+  if (inputs.lossRatio !== null) {
+    if (inputs.lossRatio < 50)       lossRatioScore = 0.05
+    else if (inputs.lossRatio <= 65) lossRatioScore = 0
+    else                             lossRatioScore = -0.08
+  }
+  // Average premium per policy scoring (higher = larger accounts = stickier)
+  let avgPremScore = 0
+  const avgPrem = inputs.avgPremiumPerPolicy ?? 
+    (inputs.totalWrittenPremium && inputs.activePolicies && inputs.activePolicies > 0 
+      ? inputs.totalWrittenPremium / inputs.activePolicies 
+      : null)
+  if (avgPrem !== null) {
+    if (avgPrem >= 2500)      avgPremScore = 0.05
+    else if (avgPrem >= 1500) avgPremScore = 0.02
+    else if (avgPrem < 800)   avgPremScore = -0.03
+  }
+  bookScore += concentrationScore + mixScore + polsPerCxScore + lossRatioScore + avgPremScore
   bookScore = Math.max(0.1, Math.min(0.75, bookScore))
   totalRawScore += bookScore
 
@@ -220,7 +244,14 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
     if (carrierDiv < 40) opsScore += 0.05
     else if (carrierDiv <= 70) opsScore += 0.02
   }
-  opsScore = Math.min(0.15, opsScore)
+  // Seller transition commitment scoring
+  if (inputs.sellerTransitionMonths !== null) {
+    if (inputs.sellerTransitionMonths >= 24)      opsScore += 0.07
+    else if (inputs.sellerTransitionMonths >= 12) opsScore += 0.04
+    else if (inputs.sellerTransitionMonths >= 6)  opsScore += 0.02
+    else if (inputs.sellerTransitionMonths === 0) opsScore -= 0.05
+  }
+  opsScore = Math.max(-0.05, Math.min(0.22, opsScore))
   totalRawScore += opsScore
 
   // 7. CONDITIONAL
@@ -294,16 +325,16 @@ export function runRiskAudit(inputs: ValuationInputs): RiskAuditResult {
     if (retention < 80) {
       items.push({
         level: "High Risk",
-        title: "Critical Retention Issue (<80%)",
-        problem: "Buyers view low retention as a \"Leaky Bucket.\" It signals unhappy clients or poor service.",
-        psychology: "The buyer fears that if they buy the book, 20% of the value will evaporate in year one.",
+        title: `Low Retention (${retention}%)`,
+        problem: "Buyers view low retention as a \"Leaky Bucket\" — it signals unhappy clients or poor service.",
+        psychology: `With ${retention}% retention, ${100 - retention}% of your book churns annually. Buyers fear that value will evaporate quickly.`,
         mitigation: "Implement a proactive 90-day renewal call program immediately.",
       })
       severeCount++
     } else if (retention < 90) {
       items.push({
         level: "Moderate Risk",
-        title: "Average Retention (80-89%)",
+        title: `Average Retention (${retention}%)`,
         problem: "Your retention is stable but average. Top-tier valuations (3.0x+) are reserved for agencies with 92%+ retention.",
         psychology: "Buyers see \"Average\" retention as \"Average\" value.",
         mitigation: "Conduct a \"Lost Business Audit\" to identify why clients leave.",
@@ -312,7 +343,7 @@ export function runRiskAudit(inputs: ValuationInputs): RiskAuditResult {
     } else {
       items.push({
         level: "Strength",
-        title: "Elite Retention (90%+)",
+        title: `Elite Retention (${retention}%)`,
         problem: "Your client loyalty is exceptional. This is the primary driver for \"Premium\" valuations.",
         psychology: "Buyers are willing to pay more for predictable, recurring revenue.",
         mitigation: null,
@@ -330,6 +361,45 @@ export function runRiskAudit(inputs: ValuationInputs): RiskAuditResult {
     } else if (ratio < 1.33) {
       items.push({ level: "Moderate Risk", title: `Thin Cross-Sell Ratio (${ratio.toFixed(2)} policies/client)`, problem: "Most clients hold only a single policy. Revenue per household is below average.", psychology: "Buyers see single-policy clients as churn risk and untapped revenue.", mitigation: "Run a cross-sell campaign targeting your top 20% clients before going to market." })
       moderateCount++
+    }
+  }
+
+  // 1c. Loss ratio
+  if (inputs.lossRatio !== null) {
+    const lrDisplay = inputs.lossRatio.toFixed(0)
+    if (inputs.lossRatio < 50) {
+      items.push({ level: "Strength", title: `Excellent Loss Ratio (${lrDisplay}%)`, problem: "Your book runs clean with low claims activity. This protects carrier relationships post-acquisition.", psychology: "Buyers see low loss ratios as a sign of good underwriting and client selection.", mitigation: null })
+      strengthCount++
+    } else if (inputs.lossRatio > 65) {
+      items.push({ level: "High Risk", title: `High Loss Ratio (${lrDisplay}%)`, problem: `Your loss ratio of ${lrDisplay}% exceeds the 65% threshold, which is a red flag for carriers and buyers.`, psychology: "Buyers worry that carriers may non-renew or reduce commissions on a high-loss book.", mitigation: "Review your worst-performing accounts and consider non-renewing chronic claimants before going to market." })
+      highCount++
+    }
+  }
+
+  // 1d. Average premium per policy
+  const avgPrem = inputs.avgPremiumPerPolicy ?? 
+    (inputs.totalWrittenPremium && inputs.activePolicies && inputs.activePolicies > 0 
+      ? inputs.totalWrittenPremium / inputs.activePolicies 
+      : null)
+  if (avgPrem !== null) {
+    if (avgPrem >= 2500) {
+      items.push({ level: "Strength", title: `High Average Premium ($${Math.round(avgPrem).toLocaleString()}/policy)`, problem: "Larger policies mean fewer transactions for the same revenue and typically stickier clients.", psychology: "Buyers value high-premium accounts because they're more profitable to service.", mitigation: null })
+      strengthCount++
+    } else if (avgPrem < 800) {
+      items.push({ level: "Moderate Risk", title: `Low Average Premium ($${Math.round(avgPrem).toLocaleString()}/policy)`, problem: "Small policies require similar service effort as large ones but generate less commission.", psychology: "Buyers may see this as a labor-intensive book with thin margins per account.", mitigation: "Consider minimum account size thresholds or bundling strategies to increase avg premium." })
+      moderateCount++
+    }
+  }
+
+  // 1e. Seller transition commitment
+  if (inputs.sellerTransitionMonths !== null) {
+    if (inputs.sellerTransitionMonths >= 12) {
+      const transitionLabel = inputs.sellerTransitionMonths >= 24 ? "12–24 months" : "6–12 months"
+      items.push({ level: "Strength", title: `Strong Transition Commitment (${transitionLabel})`, problem: "You're willing to stay on for an extended period to ensure client retention.", psychology: "Buyers pay more when the seller commits to a smooth handoff — it dramatically reduces integration risk.", mitigation: null })
+      strengthCount++
+    } else if (inputs.sellerTransitionMonths === 0) {
+      items.push({ level: "High Risk", title: "Immediate Exit Plan", problem: "Planning to walk away at close is a major red flag for buyers.", psychology: "Buyers fear client attrition when the face of the agency disappears overnight.", mitigation: "Consider committing to at least 6 months of transition support — it can increase your multiple by 0.25–0.5x." })
+      highCount++
     }
   }
 
@@ -375,7 +445,7 @@ export function runRiskAudit(inputs: ValuationInputs): RiskAuditResult {
 
   // 4. Solo Risk
   if (inputs.employeeCount === 1) {
-    items.push({ level: "High Risk", title: "Key Man / Solo Risk", problem: "As a solo operator, YOU are the business. If you leave, do the clients stay?", psychology: "Buyers worry that client loyalty is tied to you personally, not the brand.", mitigation: "A thorough transition plan (staying on for 6-12 months) is critical to getting full value." })
+    items.push({ level: "High Risk", title: "Key Man / Solo Risk", problem: "As a solo operator, YOU are the business. If you leave, do the clients stay?", psychology: "Buyers worry that client loyalty is tied to you personally, not the brand.", mitigation: "Committing to a 12+ month transition period is critical to getting full value as a solo operator." })
     highCount++
   }
 

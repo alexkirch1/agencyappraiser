@@ -17,6 +17,7 @@ export async function POST(req: Request) {
         closing_timeline, annual_payroll_cost, owner_compensation,
         staff_retention_risk, new_business_value, avg_client_tenure,
         revenue_growth_trend, active_customers, active_policies,
+        loss_ratio, avg_premium_per_policy, total_written_premium, seller_transition_months,
         low_offer, high_offer, core_score, calculated_multiple, risk_grade
       ) VALUES (
         ${leadId ?? null},
@@ -34,6 +35,8 @@ export async function POST(req: Request) {
         ${inputs.newBusinessValue ?? null}, ${inputs.avgClientTenure ?? null},
         ${inputs.revenueGrowthTrend || null}, ${inputs.activeCustomers ?? null},
         ${inputs.activePolicies ?? null},
+        ${inputs.lossRatio ?? null}, ${inputs.avgPremiumPerPolicy ?? null},
+        ${inputs.totalWrittenPremium ?? null}, ${inputs.sellerTransitionMonths ?? null},
         ${results?.lowOffer ?? null}, ${results?.highOffer ?? null},
         ${results?.coreScore ?? null}, ${results?.calculatedMultiple ?? null},
         ${results?.riskGrade ?? null}
