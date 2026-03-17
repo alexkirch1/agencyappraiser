@@ -424,19 +424,49 @@ export async function POST(req: Request) {
     })
     results.email = true
 
-    // 3. Send welcome drip email to the lead
+    // 3. Send welcome drip email directly via Resend (no internal fetch to avoid VERCEL_URL issues)
     if (RESEND_API_KEY) {
       try {
-        await fetch(`${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'}/api/send-drip-email`, {
+        const dripRes = await fetch("https://api.resend.com/emails", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${RESEND_API_KEY}`,
+          },
           body: JSON.stringify({
-            email,
-            name,
-            emailType: "welcome",
-            valuationRange: valuationData?.revenueLTM ? undefined : undefined, // Will be filled in after calculation
+            from: "Agency Appraiser <onboarding@resend.dev>",
+            to: [email],
+            reply_to: NOTIFY_EMAIL,
+            subject: "Your Agency Valuation Report is Ready",
+            html: `
+              <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+                <div style="text-align: center; margin-bottom: 32px;">
+                  <h1 style="color: #0f172a; font-size: 24px; margin: 0;">Agency Appraiser</h1>
+                </div>
+                <p style="color: #334155; font-size: 16px; line-height: 1.6;">Hi ${name},</p>
+                <p style="color: #334155; font-size: 16px; line-height: 1.6;">
+                  Thank you for using Agency Appraiser to value your insurance agency. Our team will be in touch shortly to discuss next steps.
+                </p>
+                <p style="color: #334155; font-size: 16px; line-height: 1.6;">
+                  In the meantime, you can revisit your valuation anytime at
+                  <a href="https://agencyappraiser.com/calculator" style="color: #0ea5e9;">agencyappraiser.com/calculator</a>.
+                </p>
+                <p style="color: #334155; font-size: 16px; line-height: 1.6; margin-top: 32px;">
+                  Talk soon,<br/>
+                  <strong>The Agency Appraiser Team</strong><br/>
+                  <a href="mailto:${NOTIFY_EMAIL}" style="color: #0ea5e9;">${NOTIFY_EMAIL}</a>
+                </p>
+                <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #e2e8f0; text-align: center;">
+                  <p style="color: #94a3b8; font-size: 12px;">You received this because you submitted a valuation request on Agency Appraiser.</p>
+                </div>
+              </div>
+            `,
           }),
         })
+        if (!dripRes.ok) {
+          const dripError = await dripRes.json()
+          console.error("[v0] Welcome drip email failed:", dripError)
+        }
       } catch (err) {
         console.error("[v0] Welcome email failed:", err)
       }
