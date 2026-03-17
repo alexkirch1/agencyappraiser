@@ -15,6 +15,7 @@ import { Lock, Unlock, AlertCircle, ClipboardCheck, ArrowRight, Pencil, Download
 import Link from "next/link"
 import { downloadValuationPDF } from "@/lib/generate-pdf"
 import { MarketIntelPanel } from "@/components/market-intel-panel"
+import { BenchmarkComparison } from "@/components/calculator/benchmark-comparison"
 
 const defaultInputs: ValuationInputs = {
   scopeOfSale: null,
@@ -319,11 +320,13 @@ function CalculatorContent() {
               {pdfLoading ? "Generating..." : "Download PDF Report"}
             </Button>
           </div>
-          <MarketIntelPanel
-            modelMultiple={results?.calculatedMultiple}
-            dealType="full"
-            className="mb-8"
-          />
+          <div className="grid gap-8 mb-8 lg:grid-cols-2">
+            <MarketIntelPanel
+              modelMultiple={results?.calculatedMultiple}
+              dealType="full"
+            />
+            <BenchmarkComparison inputs={inputs} />
+          </div>
           <div className="grid gap-8 lg:grid-cols-2">
             {/* Deal Simulator */}
             <div>

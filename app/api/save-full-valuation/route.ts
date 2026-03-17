@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server"
 import sql from "@/lib/db"
+import { getCurrentUser } from "@/lib/auth"
 
 export async function POST(req: Request) {
   try {
     const body = await req.json()
     const { leadId, inputs, results } = body
+    const user = await getCurrentUser()
 
     const rows = await sql`
       INSERT INTO full_valuations (
-        lead_id,
+        lead_id, user_id,
         scope_of_sale, year_established, primary_state, employee_count,
         office_structure, agency_description, eo_claims, producer_agreements,
         revenue_ltm, revenue_y2, revenue_y3, sde_ebitda,
@@ -20,7 +22,7 @@ export async function POST(req: Request) {
         loss_ratio, avg_premium_per_policy, total_written_premium, seller_transition_months,
         low_offer, high_offer, core_score, calculated_multiple, risk_grade
       ) VALUES (
-        ${leadId ?? null},
+        ${leadId ?? null}, ${user?.id ?? null},
         ${inputs.scopeOfSale ?? null}, ${inputs.yearEstablished ?? null},
         ${inputs.primaryState ?? null}, ${inputs.employeeCount ?? null},
         ${inputs.officeStructure ?? null}, ${inputs.agencyDescription ?? null},

@@ -29,7 +29,9 @@ export function Footer() {
             <Link href="/carrier" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
               Carrier Report
             </Link>
-
+            <Link href="/my-valuations" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+              My Valuations
+            </Link>
           </nav>
         </div>
 

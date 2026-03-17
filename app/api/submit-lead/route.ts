@@ -369,7 +369,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // 2. Send email notification
+    // 2. Send email notification to admin
     await sendEmailNotification({
       leadName: name,
       leadEmail: email,
@@ -379,6 +379,24 @@ export async function POST(req: Request) {
       valuationSummary: valuationSummary || "No valuation data yet (lead captured pre-calculation)",
     })
     results.email = true
+
+    // 3. Send welcome drip email to the lead
+    if (RESEND_API_KEY) {
+      try {
+        await fetch(`${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'}/api/send-drip-email`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email,
+            name,
+            emailType: "welcome",
+            valuationRange: valuationData?.revenueLTM ? undefined : undefined, // Will be filled in after calculation
+          }),
+        })
+      } catch (err) {
+        console.error("[v0] Welcome email failed:", err)
+      }
+    }
 
     return NextResponse.json({ success: true, ...results, leadId: results.leadId })
   } catch (err) {
