@@ -140,7 +140,7 @@ export function AnalyticsTab() {
                   contentStyle={{ background: "#1f2937", border: "1px solid #374151", borderRadius: 8 }}
                   labelStyle={{ color: "#f9fafb", fontWeight: 600 }}
                   itemStyle={{ color: "#9ca3af" }}
-                  formatter={(v: number) => [`${v.toFixed(2)}x`, "Avg Multiple"]}
+                  formatter={(v) => [typeof v === "number" ? `${v.toFixed(2)}x` : v, "Avg Multiple"]}
                 />
                 <Line type="monotone" dataKey="avg" stroke={CHART_COLORS.success} strokeWidth={2} dot={{ r: 4, fill: CHART_COLORS.success }} />
               </LineChart>

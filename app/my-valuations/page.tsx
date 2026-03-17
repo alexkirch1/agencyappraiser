@@ -21,9 +21,9 @@ interface SavedValuation {
 }
 
 const RISK_COLORS: Record<string, string> = {
-  "A": "text-success",
+  "A": "text-[hsl(var(--success))]",
   "B": "text-primary",
-  "C": "text-warning",
+  "C": "text-[hsl(var(--warning))]",
   "D": "text-destructive",
 }
 
@@ -140,9 +140,9 @@ export default function MyValuationsPage() {
 
                 <div className="mt-4 space-y-2">
                   {v.low_offer && v.high_offer && (
-                    <div className="flex items-center justify-between rounded-md bg-success/10 px-3 py-2">
+                    <div className="flex items-center justify-between rounded-md bg-[hsl(var(--success)/0.1)] px-3 py-2">
                       <span className="text-xs text-muted-foreground">Valuation Range</span>
-                      <span className="text-sm font-bold text-success">
+                      <span className="text-sm font-bold text-[hsl(var(--success))]">
                         ${(v.low_offer / 1000).toFixed(0)}k – ${(v.high_offer / 1000).toFixed(0)}k
                       </span>
                     </div>
