@@ -27,7 +27,7 @@ export async function POST(req: Request) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: "Agency Appraiser <notifications@rockyquote.com>",
+          from: "Agency Appraiser <onboarding@resend.dev>",
           to: [NOTIFY_EMAIL],
           subject: `[${label}] New feedback submitted`,
           html: `

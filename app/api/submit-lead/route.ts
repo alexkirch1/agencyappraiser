@@ -237,6 +237,7 @@ async function sendEmailNotification(data: {
       body: JSON.stringify({
         from: "Agency Appraiser <onboarding@resend.dev>",
         to: [NOTIFY_EMAIL],
+        reply_to: data.leadEmail,
         subject: `New Lead: ${data.leadName} - ${data.toolUsed}`,
         html: `
           <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
@@ -270,6 +271,44 @@ ${data.valuationSummary}
             <p style="margin-top: 24px; font-size: 12px; color: #94a3b8;">
               This lead was submitted via the Agency Appraiser calculator at ${new Date().toLocaleString()}.
             </p>
+          </div>
+        `,
+      }),
+    })
+    // Send confirmation copy to the user
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: "Agency Appraiser <onboarding@resend.dev>",
+        to: [data.leadEmail],
+        reply_to: NOTIFY_EMAIL,
+        subject: "We received your agency valuation request",
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+            <h1 style="color: #0f172a; font-size: 22px;">Thanks, ${data.leadName}!</h1>
+            <p style="color: #334155; font-size: 16px; line-height: 1.6;">
+              We received your agency valuation request and our team will be in touch shortly.
+            </p>
+            ${data.valuationSummary ? `
+            <div style="background: #f1f5f9; border-radius: 8px; padding: 16px; margin: 24px 0; white-space: pre-wrap; font-size: 14px; color: #475569;">
+              ${data.valuationSummary}
+            </div>` : ""}
+            <p style="color: #334155; font-size: 16px; line-height: 1.6;">
+              In the meantime, you can revisit your valuation anytime at
+              <a href="https://agencyappraiser.com/calculator" style="color: #0ea5e9;">agencyappraiser.com/calculator</a>.
+            </p>
+            <p style="color: #334155; font-size: 16px; line-height: 1.6; margin-top: 32px;">
+              Talk soon,<br/>
+              <strong>The Agency Appraiser Team</strong><br/>
+              <a href="mailto:mergers@rockyquote.com" style="color: #0ea5e9;">mergers@rockyquote.com</a>
+            </p>
+            <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #e2e8f0;">
+              <p style="color: #94a3b8; font-size: 12px;">You received this because you submitted a valuation request on Agency Appraiser.</p>
+            </div>
           </div>
         `,
       }),
