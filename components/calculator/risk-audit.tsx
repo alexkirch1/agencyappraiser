@@ -12,30 +12,14 @@ interface Props {
 export function RiskAudit({ data }: Props) {
   if (data.items.length === 0) {
     return (
-      <Card className="border-border bg-card">
-        <CardContent className="flex flex-col items-center py-12 text-center">
-          <p className="text-sm text-muted-foreground">Complete the form to see your risk audit.</p>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col items-center py-12 text-center">
+        <p className="text-sm text-muted-foreground">Complete the form to see your risk audit.</p>
+      </div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Grade Header */}
-      <Card className="border-border bg-card">
-        <CardContent className="flex items-center gap-4 pt-6">
-          <div className={`flex h-16 w-16 items-center justify-center rounded-full border-2 ${gradeColorBorder(data.grade)}`}>
-            <span className={`text-3xl font-bold ${data.gradeColor}`}>{data.grade}</span>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-foreground">Risk Grade</p>
-            <p className="text-xs text-muted-foreground">{data.summaryText}</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Items */}
+    <div className="flex flex-col gap-3">
       {data.items.map((item, idx) => (
         <RiskCard key={idx} item={item} />
       ))}

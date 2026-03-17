@@ -415,12 +415,12 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div>
-              <Label className="mb-2 block text-sm text-muted-foreground">Closing Timeline<InfoTip text="How quickly are you looking to complete the sale? Urgent means under 60 days, Standard is 3-6 months, Long is 6+ months." /></Label>
+              <Label className="mb-2 block text-sm text-muted-foreground">Sale Timeline<InfoTip text="How soon are you looking to sell? This helps us understand your urgency and tailor our outreach accordingly." /></Label>
               <RadioGroup value={inputs.closingTimeline} onValueChange={(v) => update({ closingTimeline: v })} className="flex flex-col gap-2 sm:flex-row sm:gap-4">
                 {[
-                  { value: "urgent", label: "Urgent (<60 days)" },
-                  { value: "standard", label: "Standard (3-6 months)" },
-                  { value: "long", label: "Long (6+ months)" },
+                  { value: "urgent", label: "Ready to sell now" },
+                  { value: "standard", label: "Actively exploring" },
+                  { value: "long", label: "Just curious" },
                 ].map((opt) => (
                   <label key={opt.value} className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/10">
                     <RadioGroupItem value={opt.value} />
