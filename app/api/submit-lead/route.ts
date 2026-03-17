@@ -228,7 +228,7 @@ async function sendEmailNotification(data: {
   }
 
   try {
-    await fetch("https://api.resend.com/emails", {
+    const adminRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -275,8 +275,11 @@ ${data.valuationSummary}
         `,
       }),
     })
+    const adminResJson = await adminRes.json()
+    console.log("[v0] Resend admin email response:", adminRes.status, JSON.stringify(adminResJson))
+
     // Send confirmation copy to the user
-    await fetch("https://api.resend.com/emails", {
+    const userRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -313,6 +316,8 @@ ${data.valuationSummary}
         `,
       }),
     })
+    const userResJson = await userRes.json()
+    console.log("[v0] Resend user email response:", userRes.status, JSON.stringify(userResJson))
   } catch (err) {
     console.error("[v0] Email send failed:", err)
   }
