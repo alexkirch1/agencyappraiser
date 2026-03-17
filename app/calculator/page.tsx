@@ -8,7 +8,7 @@ import { LeadCaptureModal } from "@/components/lead-capture-modal"
 import { ValuationDisclaimerModal } from "@/components/valuation-disclaimer-modal"
 import { DealSimulator } from "@/components/calculator/deal-simulator"
 import { RiskAudit } from "@/components/calculator/risk-audit"
-import { calculateValuation, runRiskAudit, type ValuationInputs } from "@/components/calculator/valuation-engine"
+import { calculateValuation, runRiskAudit, formatCurrency, type ValuationInputs } from "@/components/calculator/valuation-engine"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Lock, Unlock, AlertCircle, ClipboardCheck, ArrowRight, Pencil, Download } from "lucide-react"
@@ -295,17 +295,30 @@ function CalculatorContent() {
         </div>
       </div>
 
-      {/* Deal Simulator & Risk Audit -- shown below after valuation is complete */}
+      {/* Results Report — shown after submit */}
       {results && (
-        <div id="valuation-results" className="mt-12 border-t border-border pt-10">
-          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-2xl font-bold tracking-tight text-foreground">
-              Deep Dive: Deal Simulator & Risk Audit
-            </h2>
+        <div id="valuation-results" className="mt-12">
+
+          {/* ── Report Header ── */}
+          <div className="mb-8 flex flex-col gap-4 rounded-xl border border-border bg-card px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Valuation Report</p>
+              <h2 className="mt-1 text-2xl font-bold tracking-tight text-foreground">
+                {formatCurrency(results.lowOffer)}
+                <span className="mx-2 font-normal text-muted-foreground">–</span>
+                {formatCurrency(results.highOffer)}
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Estimated value range based on a{" "}
+                <span className="font-semibold text-foreground">{results.calculatedMultiple.toFixed(2)}x</span>{" "}
+                revenue multiple &middot; Risk Grade{" "}
+                <span className={`font-semibold ${riskAudit.gradeColor}`}>{riskAudit.grade}</span>
+              </p>
+            </div>
             <Button
               variant="outline"
               size="sm"
-              className="gap-2 shrink-0"
+              className="shrink-0 gap-2"
               disabled={pdfLoading}
               onClick={async () => {
                 if (!results) return
@@ -321,44 +334,54 @@ function CalculatorContent() {
               {pdfLoading ? "Generating..." : "Download PDF Report"}
             </Button>
           </div>
-          <div className="grid gap-8 mb-8 lg:grid-cols-2">
+
+          {/* ── Section 1: Market Context ── */}
+          <div className="mb-3">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Market Context</p>
+          </div>
+          <div className="mb-8 grid gap-6 lg:grid-cols-2">
             <MarketIntelPanel
               modelMultiple={results?.calculatedMultiple}
               dealType="full"
             />
             <BenchmarkComparison inputs={inputs} />
           </div>
-          <div className="grid gap-8 lg:grid-cols-2">
+
+          {/* ── Divider ── */}
+          <div className="mb-8 border-t border-border" />
+
+          {/* ── Section 2: Deal & Risk ── */}
+          <div className="mb-3">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Deal Structure &amp; Risk Analysis</p>
+          </div>
+          <div className="grid gap-6 lg:grid-cols-2">
             {/* Deal Simulator */}
-            <div>
-              <Card className="border-border bg-card">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold text-foreground">Deal Structure Simulator</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Explore different deal structures and see how cash vs. earnout affects your total payout.
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <DealSimulator highOffer={results.highOffer} coreScore={results.coreScore} />
-                </CardContent>
-              </Card>
-            </div>
+            <Card className="border-border bg-card">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold text-foreground">Deal Structure Simulator</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Explore how cash vs. earnout structures affect your total payout.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <DealSimulator highOffer={results.highOffer} coreScore={results.coreScore} />
+              </CardContent>
+            </Card>
 
             {/* Risk Audit */}
-            <div>
-              <Card className="border-border bg-card p-0">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold text-foreground">Risk Audit Report</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    A detailed breakdown of risks and strengths identified from your inputs.
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <RiskAudit data={riskAudit} />
-                </CardContent>
-              </Card>
-            </div>
+            <Card className="border-border bg-card">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold text-foreground">Risk Audit Report</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Risks and strengths identified from your inputs, graded by impact.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <RiskAudit data={riskAudit} />
+              </CardContent>
+            </Card>
           </div>
+
         </div>
       )}
 
