@@ -297,22 +297,23 @@ function CalculatorContent() {
 
       {/* Results Report — shown after submit */}
       {results && (
-        <div id="valuation-results" className="mt-12">
+        <div id="valuation-results" className="mt-12 flex flex-col gap-6">
 
           {/* ── Report Header ── */}
-          <div className="mb-8 flex flex-col gap-4 rounded-xl border border-border bg-card px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-4 rounded-xl border border-border bg-card px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Valuation Report</p>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Valuation Report</p>
               <h2 className="mt-1 text-2xl font-bold tracking-tight text-foreground">
                 {formatCurrency(results.lowOffer)}
                 <span className="mx-2 font-normal text-muted-foreground">–</span>
                 {formatCurrency(results.highOffer)}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Estimated value range based on a{" "}
-                <span className="font-semibold text-foreground">{results.calculatedMultiple.toFixed(2)}x</span>{" "}
-                revenue multiple &middot; Risk Grade{" "}
-                <span className={`font-semibold ${riskAudit.gradeColor}`}>{riskAudit.grade}</span>
+                <span className="font-semibold text-foreground">{results.calculatedMultiple.toFixed(2)}x</span> revenue multiple
+                &nbsp;&middot;&nbsp;
+                Risk Grade <span className={`font-semibold ${riskAudit.gradeColor}`}>{riskAudit.grade}</span>
+                &nbsp;&middot;&nbsp;
+                {riskAudit.summaryText}
               </p>
             </div>
             <Button
@@ -331,37 +332,22 @@ function CalculatorContent() {
               }}
             >
               <Download className="h-4 w-4" />
-              {pdfLoading ? "Generating..." : "Download PDF Report"}
+              {pdfLoading ? "Generating..." : "Download PDF"}
             </Button>
           </div>
 
-          {/* ── Section 1: Market Context ── */}
-          <div className="mb-3">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Market Context</p>
-          </div>
-          <div className="mb-8 grid gap-6 lg:grid-cols-2">
-            <MarketIntelPanel
-              modelMultiple={results?.calculatedMultiple}
-              dealType="full"
-            />
+          {/* ── Market Context ── */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <MarketIntelPanel modelMultiple={results?.calculatedMultiple} dealType="full" />
             <BenchmarkComparison inputs={inputs} />
           </div>
 
-          {/* ── Divider ── */}
-          <div className="mb-8 border-t border-border" />
-
-          {/* ── Section 2: Deal & Risk ── */}
-          <div className="mb-3">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Deal Structure &amp; Risk Analysis</p>
-          </div>
+          {/* ── Deal Simulator + Risk Audit ── */}
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Deal Simulator */}
             <Card className="border-border bg-card">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold text-foreground">Deal Structure Simulator</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Explore how cash vs. earnout structures affect your total payout.
-                </p>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Deal Structure Simulator</CardTitle>
               </CardHeader>
               <CardContent>
                 <DealSimulator highOffer={results.highOffer} coreScore={results.coreScore} />
@@ -370,13 +356,10 @@ function CalculatorContent() {
 
             {/* Risk Audit */}
             <Card className="border-border bg-card">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold text-foreground">Risk Audit Report</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Risks and strengths identified from your inputs, graded by impact.
-                </p>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Risk Audit</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="max-h-[520px] overflow-y-auto pr-1">
                 <RiskAudit data={riskAudit} />
               </CardContent>
             </Card>
