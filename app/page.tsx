@@ -9,6 +9,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { FeedbackWidget } from "@/components/feedback-widget"
 
 const tools = [
   {
@@ -194,6 +195,11 @@ export default function HomePage() {
           </Card>
         </div>
       </section>
+      <FeedbackWidget
+        prompt="Have a suggestion or want to see something new?"
+        placeholder="Tell us what tools, features, or carriers you'd like to see added..."
+        category="general"
+      />
     </div>
   )
 }
