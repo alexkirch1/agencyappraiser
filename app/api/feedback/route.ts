@@ -20,7 +20,8 @@ export async function POST(req: Request) {
       }
       const label = categoryLabels[category] ?? "Feedback"
 
-      await fetch("https://api.resend.com/emails", {
+      console.log("[v0] Sending feedback email via Resend to:", NOTIFY_EMAIL)
+      const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${RESEND_API_KEY}`,
@@ -38,6 +39,8 @@ export async function POST(req: Request) {
           `,
         }),
       })
+      const resJson = await res.json()
+      console.log("[v0] Resend feedback response:", res.status, JSON.stringify(resJson))
     }
 
     return NextResponse.json({ success: true })
