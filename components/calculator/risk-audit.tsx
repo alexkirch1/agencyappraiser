@@ -1,6 +1,6 @@
 "use client"
 
-import { CardContent } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import type { RiskAuditResult, RiskAuditItem } from "./valuation-engine"
 import { AlertTriangle, CheckCircle2, Info, ShieldAlert } from "lucide-react"
