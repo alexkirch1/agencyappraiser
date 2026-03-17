@@ -251,6 +251,7 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         from: "Agency Appraiser <onboarding@resend.dev>",
         to: [email],
+        reply_to: "mergers@rockyquote.com",
         subject: template.subject,
         html: template.html({ name, valuationRange }),
       }),

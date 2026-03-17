@@ -13,6 +13,7 @@ import {
   defaultCarrierInputs,
   type CarrierInputs,
 } from "@/components/carrier/carrier-engine"
+import { FeedbackWidget } from "@/components/feedback-widget"
 import { MarketIntelPanel } from "@/components/market-intel-panel"
 
 export default function CarrierPage() {
@@ -204,6 +205,11 @@ export default function CarrierPage() {
       {showDisclaimer && (
         <ValuationDisclaimerModal onContinue={handleDisclaimerContinue} />
       )}
+      <FeedbackWidget
+        prompt="Don't see a carrier you'd like to sell?"
+        placeholder="Tell us the carrier name and we'll look into adding it..."
+        category="carrier-request"
+      />
     </div>
   )
 }

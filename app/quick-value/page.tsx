@@ -10,6 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Button } from "@/components/ui/button"
 import { ValuationDisclaimerModal } from "@/components/valuation-disclaimer-modal"
 import { ArrowRight, Calculator, Zap, DollarSign, AlertTriangle, TrendingUp, ShieldAlert } from "lucide-react"
+import { FeedbackWidget } from "@/components/feedback-widget"
 import { InfoTip } from "@/components/ui/info-tip"
 
 function formatCurrency(value: number): string {
@@ -539,6 +540,11 @@ export default function QuickValuePage() {
           }}
         />
       )}
+      <FeedbackWidget
+        prompt="Something feel off with your estimate?"
+        placeholder="Tell us what you think is missing or inaccurate — we read every message..."
+        category="feature-request"
+      />
     </div>
   )
 }

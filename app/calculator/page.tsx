@@ -16,6 +16,7 @@ import Link from "next/link"
 import { downloadValuationPDF } from "@/lib/generate-pdf"
 import { MarketIntelPanel } from "@/components/market-intel-panel"
 import { BenchmarkComparison } from "@/components/calculator/benchmark-comparison"
+import { FeedbackWidget } from "@/components/feedback-widget"
 
 const defaultInputs: ValuationInputs = {
   scopeOfSale: null,
@@ -362,6 +363,12 @@ function CalculatorContent() {
       )}
 
 
+
+      <FeedbackWidget
+        prompt="Have a suggestion for the valuation calculator?"
+        placeholder="Tell us what would make this more useful — missing inputs, questions, or anything else..."
+        category="calculator-feedback"
+      />
 
       {/* Modals */}
       {showLeadCapture && (
