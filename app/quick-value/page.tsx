@@ -150,16 +150,19 @@ export default function QuickValuePage() {
 
     suggested = Math.max(0.78, Math.min(3.0, parseFloat(suggested.toFixed(2))))
 
+    // Apply transition loss adjustment
+    const TRANSITION_ADJUSTMENT = 0.8
+
     // Central value
-    const value = naturalRound(revenue * multiplier)
+    const value = naturalRound(revenue * multiplier * TRANSITION_ADJUSTMENT)
 
     // Range: low/high are derived from suggested, not a fixed spread.
     // Low is ~15-18% below suggested (always risks going sub-1x for weak agencies).
     // High is ~18-24% above suggested (top agencies comfortably clear 2x).
     const lowSpread  = 0.15 + ((revenue % 13) / 13) * 0.03
     const highSpread = 0.18 + ((revenue % 11) / 11) * 0.06
-    const lowValue   = naturalRound(revenue * Math.max(0.75, suggested * (1 - lowSpread)))
-    const highValue  = naturalRound(revenue * Math.min(3.0,  suggested * (1 + highSpread)))
+    const lowValue   = naturalRound(revenue * Math.max(0.75, suggested * (1 - lowSpread)) * TRANSITION_ADJUSTMENT)
+    const highValue  = naturalRound(revenue * Math.min(3.0,  suggested * (1 + highSpread)) * TRANSITION_ADJUSTMENT)
 
     const tier = getTier(retention, bookType, revenue, growth, ratio)
     const gap  = getFullValGap(retention, bookType, growth)

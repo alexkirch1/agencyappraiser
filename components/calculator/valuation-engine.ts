@@ -285,8 +285,10 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
 
   const finalMultiple = scaledCoreScore * TRANSACTION_MULTIPLIER
 
-  let highOffer = revLTM * finalMultiple
-  let lowOffer = revLTM * (finalMultiple - 0.25)
+  // Apply transition loss adjustment
+  const TRANSITION_ADJUSTMENT = 0.8
+  let highOffer = revLTM * finalMultiple * TRANSITION_ADJUSTMENT
+  let lowOffer = revLTM * (finalMultiple - 0.25) * TRANSITION_ADJUSTMENT
   lowOffer = Math.max(0, lowOffer)
   if (lowOffer > highOffer) lowOffer = highOffer * 0.9
 
