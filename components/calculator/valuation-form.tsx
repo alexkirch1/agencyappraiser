@@ -374,8 +374,8 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
           </div>
           <div>
             <Label className="mb-2 block text-sm text-muted-foreground">
-              Seller Transition Commitment
-              <InfoTip text="How long are you willing to stay on after the sale to help transition clients and staff? Longer commitments increase buyer confidence and can command higher multiples." />
+              How soon would you like to sell?
+              <InfoTip text="Your desired sale timeline affects buyer urgency and deal structuring. Buyers value certainty — a clear timeline helps them plan financing and integration." />
             </Label>
             <RadioGroup
               value={inputs.sellerTransitionMonths != null ? String(inputs.sellerTransitionMonths) : ""}
@@ -383,10 +383,10 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
               className="flex flex-col gap-2"
             >
               {[
-                { value: "0",  label: "Immediate Exit",   sub: "Walk away at close" },
-                { value: "6",  label: "0–6 Months",       sub: "Short transition" },
-                { value: "12", label: "6–12 Months",      sub: "Standard transition" },
-                { value: "24", label: "12–24 Months",     sub: "Extended commitment" },
+                { value: "0",  label: "As Soon As Possible",  sub: "Ready to close within 60 days" },
+                { value: "6",  label: "Within 6 Months",      sub: "Actively looking to sell soon" },
+                { value: "12", label: "Within 12 Months",     sub: "Planning ahead, not urgent" },
+                { value: "24", label: "1–2 Years Out",        sub: "Exploring options early" },
               ].map((opt) => (
                 <label
                   key={opt.value}
