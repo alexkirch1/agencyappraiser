@@ -39,7 +39,7 @@ export async function GET() {
         sql`
           SELECT TO_CHAR(created_at, 'Mon YY') AS month,
                  DATE_TRUNC('month', created_at) AS month_order,
-                 ROUND(AVG(calculated_multiple)::numeric, 2) AS avg
+                 ROUND(AVG(calculated_multiple), 2) AS avg
           FROM full_valuations
           WHERE calculated_multiple IS NOT NULL
           GROUP BY month, month_order
@@ -54,9 +54,9 @@ export async function GET() {
           GROUP BY risk_grade
           ORDER BY grade ASC
         `,
-        // Scope of sale breakdown
+        // Scope of sale breakdown — scope_of_sale is numeric, cast to text for display
         sql`
-          SELECT COALESCE(scope_of_sale, 'unknown') AS scope, COUNT(*)::int AS count
+          SELECT COALESCE(CAST(scope_of_sale AS text), 'unknown') AS scope, COUNT(*)::int AS count
           FROM full_valuations
           GROUP BY scope_of_sale
           ORDER BY count DESC
@@ -66,8 +66,8 @@ export async function GET() {
           SELECT
             (SELECT COUNT(*) FROM leads)::int AS total_leads,
             (SELECT COUNT(*) FROM full_valuations)::int AS total_valuations,
-            (SELECT ROUND(AVG(calculated_multiple)::numeric, 2) FROM full_valuations WHERE calculated_multiple IS NOT NULL) AS avg_multiple,
-            (SELECT ROUND(AVG(revenue_ltm)::numeric, 0) FROM full_valuations WHERE revenue_ltm IS NOT NULL) AS avg_revenue_ltm
+            (SELECT ROUND(AVG(calculated_multiple), 2) FROM full_valuations WHERE calculated_multiple IS NOT NULL) AS avg_multiple,
+            (SELECT ROUND(AVG(revenue_ltm), 0) FROM full_valuations WHERE revenue_ltm IS NOT NULL) AS avg_revenue_ltm
         `,
       ])
 
