@@ -47,7 +47,8 @@ export async function POST(req: NextRequest) {
         try {
           const decoded = Buffer.from(session.value, "base64").toString()
           const parts = decoded.split(":")
-          if (parts.length >= 3 && parts[2] === SESSION_SECRET) {
+          // Token format: username:timestamp:SECRET (secret may contain colons)
+          if (parts.length >= 3 && parts.slice(2).join(":") === SESSION_SECRET) {
             return NextResponse.json({ authenticated: true, username: parts[0] })
           }
         } catch {

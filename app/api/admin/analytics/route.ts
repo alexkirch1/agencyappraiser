@@ -54,9 +54,17 @@ export async function GET() {
           GROUP BY risk_grade
           ORDER BY grade ASC
         `,
-        // Scope of sale breakdown
+        // Scope of sale breakdown (stored as numeric: 1=Full Agency, 0.95=Book Only, 0.9=Fragmented)
         sql`
-          SELECT COALESCE(scope_of_sale, 'unknown') AS scope, COUNT(*)::int AS count
+          SELECT
+            CASE
+              WHEN scope_of_sale = 1 THEN 'Full Agency'
+              WHEN scope_of_sale = 0.95 THEN 'Book Only'
+              WHEN scope_of_sale = 0.9 THEN 'Fragmented'
+              WHEN scope_of_sale IS NULL THEN 'Unknown'
+              ELSE scope_of_sale::text
+            END AS scope,
+            COUNT(*)::int AS count
           FROM full_valuations
           GROUP BY scope_of_sale
           ORDER BY count DESC
@@ -76,7 +84,7 @@ export async function GET() {
       avgValuationByMonth: avgValuationByMonth.map((r) => ({ month: r.month, avg: parseFloat(r.avg) })),
       riskGradeBreakdown: riskGrades,
       scopeBreakdown: scopeBreakdown.map((r) => ({
-        scope: r.scope === "full_agency" ? "Full Agency" : r.scope === "book_only" ? "Book Only" : r.scope,
+        scope: r.scope,
         count: r.count,
       })),
       totalLeads: totals[0]?.total_leads ?? 0,

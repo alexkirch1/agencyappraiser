@@ -5,6 +5,14 @@ const nextConfig = {
     config.resolve.alias.canvas = false
     return config
   },
+  // Turbopack config (used in dev with `next dev --turbopack`)
+  experimental: {
+    turbo: {
+      resolveAlias: {
+        canvas: "./empty-module.js",
+      },
+    },
+  },
 }
 
 export default nextConfig

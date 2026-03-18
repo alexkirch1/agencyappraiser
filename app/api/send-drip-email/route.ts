@@ -46,7 +46,7 @@ const DRIP_EMAILS = {
   },
   day2_retention: {
     subject: "The #1 Factor That Kills Agency Valuations",
-    html: (data: { name: string }) => `
+    html: (data: { name: string; valuationRange?: string }) => `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
         <div style="text-align: center; margin-bottom: 32px;">
           <h1 style="color: #0f172a; font-size: 24px; margin: 0;">Agency Appraiser</h1>
@@ -99,7 +99,7 @@ const DRIP_EMAILS = {
   },
   day4_multiple: {
     subject: "How to Add 0.5x to Your Valuation Multiple",
-    html: (data: { name: string }) => `
+    html: (data: { name: string; valuationRange?: string }) => `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
         <div style="text-align: center; margin-bottom: 32px;">
           <h1 style="color: #0f172a; font-size: 24px; margin: 0;">Agency Appraiser</h1>
@@ -152,7 +152,7 @@ const DRIP_EMAILS = {
   },
   day7_duediligence: {
     subject: "What Buyers Look For in Due Diligence",
-    html: (data: { name: string }) => `
+    html: (data: { name: string; valuationRange?: string }) => `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
         <div style="text-align: center; margin-bottom: 32px;">
           <h1 style="color: #0f172a; font-size: 24px; margin: 0;">Agency Appraiser</h1>
