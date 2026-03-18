@@ -54,9 +54,9 @@ export async function GET() {
           GROUP BY risk_grade
           ORDER BY grade ASC
         `,
-        // Scope of sale breakdown — scope_of_sale is numeric, cast to text for display
+        // Scope of sale breakdown — scope_of_sale is numeric; cast to text AFTER grouping
         sql`
-          SELECT COALESCE(CAST(scope_of_sale AS text), 'unknown') AS scope, COUNT(*)::int AS count
+          SELECT scope_of_sale::text AS scope, COUNT(*)::int AS count
           FROM full_valuations
           GROUP BY scope_of_sale
           ORDER BY count DESC
@@ -75,10 +75,16 @@ export async function GET() {
       leadsPerMonth: leadsPerMonth.map((r) => ({ month: r.month, count: r.count })),
       avgValuationByMonth: avgValuationByMonth.map((r) => ({ month: r.month, avg: parseFloat(r.avg) })),
       riskGradeBreakdown: riskGrades,
-      scopeBreakdown: scopeBreakdown.map((r) => ({
-        scope: r.scope === "full_agency" ? "Full Agency" : r.scope === "book_only" ? "Book Only" : r.scope,
-        count: r.count,
-      })),
+      scopeBreakdown: scopeBreakdown.map((r) => {
+        const raw = r.scope ?? "unknown"
+        // scope_of_sale is stored as a numeric multiplier: 1.0 = Full Agency, 0.95 = Book Purchase, 0.9 = Fragmented
+        const label =
+          raw === "1" || raw === "1.0" ? "Full Agency" :
+          raw === "0.95" ? "Book Purchase" :
+          raw === "0.9" ? "Fragmented" :
+          raw === "unknown" || raw === "null" ? "Unknown" : raw
+        return { scope: label, count: r.count }
+      }),
       totalLeads: totals[0]?.total_leads ?? 0,
       totalValuations: totals[0]?.total_valuations ?? 0,
       avgMultiple: totals[0]?.avg_multiple ? parseFloat(totals[0].avg_multiple) : 0,

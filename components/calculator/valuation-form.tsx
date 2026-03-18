@@ -46,6 +46,52 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* 0. Agency Type */}
+      <Card className={inputs.agencyType === "captive" ? "border-destructive/50 bg-destructive/5" : ""}>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold text-foreground">
+            Is this a Captive or Independent Agency?
+            <InfoTip text="A captive agency is contracted exclusively with one carrier (e.g. State Farm, Allstate, Farmers). An independent agency can place business with multiple carriers. This is the single most important structural question for a buyer." />
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <RadioGroup
+            value={inputs.agencyType}
+            onValueChange={(v) => update({ agencyType: v as "independent" | "captive" })}
+            className="flex flex-col gap-2 sm:flex-row sm:gap-4"
+          >
+            {[
+              { value: "independent", label: "Independent Agency", sub: "Multi-carrier, can place anywhere" },
+              { value: "captive", label: "Captive Agency", sub: "Tied to one carrier (State Farm, Allstate, etc.)" },
+            ].map((opt) => (
+              <label
+                key={opt.value}
+                className={`flex flex-1 cursor-pointer items-start gap-3 rounded-md border px-4 py-3 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/10 ${
+                  opt.value === "captive" && inputs.agencyType === "captive"
+                    ? "border-destructive/50 bg-destructive/5 has-[data-state=checked]:border-destructive has-[data-state=checked]:bg-destructive/10"
+                    : "border-border"
+                }`}
+              >
+                <RadioGroupItem value={opt.value} className="mt-0.5 shrink-0" />
+                <span>
+                  <span className="block font-medium">{opt.label}</span>
+                  <span className="block text-xs text-muted-foreground">{opt.sub}</span>
+                </span>
+              </label>
+            ))}
+          </RadioGroup>
+          {inputs.agencyType === "captive" && (
+            <div className="mt-3 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2.5">
+              <span className="mt-0.5 shrink-0 text-destructive">&#9888;</span>
+              <p className="text-xs text-destructive leading-relaxed">
+                <span className="font-semibold">Captive agencies receive a 35% valuation discount.</span>{" "}
+                Carrier restrictions prevent free transfer of the book, require carrier approval on any sale, and significantly limit the pool of qualified buyers. Most acquirers prefer independent books.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* 1. Transaction Structure */}
       <Card>
         <CardHeader className="pb-3">

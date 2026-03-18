@@ -50,6 +50,7 @@ const defaultInputs: ValuationInputs = {
   sellerTransitionMonths: null,
   newBusinessValue: null,
   avgClientTenure: null,
+  agencyType: "",
 }
 
 const REQUIRED_FIELDS: { key: keyof ValuationInputs; label: string }[] = [

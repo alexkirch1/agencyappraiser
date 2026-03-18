@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { LogOut, Sun, Moon, BarChart3, FolderKanban, Settings, Users, TrendingUp } from "lucide-react"
+import { LogOut, Sun, Moon, BarChart3, FolderKanban, Settings, Users, TrendingUp, Briefcase } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/theme-provider"
 import { OverviewTab } from "@/components/admin/overview-tab"
@@ -9,6 +9,7 @@ import { HorizonTab } from "@/components/admin/horizon-tab"
 import { SettingsTab } from "@/components/admin/settings-tab"
 import { LeadsTab } from "@/components/admin/leads-tab"
 import { AnalyticsTab } from "@/components/admin/analytics-tab"
+import { DealsTab } from "@/components/admin/deals-tab"
 import { cn } from "@/lib/utils"
 
 export interface Deal {
@@ -30,6 +31,7 @@ const tabs = [
   { id: "overview", label: "Overview", icon: BarChart3 },
   { id: "analytics", label: "Analytics", icon: TrendingUp },
   { id: "leads", label: "Leads", icon: Users },
+  { id: "deals", label: "Deal Files", icon: Briefcase },
   { id: "horizon", label: "Horizon Pipeline", icon: FolderKanban },
   { id: "settings", label: "Settings", icon: Settings },
 ] as const
@@ -72,6 +74,21 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
   const clearAllDeals = () => {
     setDeals([])
+  }
+
+  const createDealFile = (lead: { name: string; agencyName?: string | null; valuation: number; premiumBase: number; details?: Record<string, unknown> }) => {
+    const deal: Deal = {
+      id: `deal-file-${Date.now()}`,
+      deal_name: lead.agencyName ?? lead.name,
+      deal_type: "full",
+      valuation: lead.valuation,
+      premium_base: lead.premiumBase,
+      status: "active",
+      date_saved: new Date().toISOString(),
+      details: lead.details ?? {},
+    }
+    setDeals((prev) => [deal, ...prev])
+    setActiveTab("deals")
   }
 
   return (
@@ -141,6 +158,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             onNavigateToPipeline={() => setActiveTab("horizon")}
             onAddDeal={addDeal}
             onUpdateDeal={updateDeal}
+            onCreateDealFile={createDealFile}
+          />
+        )}
+        {activeTab === "deals" && (
+          <DealsTab
+            deals={deals}
+            onUpdateDeal={updateDeal}
+            onDeleteDeal={deleteDeal}
           />
         )}
         {activeTab === "horizon" && (
