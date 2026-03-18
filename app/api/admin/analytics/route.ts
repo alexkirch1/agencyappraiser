@@ -11,7 +11,7 @@ async function isAuthed(): Promise<boolean> {
   try {
     const decoded = Buffer.from(token, "base64").toString()
     const parts = decoded.split(":")
-    return parts.length >= 3 && parts[2] === SESSION_SECRET
+    return parts.length >= 3 && parts.slice(2).join(":") === SESSION_SECRET
   } catch {
     return false
   }

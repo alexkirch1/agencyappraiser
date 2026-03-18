@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import useSWR from "swr"
 import { useAuth } from "@/lib/use-auth"
 import { AuthModal } from "@/components/auth/auth-modal"
 import { Card, CardContent } from "@/components/ui/card"
@@ -27,25 +28,22 @@ const RISK_COLORS: Record<string, string> = {
   "D": "text-destructive",
 }
 
+const fetcher = (url: string) => fetch(url).then(r => r.json())
+
 export default function MyValuationsPage() {
   const { user, loading } = useAuth()
   const [showAuth, setShowAuth] = useState(false)
-  const [valuations, setValuations] = useState<SavedValuation[]>([])
-  const [fetching, setFetching] = useState(false)
 
-  useEffect(() => {
-    if (!user) return
-    setFetching(true)
-    fetch("/api/valuations")
-      .then(r => r.json())
-      .then(d => setValuations(d.valuations ?? []))
-      .finally(() => setFetching(false))
-  }, [user])
+  const { data, isLoading: fetching, mutate } = useSWR<{ valuations: SavedValuation[] }>(
+    user ? "/api/valuations" : null,
+    fetcher
+  )
+  const valuations = data?.valuations ?? []
 
   const handleDelete = async (id: number) => {
     if (!confirm("Delete this valuation?")) return
     await fetch(`/api/valuations?id=${id}`, { method: "DELETE" })
-    setValuations(v => v.filter(x => x.id !== id))
+    mutate({ valuations: valuations.filter(x => x.id !== id) }, false)
   }
 
   if (loading) {
