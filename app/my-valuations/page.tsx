@@ -156,7 +156,7 @@ export default function MyValuationsPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Multiple</span>
                     <span className="text-xs font-medium text-foreground">
-                      {v.calculated_multiple ? `${v.calculated_multiple.toFixed(2)}x` : "—"}
+                      {v.calculated_multiple ? `${parseFloat(String(v.calculated_multiple)).toFixed(2)}x` : "—"}
                     </span>
                   </div>
                   {v.risk_grade && (
