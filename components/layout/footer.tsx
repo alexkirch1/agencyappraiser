@@ -45,8 +45,8 @@ export function Footer() {
                 {"Agency Appraiser. All rights reserved."}
               </p>
             </div>
-            <p className="shrink-0 font-mono text-[10px] text-muted-foreground/40" title="Build version and timestamp">
-              v{APP_VERSION} &bull; {BUILD_DATE.replace("T", " ")}
+            <p className="shrink-0 font-mono text-[10px] text-muted-foreground/40" title="Build version and timestamp" suppressHydrationWarning>
+              v{APP_VERSION} {" • "} {BUILD_DATE.replace("T", " ")}
             </p>
           </div>
         </div>
