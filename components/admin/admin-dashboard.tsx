@@ -18,7 +18,7 @@ export interface Deal {
   deal_type: "full" | "book"
   valuation: number
   premium_base: number
-  status: "active" | "completed" | "declined"
+  status: "active" | "under-contract" | "completed" | "declined"
   date_saved: string
   details?: Record<string, unknown>
 }
@@ -145,10 +145,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             deals={deals}
             onStatusChange={(id, status) => updateDeal(id, { status })}
             onDelete={deleteDeal}
-            onLoadDeal={(id) => {
+            onLoadDeal={(_id) => {
               setActiveTab("horizon")
-              // Could load deal data into horizon form here
-              console.log("Load deal:", id)
             }}
           />
         )}

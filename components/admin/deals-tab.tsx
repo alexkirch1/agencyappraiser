@@ -114,8 +114,8 @@ export function DealsTab({ deals, onUpdateDeal, onDeleteDeal }: DealsTabProps) {
 
   const setStatus = (status: DealStatus) => {
     if (!selectedDeal) return
-    onUpdateDeal(selectedDeal.id, { status: status === "under-contract" ? "active" : status as Deal["status"] })
-    setSelectedDeal((prev) => prev ? { ...prev, status: status === "under-contract" ? "active" : status as Deal["status"] } : null)
+    onUpdateDeal(selectedDeal.id, { status })
+    setSelectedDeal((prev) => prev ? { ...prev, status } : null)
   }
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -304,7 +304,6 @@ export function DealsTab({ deals, onUpdateDeal, onDeleteDeal }: DealsTabProps) {
                 <div className="flex flex-wrap gap-2">
                   {(Object.entries(STATUS_CONFIG) as [DealStatus, typeof STATUS_CONFIG[DealStatus]][]).map(([key, cfg]) => {
                     const Icon = cfg.icon
-                    const isActive = activeDeal.status === key || (key === "under-contract" && activeDeal.status === "active")
                     return (
                       <button
                         key={key}
