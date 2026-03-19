@@ -1,9 +1,94 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import Image from "next/image"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+
+interface Props {
+  onContinue: () => void
+}
+
+// Money-themed ASCII character set — one is randomly chosen per session
+const MONEY_CHARACTERS: { art: string[]; label: string }[] = [
+  {
+    label: "Accountant",
+    art: [
+      "  _____  ",
+      " /     \\ ",
+      "| o   o |",
+      "|  ___  |",
+      " \\_____/ ",
+      " |=====| ",
+      " | $   | ",
+      " |_____| ",
+    ],
+  },
+  {
+    label: "Gold Miner",
+    art: [
+      "   ___   ",
+      "  /   \\  ",
+      " | ^_^ | ",
+      "  \\___/  ",
+      "  /| |\\  ",
+      " / |_| \\ ",
+      "   /|\\   ",
+      "  / | \\  ",
+    ],
+  },
+  {
+    label: "Banker",
+    art: [
+      " _______",
+      "|       |",
+      "| $$$   |",
+      "|_______|",
+      "  |   |  ",
+      "  |   |  ",
+      " _|___|_ ",
+      "|_______|",
+    ],
+  },
+  {
+    label: "Stock Trader",
+    art: [
+      "  ,---,  ",
+      " /     \\ ",
+      "| ^   ^ |",
+      "|  ===  |",
+      " \\ ___ / ",
+      "  |   |  ",
+      " /|   |\\ ",
+      "  /\\ /\\  ",
+    ],
+  },
+  {
+    label: "Treasure Hunter",
+    art: [
+      "  .-\"\"-.  ",
+      " / .--. \\ ",
+      "| ( ** ) |",
+      " \\ '--' / ",
+      "  '-___-' ",
+      "  [ $$$ ] ",
+      "  [_____] ",
+      "    | |    ",
+    ],
+  },
+  {
+    label: "Insurance Broker",
+    art: [
+      "  _____  ",
+      " /     \\ ",
+      "| o . o |",
+      "|  ~~~  |",
+      " \\_____/ ",
+      "  | ^ |  ",
+      " /|   |\\ ",
+      "  /   \\  ",
+    ],
+  },
+]
 
 interface Props {
   onContinue: () => void
@@ -12,6 +97,10 @@ interface Props {
 export function ValuationDisclaimerModal({ onContinue }: Props) {
   const [progress, setProgress] = useState(0)
   const [ready, setReady] = useState(false)
+  const characterRef = useRef(
+    MONEY_CHARACTERS[Math.floor(Math.random() * MONEY_CHARACTERS.length)]
+  )
+  const character = characterRef.current
 
   useEffect(() => {
     const duration = 3500
@@ -32,11 +121,11 @@ export function ValuationDisclaimerModal({ onContinue }: Props) {
   }, [])
 
   const messages = [
-    "Climbing the data peaks...",
     "Analyzing revenue streams...",
     "Scoring risk categories...",
+    "Weighing book quality...",
     "Crunching the numbers...",
-    "Almost at the summit...",
+    "Finalizing your report...",
   ]
   const messageIndex = Math.min(Math.floor(progress / 20), messages.length - 1)
 
@@ -44,23 +133,19 @@ export function ValuationDisclaimerModal({ onContinue }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <Card className="w-full max-w-md border-border bg-card shadow-2xl overflow-hidden">
         <CardContent className="flex flex-col items-center p-8 text-center">
-          {/* Mountain Goat */}
+          {/* ASCII money character */}
           <div
-            className="relative mb-6"
+            className="mb-6 flex flex-col items-center"
             style={{
-              animation: ready ? "none" : "goat-bob 2s ease-in-out infinite",
+              animation: ready ? "none" : "char-bob 2s ease-in-out infinite",
             }}
           >
-            <div className="relative h-28 w-28 overflow-hidden rounded-xl border border-border bg-secondary">
-              <Image
-                src="/images/mountain-goat.jpg"
-                alt="Mountain goat mascot"
-                fill
-                sizes="112px"
-                className="object-cover"
-                priority
-              />
+            <div className="rounded-xl border border-border bg-secondary px-6 py-4 font-mono text-xs leading-snug text-foreground select-none">
+              {character.art.map((line, i) => (
+                <div key={i}>{line}</div>
+              ))}
             </div>
+            <p className="mt-2 text-[11px] text-muted-foreground tracking-wide uppercase">{character.label}</p>
           </div>
 
           {/* Progress bar and message */}
@@ -103,7 +188,7 @@ export function ValuationDisclaimerModal({ onContinue }: Props) {
 
       {/* Keyframe animations */}
       <style jsx>{`
-        @keyframes goat-bob {
+        @keyframes char-bob {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-6px); }
         }

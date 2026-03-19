@@ -84,11 +84,17 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
   const cashAmount = adjustedValue * (cashPct / 100)
   const earnoutTotal = adjustedValue * (earnoutPct / 100)
 
-  // Earnout per year is calculated from projected commissions × commission rate
-  // (not just earnoutTotal / years — this is the commission-based model)
-  const annualCommissionPayment = projected * commissionRate
-  const earnoutPerYear = earnoutYears > 0 ? Math.min(annualCommissionPayment, earnoutTotal / earnoutYears) : 0
-  const commissionBasedTotal = annualCommissionPayment * earnoutYears
+  // Build per-year earnout payments using the actual commission trajectory.
+  // Year 1: current LTM revenue × commission rate
+  // Year 2: projected next-year revenue × commission rate (grows with trajectory)
+  // The slider commission rate applies to the REVENUE each year, not the earnout total.
+  const ltmRevenue = revenueLTM ?? 0
+  const growthRate = growthPct / 100   // e.g. 0.10 for strong growth
+  const perYearPayments: number[] = Array.from({ length: earnoutYears }, (_, i) => {
+    const yearRevenue = ltmRevenue * Math.pow(1 + growthRate, i + 1)
+    return yearRevenue * commissionRate
+  })
+  const commissionBasedTotal = perYearPayments.reduce((a, b) => a + b, 0)
 
   const handleStrategyClick = (strategy: Strategy) => {
     setActiveStrategy(strategy)
@@ -235,20 +241,35 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
 
             {/* Per-year breakdown */}
             <div className="rounded-md bg-card border border-border divide-y divide-border">
-              {Array.from({ length: earnoutYears }).map((_, i) => (
-                <div key={i} className="flex items-center justify-between px-3 py-2">
-                  <span className="text-xs text-muted-foreground">Year {i + 1} earnout payment</span>
-                  <span className="text-sm font-semibold text-foreground">{formatCurrency(earnoutPerYear)}</span>
-                </div>
-              ))}
+              {perYearPayments.map((payment, i) => {
+                const yearRevenue = ltmRevenue * Math.pow(1 + growthRate, i + 1)
+                return (
+                  <div key={i} className="flex flex-col px-3 py-2.5 gap-0.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">Year {i + 1} earnout payment</span>
+                      <span className="text-sm font-semibold text-foreground">{formatCurrency(payment)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-muted-foreground/70">
+                        {formatCurrency(yearRevenue)} rev × {commissionRatePct}%
+                      </span>
+                      {growthPct !== 0 && i > 0 && (
+                        <span className={`text-[11px] ${growthPct > 0 ? "text-[hsl(var(--success))]" : "text-destructive"}`}>
+                          {growthPct > 0 ? "+" : ""}{growthPct.toFixed(1)}% vs Y{i}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
               <div className="flex items-center justify-between px-3 py-2 bg-primary/5">
                 <span className="text-xs font-semibold text-foreground">Est. Total Earnout</span>
-                <span className="text-sm font-bold text-primary">{formatCurrency(Math.min(earnoutTotal, commissionBasedTotal))}</span>
+                <span className="text-sm font-bold text-primary">{formatCurrency(commissionBasedTotal)}</span>
               </div>
             </div>
 
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Based on <span className="font-semibold text-foreground">{commissionRatePct}% of projected annual commissions</span> from the acquired book, paid over {earnoutYears} {earnoutYears === 1 ? "year" : "years"}.
+              Each year&apos;s payment is <span className="font-semibold text-foreground">{commissionRatePct}% of that year&apos;s projected commission revenue</span>, compounded at the current trajectory ({growthPct >= 0 ? "+" : ""}{growthPct.toFixed(1)}%/yr).
             </p>
 
             {/* Disclaimer warning */}

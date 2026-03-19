@@ -7,6 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { InfoTip } from "@/components/ui/info-tip"
+import { AlertTriangle } from "lucide-react"
 import type { ValuationInputs } from "./valuation-engine"
 
 const US_STATES = [
@@ -53,7 +54,53 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
             1. Transaction Structure & Risk
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-5">
+          {/* Captive vs Independent — must be answered first */}
+          <div>
+            <Label className="mb-3 block text-sm text-muted-foreground">
+              {requiredStar("Agency Type")}
+              <InfoTip text="Captive agents (State Farm, Allstate, Farmers, etc.) are contracted to write for a single carrier and do not own their book of business. Independent agents own their book and can transfer it. This is the single most important factor in determining whether an acquisition is possible." />
+            </Label>
+            <RadioGroup
+              value={inputs.isCaptive === null ? "" : inputs.isCaptive ? "captive" : "independent"}
+              onValueChange={(v) => update({ isCaptive: v === "captive" })}
+              className="flex flex-col gap-2 sm:flex-row sm:gap-4"
+            >
+              {[
+                { value: "independent", label: "Independent Agent", sub: "I own my book of business" },
+                { value: "captive",     label: "Captive Agent",      sub: "State Farm, Allstate, Farmers, etc." },
+              ].map((opt) => (
+                <label
+                  key={opt.value}
+                  className={`flex cursor-pointer items-center gap-2 rounded-md border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/10 ${
+                    isInvalid("isCaptive") ? "border-destructive" : "border-border"
+                  }`}
+                >
+                  <RadioGroupItem value={opt.value} />
+                  <span>
+                    <span className="font-medium">{opt.label}</span>
+                    <span className="ml-2 text-xs text-muted-foreground">{opt.sub}</span>
+                  </span>
+                </label>
+              ))}
+            </RadioGroup>
+
+            {/* Captive warning banner */}
+            {inputs.isCaptive === true && (
+              <div className="mt-3 flex items-start gap-2.5 rounded-md border border-warning/40 bg-warning/8 px-4 py-3">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[hsl(var(--warning))]" />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Captive agencies cannot be independently sold.</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                    As a captive agent, the carrier owns your book of business. A traditional acquisition is not possible without carrier approval. Your valuation will be shown for informational purposes only, and is capped at 1.0–1.5x revenue. Contact us to discuss your options.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Scope of Sale */}
+          <div>
           <Label className="mb-3 block text-sm text-muted-foreground">{requiredStar("Scope of Sale")}<InfoTip text="Are you selling the entire agency (staff, brand, systems, and book), just a book of business, or select accounts? Full agency sales include everything." /></Label>
           <RadioGroup
             value={inputs.scopeOfSale != null ? String(inputs.scopeOfSale) : ""}
@@ -77,6 +124,7 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
             ))}
           </RadioGroup>
           {isInvalid("scopeOfSale") && <p className="mt-1 text-xs text-destructive">Please select a scope of sale</p>}
+          </div>
         </CardContent>
       </Card>
 

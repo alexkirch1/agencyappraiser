@@ -3,6 +3,8 @@
 // =====================================================
 
 export interface ValuationInputs {
+  // Captive flag — captive agents cannot be purchased; their book has very limited value
+  isCaptive: boolean | null // true = captive agent (State Farm, Allstate, etc.)
   scopeOfSale: number | null // 1.0 = Full Agency, 0.95 = Book Purchase, 0.9 = Fragmented
   yearEstablished: number | null
   primaryState: string
@@ -104,12 +106,35 @@ function analyzeRevenueTrend(revLTM: number, revY2: number | null, revY3: number
 export function calculateValuation(inputs: ValuationInputs): ValuationResults | null {
   const TRANSACTION_MULTIPLIER = inputs.scopeOfSale ?? 1.0
   const isFullAgency = TRANSACTION_MULTIPLIER === 1.0
+  const isCaptive = inputs.isCaptive === true
 
   const revLTM = inputs.revenueLTM
   const sde = inputs.sdeEbitda
 
   if (revLTM === null || sde === null || revLTM <= 0) {
     return null
+  }
+
+  // Captive agents: We cannot purchase the agency outright (it belongs to the carrier).
+  // Their transferable book value is limited to 1.0–1.5x — typically 1.0–1.2x.
+  // Return early with a capped result so the UI can flag this clearly.
+  if (isCaptive) {
+    const captiveMultiple = Math.min(1.2, Math.max(1.0, 1.0 + (sde / revLTM) * 0.5))
+    const captiveDiscount = 0.22
+    const rawHigh = revLTM * captiveMultiple
+    const rawLow  = revLTM * (captiveMultiple - 0.2)
+    return {
+      lowOffer:              Math.max(0, rawLow) * (1 - captiveDiscount),
+      highOffer:             rawHigh * (1 - captiveDiscount),
+      coreScore:             captiveMultiple,
+      calculatedMultiple:    captiveMultiple * TRANSACTION_MULTIPLIER,
+      transactionMultiplier: TRANSACTION_MULTIPLIER,
+      longevityAdjustment:   "Captive",
+      cagr:                  0,
+      revenueRange:          `${formatCurrency(revLTM * 1.0)} - ${formatCurrency(revLTM * 1.5)}`,
+      sdeRange:              sde ? `${formatCurrency(sde * 3.0)} - ${formatCurrency(sde * 5.0)}` : "---",
+      riskLevel:             { text: "CAPTIVE", color: "text-[hsl(var(--warning))]" },
+    }
   }
 
   const yearEstablished = inputs.yearEstablished
@@ -333,6 +358,18 @@ export function runRiskAudit(inputs: ValuationInputs): RiskAuditResult {
   let highCount = 0
   let moderateCount = 0
   let strengthCount = 0
+
+  // Captive agent — flag immediately at the top of the audit
+  if (inputs.isCaptive === true) {
+    items.push({
+      level: "Severe Risk",
+      title: "Captive Agent — Book Cannot Be Independently Sold",
+      problem: "Captive agents (State Farm, Allstate, Farmers, etc.) do not own their book of business — the carrier does. The agency itself cannot be purchased in a traditional acquisition.",
+      psychology: "Buyers understand that captive books carry limited transferability. Carrier approval is required and rarely granted.",
+      mitigation: "If you are exploring options, the most common paths are: (1) releasing clients to an independent agency, or (2) negotiating a carrier buyout. Valuation is capped at 1.0–1.5x revenue in any scenario.",
+    })
+    severeCount++
+  }
 
   const revLTM = inputs.revenueLTM ?? 0
   const revY2 = inputs.revenueY2
