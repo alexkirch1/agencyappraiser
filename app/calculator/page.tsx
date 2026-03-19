@@ -339,7 +339,14 @@ function CalculatorContent() {
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <DealSimulator highOffer={results.highOffer} coreScore={results.coreScore} />
+                  <DealSimulator
+                    highOffer={results.highOffer}
+                    coreScore={results.coreScore}
+                    revenueLTM={inputs.revenueLTM}
+                    revenueY2={inputs.revenueY2}
+                    revenueY3={inputs.revenueY3}
+                    revenueGrowthTrend={inputs.revenueGrowthTrend}
+                  />
                 </CardContent>
               </Card>
             </div>

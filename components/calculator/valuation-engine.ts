@@ -273,21 +273,41 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
   }
 
   // --- FINAL RESULTS ---
-  let scaledCoreScore = 0.75
+  // Sweet-spot range: 0.75–1.75 (a 3.0 is reserved for truly exceptional agencies).
+  // We scale raw scores so the *center of gravity* lands in 0.75–1.75.
+  // Only agencies with an unusually high raw score break above 1.75.
   const desiredMin = 0.75
-  const desiredMax = 3.0
+  const desiredSweetSpotMax = 1.75
+  const desiredAbsoluteMax = 3.0
 
+  // Map raw score into 0.75–1.75 for typical agencies.
+  // A raw score that previously mapped to 3.0 now maps to ~2.2 (exceptional but plausible).
+  // Scores must be extraordinary to push above 2.0.
+  let scaledCoreScore = desiredMin
   if (totalRawScore > 0) {
-    scaledCoreScore = desiredMin + totalRawScore * 1.5
+    // Compress the upper range: steeper below 1.75, more resistance above
+    const rawMapped = desiredMin + totalRawScore * 1.1 // tighter multiplier than 1.5
+    if (rawMapped <= desiredSweetSpotMax) {
+      scaledCoreScore = rawMapped
+    } else {
+      // Diminishing returns above sweet-spot ceiling
+      const overage = rawMapped - desiredSweetSpotMax
+      scaledCoreScore = desiredSweetSpotMax + overage * 0.45
+    }
   }
-  if (scaledCoreScore < desiredMin) scaledCoreScore = desiredMin
-  if (scaledCoreScore > desiredMax) scaledCoreScore = desiredMax
+  scaledCoreScore = Math.max(desiredMin, Math.min(desiredAbsoluteMax, scaledCoreScore))
 
   const finalMultiple = scaledCoreScore * TRANSACTION_MULTIPLIER
 
-  let highOffer = revLTM * finalMultiple
-  let lowOffer = revLTM * (finalMultiple - 0.25)
-  lowOffer = Math.max(0, lowOffer)
+  // Apply a 20–25% customer attrition discount to the offer band.
+  // This reflects the real-world expectation that a buyer will lose some clients
+  // through the transition, so the offer should price that risk in.
+  const CUSTOMER_LOSS_DISCOUNT = 0.22 // midpoint of 20–25%
+  const rawHighOffer = revLTM * finalMultiple
+  const rawLowOffer = revLTM * (finalMultiple - 0.25)
+
+  const highOffer = rawHighOffer * (1 - CUSTOMER_LOSS_DISCOUNT)
+  let lowOffer = Math.max(0, rawLowOffer) * (1 - CUSTOMER_LOSS_DISCOUNT)
   if (lowOffer > highOffer) lowOffer = highOffer * 0.9
 
   return {
@@ -298,7 +318,7 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
     transactionMultiplier: TRANSACTION_MULTIPLIER,
     longevityAdjustment: longevityAdj,
     cagr: CAGR,
-    revenueRange: `${formatCurrency(revLTM * 0.75)} - ${formatCurrency(revLTM * 3.0)}`,
+    revenueRange: `${formatCurrency(revLTM * 0.75)} - ${formatCurrency(revLTM * desiredSweetSpotMax)}`,
     sdeRange: sde ? `${formatCurrency(sde * 5.0)} - ${formatCurrency(sde * 9.0)}` : "---",
     riskLevel: getRiskLevel(finalMultiple),
   }

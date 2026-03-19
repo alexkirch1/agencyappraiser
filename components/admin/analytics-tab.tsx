@@ -78,7 +78,7 @@ export function AnalyticsTab() {
     )
   }
 
-  if (!data) {
+  if (!data || typeof data.totalLeads !== "number") {
     return <p className="py-12 text-center text-sm text-muted-foreground">Failed to load analytics.</p>
   }
 

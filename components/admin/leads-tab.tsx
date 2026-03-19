@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Users, TrendingUp, Calculator, ClipboardCheck, DollarSign, RefreshCw, FolderKanban, Trophy, X, ChevronRight, ExternalLink } from "lucide-react"
+import { Users, TrendingUp, Calculator, ClipboardCheck, DollarSign, RefreshCw, FolderKanban, Trophy, X, ChevronRight, ExternalLink, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CompleteDealModal } from "@/components/admin/complete-deal-modal"
 import { useMarketIntel } from "@/lib/use-market-intel"
@@ -131,7 +131,27 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
   const [error, setError] = useState<string | null>(null)
   const [viewingLead, setViewingLead] = useState<LeadRow | null>(null)
   const [wonDeal, setWonDeal] = useState<Deal | null>(null)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
   const { mutate: mutateIntel } = useMarketIntel()
+
+  const deleteLead = async (id: number) => {
+    if (!confirm("Permanently delete this lead and all associated data? This cannot be undone.")) return
+    setDeletingId(id)
+    try {
+      const res = await fetch("/api/admin/leads", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      })
+      if (!res.ok) throw new Error("Failed to delete")
+      setLeads((prev) => prev.filter((l) => l.id !== id))
+      setViewingLead(null)
+    } catch {
+      alert("Failed to delete lead. Please try again.")
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const fetchLeads = async () => {
     setLoading(true)
@@ -452,12 +472,36 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
               )}
 
               {/* Quiz */}
-              {viewingLead.quiz_grade && (
-                <Section label="Quiz Results">
-                  <Row label="Grade" value={viewingLead.quiz_grade} />
-                  <Row label="Score" value={viewingLead.total_score != null && viewingLead.max_score != null ? `${viewingLead.total_score} / ${viewingLead.max_score}` : null} />
-                  <Row label="Percentage" value={viewingLead.quiz_pct ? `${fmtStat(viewingLead.quiz_pct)}%` : null} />
-                </Section>
+              {(viewingLead.quiz_grade || viewingLead.quiz_answers) && (
+                <div>
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quiz Results</p>
+                  <div className="divide-y divide-border rounded-lg border border-border bg-secondary/20">
+                    {viewingLead.quiz_grade && (
+                      <div className="flex items-center justify-between px-4 py-2.5 text-sm">
+                        <span className="text-muted-foreground">Grade</span>
+                        <span className="font-bold text-foreground">{viewingLead.quiz_grade}</span>
+                      </div>
+                    )}
+                    {viewingLead.total_score != null && viewingLead.max_score != null && (
+                      <div className="flex items-center justify-between px-4 py-2.5 text-sm">
+                        <span className="text-muted-foreground">Score</span>
+                        <span className="font-medium text-foreground">{viewingLead.total_score} / {viewingLead.max_score}</span>
+                      </div>
+                    )}
+                    {viewingLead.quiz_pct && (
+                      <div className="flex items-center justify-between px-4 py-2.5 text-sm">
+                        <span className="text-muted-foreground">Percentage</span>
+                        <span className="font-medium text-foreground">{fmtStat(viewingLead.quiz_pct)}%</span>
+                      </div>
+                    )}
+                    {viewingLead.quiz_answers && Object.entries(viewingLead.quiz_answers).map(([question, answer], idx) => (
+                      <div key={idx} className="flex flex-col gap-0.5 px-4 py-2.5 text-sm">
+                        <span className="text-[11px] text-muted-foreground leading-snug">{`Q${idx + 1}: ${question}`}</span>
+                        <span className="font-medium text-foreground break-words">{String(answer)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
 
               {/* Pipedrive link */}
@@ -477,6 +521,16 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
 
             {/* Drawer footer */}
             <div className="border-t border-border px-6 py-4 flex gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                disabled={deletingId === viewingLead.id}
+                onClick={() => deleteLead(viewingLead.id)}
+              >
+                <Trash2 className="h-4 w-4" />
+                {deletingId === viewingLead.id ? "Deleting…" : "Delete"}
+              </Button>
               <Button
                 className="flex-1 gap-2 bg-success hover:bg-success/90 text-white border-0"
                 onClick={() => {

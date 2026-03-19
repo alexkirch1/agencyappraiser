@@ -105,3 +105,25 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to fetch leads" }, { status: 500 })
   }
 }
+
+export async function DELETE(request: Request) {
+  if (!(await isAuthenticated())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  try {
+    const { id } = await request.json()
+    if (!id || isNaN(Number(id))) {
+      return NextResponse.json({ error: "Invalid lead id" }, { status: 400 })
+    }
+    // Cascade: delete child rows first, then the lead
+    await sql`DELETE FROM full_valuations  WHERE lead_id = ${Number(id)}`
+    await sql`DELETE FROM quick_valuations WHERE lead_id = ${Number(id)}`
+    await sql`DELETE FROM quiz_submissions  WHERE lead_id = ${Number(id)}`
+    await sql`DELETE FROM leads WHERE id = ${Number(id)}`
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    console.error("[v0] admin leads delete error:", err)
+    return NextResponse.json({ error: "Failed to delete lead" }, { status: 500 })
+  }
+}
