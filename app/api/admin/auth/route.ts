@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 
-const ADMIN_USER = process.env.ADMIN_USER || "admin"
-const ADMIN_PASS = process.env.ADMIN_PASS || "admin"
+const ADMIN_USER = process.env.ADMIN_USERNAME || process.env.ADMIN_USER || "admin"
+const ADMIN_PASS = process.env.ADMIN_PASSWORD || process.env.ADMIN_PASS || "admin"
 const SESSION_SECRET = process.env.SESSION_SECRET || "agency-appraiser-admin-secret-2024"
 
 function generateToken(username: string): string {

@@ -85,8 +85,7 @@ async function getPipedriveCustomFields(): Promise<Record<string, string>> {
     )
     const json = await res.json()
     if (!json.success || !json.data) {
-      console.log("[v0] Pipedrive dealFields response:", JSON.stringify(json).slice(0, 500))
-      return {}
+        return {}
     }
 
     const map: Record<string, string> = {}
@@ -125,13 +124,6 @@ async function getPipedriveCustomFields(): Promise<Record<string, string>> {
       const key = findField(patterns)
       if (key) map[logicalKey] = key
     }
-
-    console.log("[v0] Pipedrive field mapping result:", JSON.stringify(map))
-    console.log("[v0] Available custom fields:", fields
-      .filter(f => /^[a-f0-9]{40}$/.test(f.key))
-      .map(f => `${f.name} (${f.key})`)
-      .join(", ")
-    )
 
     cachedFieldMap = map
     return map
@@ -176,7 +168,7 @@ async function createPipedriveDeal(params: {
       }
     }
 
-    console.log("[v0] Creating Pipedrive deal with body:", JSON.stringify(dealBody))
+
 
     const res = await fetch(
       `https://${PIPEDRIVE_DOMAIN}.pipedrive.com/api/v1/deals?api_token=${PIPEDRIVE_TOKEN}`,
@@ -187,8 +179,7 @@ async function createPipedriveDeal(params: {
       }
     )
     const json = await res.json()
-    if (!json.success || !json.data?.id) {
-      console.log("[v0] Pipedrive deal creation failed:", JSON.stringify(json).slice(0, 500))
+      if (!json.success || !json.data?.id) {
       return null
     }
     const dealId = json.data.id
@@ -275,8 +266,7 @@ ${data.valuationSummary}
         `,
       }),
     })
-    const adminResJson = await adminRes.json()
-    console.log("[v0] Resend admin email response:", adminRes.status, JSON.stringify(adminResJson))
+    await adminRes.json()
 
     // Send confirmation copy to the user
     const userRes = await fetch("https://api.resend.com/emails", {
@@ -316,8 +306,7 @@ ${data.valuationSummary}
         `,
       }),
     })
-    const userResJson = await userRes.json()
-    console.log("[v0] Resend user email response:", userRes.status, JSON.stringify(userResJson))
+    await userRes.json()
   } catch (err) {
     console.error("[v0] Email send failed:", err)
   }
@@ -392,8 +381,6 @@ export async function POST(req: Request) {
           }
           // Note: "source" is intentionally omitted — Pipedrive's "origin" field is system-generated and cannot be set via the API
         }
-        console.log("[v0] Custom fields to send:", JSON.stringify(customFields))
-
         const dealId = await createPipedriveDeal({
           title: dealTitle,
           personId,
