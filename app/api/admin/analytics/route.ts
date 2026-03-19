@@ -11,7 +11,7 @@ async function isAuthed(): Promise<boolean> {
   try {
     const decoded = Buffer.from(token, "base64").toString()
     const parts = decoded.split(":")
-    return parts.length >= 3 && parts[2] === SESSION_SECRET
+    return parts.length >= 3 && parts.slice(2).join(":") === SESSION_SECRET
   } catch {
     return false
   }
@@ -39,7 +39,7 @@ export async function GET() {
         sql`
           SELECT TO_CHAR(created_at, 'Mon YY') AS month,
                  DATE_TRUNC('month', created_at) AS month_order,
-                 ROUND(AVG(calculated_multiple)::numeric, 2) AS avg
+                 ROUND(AVG(calculated_multiple), 2) AS avg
           FROM full_valuations
           WHERE calculated_multiple IS NOT NULL
           GROUP BY month, month_order
@@ -54,9 +54,9 @@ export async function GET() {
           GROUP BY risk_grade
           ORDER BY grade ASC
         `,
-        // Scope of sale breakdown
+        // Scope of sale breakdown — scope_of_sale is numeric; cast to text AFTER grouping
         sql`
-          SELECT COALESCE(scope_of_sale, 'unknown') AS scope, COUNT(*)::int AS count
+          SELECT scope_of_sale::text AS scope, COUNT(*)::int AS count
           FROM full_valuations
           GROUP BY scope_of_sale
           ORDER BY count DESC
@@ -66,8 +66,8 @@ export async function GET() {
           SELECT
             (SELECT COUNT(*) FROM leads)::int AS total_leads,
             (SELECT COUNT(*) FROM full_valuations)::int AS total_valuations,
-            (SELECT ROUND(AVG(calculated_multiple)::numeric, 2) FROM full_valuations WHERE calculated_multiple IS NOT NULL) AS avg_multiple,
-            (SELECT ROUND(AVG(revenue_ltm)::numeric, 0) FROM full_valuations WHERE revenue_ltm IS NOT NULL) AS avg_revenue_ltm
+            (SELECT ROUND(AVG(calculated_multiple), 2) FROM full_valuations WHERE calculated_multiple IS NOT NULL) AS avg_multiple,
+            (SELECT ROUND(AVG(revenue_ltm), 0) FROM full_valuations WHERE revenue_ltm IS NOT NULL) AS avg_revenue_ltm
         `,
       ])
 
@@ -75,10 +75,16 @@ export async function GET() {
       leadsPerMonth: leadsPerMonth.map((r) => ({ month: r.month, count: r.count })),
       avgValuationByMonth: avgValuationByMonth.map((r) => ({ month: r.month, avg: parseFloat(r.avg) })),
       riskGradeBreakdown: riskGrades,
-      scopeBreakdown: scopeBreakdown.map((r) => ({
-        scope: r.scope === "full_agency" ? "Full Agency" : r.scope === "book_only" ? "Book Only" : r.scope,
-        count: r.count,
-      })),
+      scopeBreakdown: scopeBreakdown.map((r) => {
+        const raw = r.scope ?? "unknown"
+        // scope_of_sale is stored as a numeric multiplier: 1.0 = Full Agency, 0.95 = Book Purchase, 0.9 = Fragmented
+        const label =
+          raw === "1" || raw === "1.0" ? "Full Agency" :
+          raw === "0.95" ? "Book Purchase" :
+          raw === "0.9" ? "Fragmented" :
+          raw === "unknown" || raw === "null" ? "Unknown" : raw
+        return { scope: label, count: r.count }
+      }),
       totalLeads: totals[0]?.total_leads ?? 0,
       totalValuations: totals[0]?.total_valuations ?? 0,
       avgMultiple: totals[0]?.avg_multiple ? parseFloat(totals[0].avg_multiple) : 0,

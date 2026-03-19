@@ -714,6 +714,7 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
 
   const statusColors: Record<Deal["status"], string> = {
     active: "text-success",
+    "under-contract": "text-[hsl(var(--warning))]",
     completed: "text-primary",
     declined: "text-destructive",
   }

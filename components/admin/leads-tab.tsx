@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Users, TrendingUp, Calculator, ClipboardCheck, DollarSign, RefreshCw, FolderKanban, Trophy, X, ChevronRight, ExternalLink } from "lucide-react"
+import { Users, TrendingUp, Calculator, ClipboardCheck, DollarSign, RefreshCw, FolderKanban, Trophy, X, ChevronRight, ExternalLink, Briefcase } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CompleteDealModal } from "@/components/admin/complete-deal-modal"
 import { useMarketIntel } from "@/lib/use-market-intel"
@@ -122,9 +122,10 @@ interface LeadsTabProps {
   onNavigateToPipeline?: () => void
   onAddDeal?: (deal: Deal) => void
   onUpdateDeal?: (id: string, updates: Partial<Deal>) => void
+  onCreateDealFile?: (lead: { name: string; agencyName?: string | null; valuation: number; premiumBase: number; details?: Record<string, unknown> }) => void
 }
 
-export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdateDeal }: LeadsTabProps) {
+export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdateDeal, onCreateDealFile }: LeadsTabProps) {
   const [leads, setLeads] = useState<LeadRow[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -477,6 +478,33 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
 
             {/* Drawer footer */}
             <div className="border-t border-border px-6 py-4 flex gap-3">
+              {onCreateDealFile && (
+                <Button
+                  variant="outline"
+                  className="flex-1 gap-2"
+                  onClick={() => {
+                    const lead = viewingLead
+                    const valuation = parseFloat(lead.estimated_value ?? lead.quick_mid ?? "0") || 0
+                    const premiumBase = parseFloat(lead.revenue_ltm ?? lead.quick_revenue ?? "0") || 0
+                    onCreateDealFile({
+                      name: lead.name,
+                      agencyName: lead.agency_name,
+                      valuation,
+                      premiumBase,
+                      details: {
+                        riskGrade: lead.risk_grade ?? lead.quiz_grade,
+                        multiple: lead.calculated_multiple ? parseFloat(lead.calculated_multiple) : null,
+                        notes: null,
+                        documents: [],
+                      },
+                    })
+                    setViewingLead(null)
+                  }}
+                >
+                  <Briefcase className="h-4 w-4" />
+                  Create Deal File
+                </Button>
+              )}
               <Button
                 className="flex-1 gap-2 bg-success hover:bg-success/90 text-white border-0"
                 onClick={() => {

@@ -95,6 +95,7 @@ function getFullValGap(retention: string, bookType: string, growth: string): num
 
 export default function QuickValuePage() {
   const [revenue, setRevenue] = useState<number | null>(null)
+  const [agencyType, setAgencyType] = useState<string>("")
   const [retention, setRetention] = useState<string>("")
   const [bookType, setBookType] = useState<string>("")
   const [customers, setCustomers] = useState<number | null>(null)
@@ -164,8 +165,14 @@ export default function QuickValuePage() {
     const tier = getTier(retention, bookType, revenue, growth, ratio)
     const gap  = getFullValGap(retention, bookType, growth)
 
-    return { value, lowValue, highValue, suggested, tier, gap, ratio }
-  }, [revenue, retention, bookType, multiplier, customers, policies, growth])
+    // Captive discount: 35% reduction
+    const captiveMultiplier = agencyType === "captive" ? 0.65 : 1.0
+    const finalValue    = naturalRound(value    * captiveMultiplier)
+    const finalLowValue = naturalRound(lowValue  * captiveMultiplier)
+    const finalHighValue= naturalRound(highValue * captiveMultiplier)
+
+    return { value: finalValue, lowValue: finalLowValue, highValue: finalHighValue, suggested, tier, gap, ratio }
+  }, [revenue, agencyType, retention, bookType, multiplier, customers, policies, growth])
 
   const tierInfo = estimate ? TIER_MESSAGES[estimate.tier] : null
 
@@ -185,11 +192,57 @@ export default function QuickValuePage() {
       <div className="grid gap-6 lg:grid-cols-5">
         {/* Left: Inputs */}
         <div className="flex flex-col gap-5 lg:col-span-3">
+          {/* Agency Type */}
+          <Card className={`border bg-card ${agencyType === "captive" ? "border-destructive/50" : "border-border"}`}>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold text-foreground">
+                1. Is this a captive or independent agency?
+                <InfoTip text="A captive agency is tied to one carrier (State Farm, Allstate, Farmers, etc.). An independent can place business with multiple carriers. This dramatically affects buyer demand and valuation." />
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RadioGroup
+                value={agencyType}
+                onValueChange={setAgencyType}
+                className="flex flex-col gap-2 sm:flex-row sm:gap-3"
+              >
+                {[
+                  { value: "independent", label: "Independent", sub: "Multi-carrier" },
+                  { value: "captive", label: "Captive", sub: "One carrier only" },
+                ].map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={`flex flex-1 cursor-pointer items-start gap-2 rounded-lg border px-4 py-3 text-sm text-foreground transition-colors hover:border-muted-foreground/40 has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/5 ${
+                      opt.value === "captive" && agencyType === "captive"
+                        ? "border-destructive/50 has-[data-state=checked]:border-destructive has-[data-state=checked]:bg-destructive/5"
+                        : "border-border"
+                    }`}
+                  >
+                    <RadioGroupItem value={opt.value} className="mt-0.5 shrink-0" />
+                    <span>
+                      <span className="block font-medium">{opt.label}</span>
+                      <span className="block text-xs text-muted-foreground">{opt.sub}</span>
+                    </span>
+                  </label>
+                ))}
+              </RadioGroup>
+              {agencyType === "captive" && (
+                <div className="mt-3 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2.5">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                  <p className="text-xs text-destructive leading-relaxed">
+                    <span className="font-semibold">35% captive discount applied.</span>{" "}
+                    Carrier restrictions limit transferability and buyer options.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Revenue */}
           <Card className="border border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold text-foreground">
-                1. What is your annual revenue?<InfoTip text="Your total commission and fee income for the last 12 months. Include all revenue sources -- this is the number your multiple gets applied to." />
+                2. What is your annual revenue?<InfoTip text="Your total commission and fee income for the last 12 months. Include all revenue sources -- this is the number your multiple gets applied to." />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -211,7 +264,7 @@ export default function QuickValuePage() {
           <Card className="border border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold text-foreground">
-                2. How is your client retention?<InfoTip text="What percentage of your clients renew each year? Check your management system for your actual renewal rate." />
+                3. How is your client retention?<InfoTip text="What percentage of your clients renew each year? Check your management system for your actual renewal rate." />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -241,7 +294,7 @@ export default function QuickValuePage() {
           <Card className="border border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold text-foreground">
-                3. What does your book primarily consist of?<InfoTip text="Is the majority of your premium in commercial policies, personal lines, or a mix of both?" />
+                4. What does your book primarily consist of?<InfoTip text="Is the majority of your premium in commercial policies, personal lines, or a mix of both?" />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -271,7 +324,7 @@ export default function QuickValuePage() {
           <Card className="border border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold text-foreground">
-                4. How has your revenue trended over the last 3 years?
+                5. How has your revenue trended over the last 3 years?
                 <InfoTip text="Look at your last 3 years of revenue. Strong growth means 10%+ per year. Moderate is 3-9%. Flat means roughly the same each year." />
               </CardTitle>
             </CardHeader>
@@ -306,7 +359,7 @@ export default function QuickValuePage() {
           <Card className="border border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold text-foreground">
-                5. How many customers and policies do you have?
+                6. How many customers and policies do you have?
                 <InfoTip text="Total active customers (households or accounts) and total active policies. We calculate your policies-per-customer ratio, which signals how well-rounded your book is." />
               </CardTitle>
             </CardHeader>

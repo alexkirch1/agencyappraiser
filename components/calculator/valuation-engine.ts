@@ -39,6 +39,7 @@ export interface ValuationInputs {
   staffRetentionRisk: string // secure | moderate | high
   newBusinessValue: number | null
   avgClientTenure: number | null
+  agencyType: "independent" | "captive" | ""
 }
 
 export interface ValuationResults {
@@ -290,6 +291,12 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
   lowOffer = Math.max(0, lowOffer)
   if (lowOffer > highOffer) lowOffer = highOffer * 0.9
 
+  // Captive agency discount: 35% reduction — carrier restrictions limit transferability
+  if (inputs.agencyType === "captive") {
+    highOffer = highOffer * 0.65
+    lowOffer = lowOffer * 0.65
+  }
+
   return {
     lowOffer,
     highOffer,
@@ -318,6 +325,18 @@ export function runRiskAudit(inputs: ValuationInputs): RiskAuditResult {
   const revY2 = inputs.revenueY2
   const revY3 = inputs.revenueY3
   const sde = inputs.sdeEbitda ?? 0
+
+  // 0. Captive Agency — most severe structural issue
+  if (inputs.agencyType === "captive") {
+    items.push({
+      level: "Severe Risk",
+      title: "Captive Agency — Carrier Restrictions Apply",
+      problem: "Captive agencies are tied to a single carrier (e.g. State Farm, Allstate, Farmers). The book cannot be freely moved, transferred, or placed with competing carriers post-acquisition.",
+      psychology: "Buyers must obtain carrier approval to complete a transaction. Many acquirers avoid captive books entirely because they can't control the carrier relationship or commission structure.",
+      mitigation: "If possible, begin transitioning key accounts to independent markets. A captive book typically receives a 30–40% discount to its independent-agency equivalent value.",
+    })
+    severeCount++
+  }
 
   // 1. Retention
   const retention = inputs.retentionRate ?? 0

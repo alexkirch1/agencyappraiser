@@ -82,8 +82,8 @@ export function AnalyticsTab() {
     <div className="space-y-8">
       {/* KPI Cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Total Leads" value={data.totalLeads.toLocaleString()} />
-        <StatCard label="Full Valuations" value={data.totalValuations.toLocaleString()} />
+        <StatCard label="Total Leads" value={(data.totalLeads ?? 0).toLocaleString()} />
+        <StatCard label="Full Valuations" value={(data.totalValuations ?? 0).toLocaleString()} />
         <StatCard
           label="Avg Multiple"
           value={data.avgMultiple ? `${data.avgMultiple.toFixed(2)}x` : "—"}
