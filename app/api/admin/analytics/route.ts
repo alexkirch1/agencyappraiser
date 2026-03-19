@@ -35,28 +35,33 @@ export async function GET() {
           ORDER BY month_order ASC
           LIMIT 12
         `,
-        // Average multiple grouped by month
+        // Average multiple grouped by month — cast through varchar to safely skip non-numeric values
         sql`
           SELECT TO_CHAR(created_at, 'Mon YY') AS month,
                  DATE_TRUNC('month', created_at) AS month_order,
-                 ROUND(AVG(calculated_multiple)::numeric, 2) AS avg
+                 ROUND(AVG(
+                   CASE WHEN calculated_multiple::varchar ~ '^-?[0-9]+(\.[0-9]+)?$'
+                        THEN calculated_multiple::varchar::numeric
+                        ELSE NULL END
+                 ), 2) AS avg
           FROM full_valuations
           WHERE calculated_multiple IS NOT NULL
           GROUP BY month, month_order
           ORDER BY month_order ASC
           LIMIT 12
         `,
-        // Risk grade breakdown
+        // Risk grade breakdown — only single-letter grades
         sql`
-          SELECT risk_grade AS grade, COUNT(*)::int AS count
+          SELECT risk_grade::varchar AS grade, COUNT(*)::int AS count
           FROM full_valuations
           WHERE risk_grade IS NOT NULL
+            AND risk_grade::varchar ~ '^[A-Za-z]{1,2}$'
           GROUP BY risk_grade
           ORDER BY grade ASC
         `,
-        // Scope of sale breakdown
+        // Scope of sale breakdown — coerce to varchar to avoid implicit numeric cast
         sql`
-          SELECT COALESCE(scope_of_sale, 'unknown') AS scope, COUNT(*)::int AS count
+          SELECT COALESCE(scope_of_sale::varchar, 'unknown') AS scope, COUNT(*)::int AS count
           FROM full_valuations
           GROUP BY scope_of_sale
           ORDER BY count DESC
@@ -66,8 +71,14 @@ export async function GET() {
           SELECT
             (SELECT COUNT(*) FROM leads)::int AS total_leads,
             (SELECT COUNT(*) FROM full_valuations)::int AS total_valuations,
-            (SELECT ROUND(AVG(calculated_multiple)::numeric, 2) FROM full_valuations WHERE calculated_multiple IS NOT NULL) AS avg_multiple,
-            (SELECT ROUND(AVG(revenue_ltm)::numeric, 0) FROM full_valuations WHERE revenue_ltm IS NOT NULL) AS avg_revenue_ltm
+            (SELECT ROUND(AVG(
+               CASE WHEN calculated_multiple::varchar ~ '^-?[0-9]+(\.[0-9]+)?$'
+                    THEN calculated_multiple::varchar::numeric ELSE NULL END
+             ), 2) FROM full_valuations WHERE calculated_multiple IS NOT NULL) AS avg_multiple,
+            (SELECT ROUND(AVG(
+               CASE WHEN revenue_ltm::varchar ~ '^-?[0-9]+(\.[0-9]+)?$'
+                    THEN revenue_ltm::varchar::numeric ELSE NULL END
+             ), 0) FROM full_valuations WHERE revenue_ltm IS NOT NULL) AS avg_revenue_ltm
         `,
       ])
 

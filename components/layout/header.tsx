@@ -4,11 +4,9 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
-import { Menu, X, TrendingUp, Sun, Moon, Lock, User, LogOut, BookMarked } from "lucide-react"
+import { Menu, X, TrendingUp, Sun, Moon, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/theme-provider"
-import { useAuth } from "@/lib/use-auth"
-import { AuthModal } from "@/components/auth/auth-modal"
 
 const navItems = [
   { href: "/", label: "Home" },
@@ -20,13 +18,10 @@ const navItems = [
 export function Header() {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [showAuth, setShowAuth] = useState(false)
   const { theme, toggleTheme } = useTheme()
-  const { user, logout } = useAuth()
 
   return (
     <>
-    {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
     <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 lg:px-8">
         <Link href="/" className="flex items-center gap-2">
@@ -56,36 +51,6 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
-          {user ? (
-            <>
-              <Link href="/my-valuations" className="hidden lg:flex">
-                <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
-                  <BookMarked className="h-4 w-4" />
-                  My Valuations
-                </Button>
-              </Link>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={logout}
-                aria-label="Sign out"
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowAuth(true)}
-              className="hidden lg:flex gap-2 text-muted-foreground hover:text-foreground"
-            >
-              <User className="h-4 w-4" />
-              Sign In
-            </Button>
-          )}
-
           <Link href="/admin" aria-label="Admin dashboard">
             <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
               <Lock className="h-4 w-4" />

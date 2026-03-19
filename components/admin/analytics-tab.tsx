@@ -61,8 +61,12 @@ export function AnalyticsTab() {
 
   useEffect(() => {
     fetch("/api/admin/analytics")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to fetch analytics")
+        return r.json()
+      })
       .then((d) => setData(d))
+      .catch(() => setData(null))
       .finally(() => setLoading(false))
   }, [])
 
@@ -74,7 +78,7 @@ export function AnalyticsTab() {
     )
   }
 
-  if (!data) {
+  if (!data || typeof data.totalLeads !== "number") {
     return <p className="py-12 text-center text-sm text-muted-foreground">Failed to load analytics.</p>
   }
 

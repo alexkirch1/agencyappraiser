@@ -3,6 +3,8 @@
 // =====================================================
 
 export interface ValuationInputs {
+  // Captive flag — captive agents cannot be purchased; their book has very limited value
+  isCaptive: boolean | null // true = captive agent (State Farm, Allstate, etc.)
   scopeOfSale: number | null // 1.0 = Full Agency, 0.95 = Book Purchase, 0.9 = Fragmented
   yearEstablished: number | null
   primaryState: string
@@ -104,12 +106,35 @@ function analyzeRevenueTrend(revLTM: number, revY2: number | null, revY3: number
 export function calculateValuation(inputs: ValuationInputs): ValuationResults | null {
   const TRANSACTION_MULTIPLIER = inputs.scopeOfSale ?? 1.0
   const isFullAgency = TRANSACTION_MULTIPLIER === 1.0
+  const isCaptive = inputs.isCaptive === true
 
   const revLTM = inputs.revenueLTM
   const sde = inputs.sdeEbitda
 
   if (revLTM === null || sde === null || revLTM <= 0) {
     return null
+  }
+
+  // Captive agents: We cannot purchase the agency outright (it belongs to the carrier).
+  // Their transferable book value is limited to 1.0–1.5x — typically 1.0–1.2x.
+  // Return early with a capped result so the UI can flag this clearly.
+  if (isCaptive) {
+    const captiveMultiple = Math.min(1.2, Math.max(1.0, 1.0 + (sde / revLTM) * 0.5))
+    const captiveDiscount = 0.22
+    const rawHigh = revLTM * captiveMultiple
+    const rawLow  = revLTM * (captiveMultiple - 0.2)
+    return {
+      lowOffer:              Math.max(0, rawLow) * (1 - captiveDiscount),
+      highOffer:             rawHigh * (1 - captiveDiscount),
+      coreScore:             captiveMultiple,
+      calculatedMultiple:    captiveMultiple * TRANSACTION_MULTIPLIER,
+      transactionMultiplier: TRANSACTION_MULTIPLIER,
+      longevityAdjustment:   "Captive",
+      cagr:                  0,
+      revenueRange:          `${formatCurrency(revLTM * 1.0)} - ${formatCurrency(revLTM * 1.5)}`,
+      sdeRange:              sde ? `${formatCurrency(sde * 3.0)} - ${formatCurrency(sde * 5.0)}` : "---",
+      riskLevel:             { text: "CAPTIVE", color: "text-[hsl(var(--warning))]" },
+    }
   }
 
   const yearEstablished = inputs.yearEstablished
@@ -273,21 +298,41 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
   }
 
   // --- FINAL RESULTS ---
-  let scaledCoreScore = 0.75
+  // Sweet-spot range: 0.75–1.75 (a 3.0 is reserved for truly exceptional agencies).
+  // We scale raw scores so the *center of gravity* lands in 0.75–1.75.
+  // Only agencies with an unusually high raw score break above 1.75.
   const desiredMin = 0.75
-  const desiredMax = 3.0
+  const desiredSweetSpotMax = 1.75
+  const desiredAbsoluteMax = 3.0
 
+  // Map raw score into 0.75–1.75 for typical agencies.
+  // A raw score that previously mapped to 3.0 now maps to ~2.2 (exceptional but plausible).
+  // Scores must be extraordinary to push above 2.0.
+  let scaledCoreScore = desiredMin
   if (totalRawScore > 0) {
-    scaledCoreScore = desiredMin + totalRawScore * 1.5
+    // Compress the upper range: steeper below 1.75, more resistance above
+    const rawMapped = desiredMin + totalRawScore * 1.1 // tighter multiplier than 1.5
+    if (rawMapped <= desiredSweetSpotMax) {
+      scaledCoreScore = rawMapped
+    } else {
+      // Diminishing returns above sweet-spot ceiling
+      const overage = rawMapped - desiredSweetSpotMax
+      scaledCoreScore = desiredSweetSpotMax + overage * 0.45
+    }
   }
-  if (scaledCoreScore < desiredMin) scaledCoreScore = desiredMin
-  if (scaledCoreScore > desiredMax) scaledCoreScore = desiredMax
+  scaledCoreScore = Math.max(desiredMin, Math.min(desiredAbsoluteMax, scaledCoreScore))
 
   const finalMultiple = scaledCoreScore * TRANSACTION_MULTIPLIER
 
-  let highOffer = revLTM * finalMultiple
-  let lowOffer = revLTM * (finalMultiple - 0.25)
-  lowOffer = Math.max(0, lowOffer)
+  // Apply a 20–25% customer attrition discount to the offer band.
+  // This reflects the real-world expectation that a buyer will lose some clients
+  // through the transition, so the offer should price that risk in.
+  const CUSTOMER_LOSS_DISCOUNT = 0.22 // midpoint of 20–25%
+  const rawHighOffer = revLTM * finalMultiple
+  const rawLowOffer = revLTM * (finalMultiple - 0.25)
+
+  const highOffer = rawHighOffer * (1 - CUSTOMER_LOSS_DISCOUNT)
+  let lowOffer = Math.max(0, rawLowOffer) * (1 - CUSTOMER_LOSS_DISCOUNT)
   if (lowOffer > highOffer) lowOffer = highOffer * 0.9
 
   return {
@@ -298,7 +343,7 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
     transactionMultiplier: TRANSACTION_MULTIPLIER,
     longevityAdjustment: longevityAdj,
     cagr: CAGR,
-    revenueRange: `${formatCurrency(revLTM * 0.75)} - ${formatCurrency(revLTM * 3.0)}`,
+    revenueRange: `${formatCurrency(revLTM * 0.75)} - ${formatCurrency(revLTM * desiredSweetSpotMax)}`,
     sdeRange: sde ? `${formatCurrency(sde * 5.0)} - ${formatCurrency(sde * 9.0)}` : "---",
     riskLevel: getRiskLevel(finalMultiple),
   }
@@ -313,6 +358,18 @@ export function runRiskAudit(inputs: ValuationInputs): RiskAuditResult {
   let highCount = 0
   let moderateCount = 0
   let strengthCount = 0
+
+  // Captive agent — flag immediately at the top of the audit
+  if (inputs.isCaptive === true) {
+    items.push({
+      level: "Severe Risk",
+      title: "Captive Agent — Book Cannot Be Independently Sold",
+      problem: "Captive agents (State Farm, Allstate, Farmers, etc.) do not own their book of business — the carrier does. The agency itself cannot be purchased in a traditional acquisition.",
+      psychology: "Buyers understand that captive books carry limited transferability. Carrier approval is required and rarely granted.",
+      mitigation: "If you are exploring options, the most common paths are: (1) releasing clients to an independent agency, or (2) negotiating a carrier buyout. Valuation is capped at 1.0–1.5x revenue in any scenario.",
+    })
+    severeCount++
+  }
 
   const revLTM = inputs.revenueLTM ?? 0
   const revY2 = inputs.revenueY2

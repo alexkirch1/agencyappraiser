@@ -19,6 +19,7 @@ import { BenchmarkComparison } from "@/components/calculator/benchmark-compariso
 import { FeedbackWidget } from "@/components/feedback-widget"
 
 const defaultInputs: ValuationInputs = {
+  isCaptive: null,
   scopeOfSale: null,
   yearEstablished: null,
   primaryState: "",
@@ -53,6 +54,7 @@ const defaultInputs: ValuationInputs = {
 }
 
 const REQUIRED_FIELDS: { key: keyof ValuationInputs; label: string }[] = [
+  { key: "isCaptive",   label: "Agency Type (Captive or Independent)" },
   { key: "scopeOfSale", label: "Scope of Sale" },
   { key: "revenueLTM", label: "Annual Revenue (LTM)" },
   { key: "sdeEbitda", label: "SDE / EBITDA" },
@@ -298,6 +300,17 @@ function CalculatorContent() {
       {/* Deal Simulator & Risk Audit -- shown below after valuation is complete */}
       {results && (
         <div id="valuation-results" className="mt-12 border-t border-border pt-10">
+          {inputs.isCaptive === true && (
+            <div className="mb-6 flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/8 px-5 py-4">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[hsl(var(--warning))]" />
+              <div>
+                <p className="font-semibold text-foreground">Captive Agent — Limited Transferability</p>
+                <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">
+                  Because you are a captive agent, this valuation is shown for informational purposes only. Captive books of business cannot be sold independently — the carrier owns the policies. Valuation is capped at 1.0–1.5x revenue. Please contact us to discuss your specific options.
+                </p>
+              </div>
+            </div>
+          )}
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-2xl font-bold tracking-tight text-foreground">
               Deep Dive: Deal Simulator & Risk Audit
@@ -327,7 +340,7 @@ function CalculatorContent() {
               dealType="full"
             />
             <BenchmarkComparison inputs={inputs} />
-          </div>
+        </div>
           <div className="grid gap-8 lg:grid-cols-2">
             {/* Deal Simulator */}
             <div>
@@ -339,7 +352,14 @@ function CalculatorContent() {
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <DealSimulator highOffer={results.highOffer} coreScore={results.coreScore} />
+                  <DealSimulator
+                    highOffer={results.highOffer}
+                    coreScore={results.coreScore}
+                    revenueLTM={inputs.revenueLTM}
+                    revenueY2={inputs.revenueY2}
+                    revenueY3={inputs.revenueY3}
+                    revenueGrowthTrend={inputs.revenueGrowthTrend}
+                  />
                 </CardContent>
               </Card>
             </div>

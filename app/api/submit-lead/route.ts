@@ -411,24 +411,6 @@ export async function POST(req: Request) {
     })
     results.email = true
 
-    // 3. Send welcome drip email to the lead
-    if (RESEND_API_KEY) {
-      try {
-        await fetch(`${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'}/api/send-drip-email`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email,
-            name,
-            emailType: "welcome",
-            valuationRange: valuationData?.revenueLTM ? undefined : undefined, // Will be filled in after calculation
-          }),
-        })
-      } catch (err) {
-        console.error("[v0] Welcome email failed:", err)
-      }
-    }
-
     return NextResponse.json({ success: true, ...results, leadId: results.leadId })
   } catch (err) {
     console.error("[v0] Lead submission error:", err)
