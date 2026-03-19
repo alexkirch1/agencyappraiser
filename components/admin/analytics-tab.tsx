@@ -61,8 +61,12 @@ export function AnalyticsTab() {
 
   useEffect(() => {
     fetch("/api/admin/analytics")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to fetch analytics")
+        return r.json()
+      })
       .then((d) => setData(d))
+      .catch(() => setData(null))
       .finally(() => setLoading(false))
   }, [])
 

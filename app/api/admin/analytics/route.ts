@@ -39,7 +39,11 @@ export async function GET() {
         sql`
           SELECT TO_CHAR(created_at, 'Mon YY') AS month,
                  DATE_TRUNC('month', created_at) AS month_order,
-                 ROUND(AVG(calculated_multiple)::numeric, 2) AS avg
+                 ROUND(AVG(
+                   CASE WHEN calculated_multiple::text ~ '^-?[0-9]+(\.[0-9]+)?$'
+                        THEN calculated_multiple::text::numeric
+                        ELSE NULL END
+                 ), 2) AS avg
           FROM full_valuations
           WHERE calculated_multiple IS NOT NULL
           GROUP BY month, month_order
@@ -51,6 +55,7 @@ export async function GET() {
           SELECT risk_grade AS grade, COUNT(*)::int AS count
           FROM full_valuations
           WHERE risk_grade IS NOT NULL
+            AND risk_grade::text ~ '^[A-Za-z]$'
           GROUP BY risk_grade
           ORDER BY grade ASC
         `,
@@ -66,8 +71,14 @@ export async function GET() {
           SELECT
             (SELECT COUNT(*) FROM leads)::int AS total_leads,
             (SELECT COUNT(*) FROM full_valuations)::int AS total_valuations,
-            (SELECT ROUND(AVG(calculated_multiple)::numeric, 2) FROM full_valuations WHERE calculated_multiple IS NOT NULL) AS avg_multiple,
-            (SELECT ROUND(AVG(revenue_ltm)::numeric, 0) FROM full_valuations WHERE revenue_ltm IS NOT NULL) AS avg_revenue_ltm
+            (SELECT ROUND(AVG(
+               CASE WHEN calculated_multiple::text ~ '^-?[0-9]+(\.[0-9]+)?$'
+                    THEN calculated_multiple::text::numeric ELSE NULL END
+             ), 2) FROM full_valuations WHERE calculated_multiple IS NOT NULL) AS avg_multiple,
+            (SELECT ROUND(AVG(
+               CASE WHEN revenue_ltm::text ~ '^-?[0-9]+(\.[0-9]+)?$'
+                    THEN revenue_ltm::text::numeric ELSE NULL END
+             ), 0) FROM full_valuations WHERE revenue_ltm IS NOT NULL) AS avg_revenue_ltm
         `,
       ])
 
