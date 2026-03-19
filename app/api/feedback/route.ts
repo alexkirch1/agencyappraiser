@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY
+// Email notifications are disabled until a valid Resend API key is configured
+const RESEND_API_KEY: string | undefined = undefined // process.env.RESEND_API_KEY
 const NOTIFY_EMAIL = "mergers@rockyquote.com"
 
 export async function POST(req: Request) {

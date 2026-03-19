@@ -3,7 +3,8 @@ import sql from "@/lib/db"
 
 const PIPEDRIVE_TOKEN = process.env.PIPEDRIVE_API_TOKEN
 const PIPEDRIVE_DOMAIN = "rocky" // your Pipedrive subdomain
-const RESEND_API_KEY = process.env.RESEND_API_KEY
+// Email notifications are disabled until a valid Resend API key is configured
+const RESEND_API_KEY: string | undefined = undefined // process.env.RESEND_API_KEY
 const NOTIFY_EMAIL = "mergers@rockyquote.com"
 
 // We'll look up the pipeline + stage IDs dynamically on first call
