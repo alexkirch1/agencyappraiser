@@ -25,10 +25,14 @@ function StatusBadge({
   status: Deal["status"]
   onClick: () => void
 }) {
-  const config = {
+  const config: Record<Deal["status"], { className: string; label: string }> = {
     active: {
       className: "bg-secondary text-muted-foreground",
       label: "ACTIVE",
+    },
+    "under-contract": {
+      className: "bg-warning/15 text-warning border border-warning/30",
+      label: "UNDER CONTRACT",
     },
     completed: {
       className: "bg-success/15 text-success border border-success/30",
