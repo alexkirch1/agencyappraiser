@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 
-const ADMIN_USER = process.env.ADMIN_USERNAME || process.env.ADMIN_USER || "admin"
-const ADMIN_PASS = process.env.ADMIN_PASSWORD || process.env.ADMIN_PASS || "admin"
 const SESSION_SECRET = process.env.SESSION_SECRET || "agency-appraiser-admin-secret-2024"
+
+// Admin users — add or update credentials here
+const ADMIN_USERS: Record<string, string> = {
+  Alex:  "M0untain99",
+  Trout: "M0untain!",
+  // Fallback env-var based user (if set)
+  ...(process.env.ADMIN_USERNAME && process.env.ADMIN_PASSWORD
+    ? { [process.env.ADMIN_USERNAME]: process.env.ADMIN_PASSWORD }
+    : {}),
+}
 
 function generateToken(username: string): string {
   const payload = `${username}:${Date.now()}:${SESSION_SECRET}`
@@ -16,7 +24,8 @@ export async function POST(req: NextRequest) {
     const { action, username, password } = body
 
     if (action === "login") {
-      if (username === ADMIN_USER && password === ADMIN_PASS) {
+      const expectedPassword = ADMIN_USERS[username]
+      if (expectedPassword && password === expectedPassword) {
         const token = generateToken(username)
         const cookieStore = await cookies()
         cookieStore.set("admin_session", token, {
