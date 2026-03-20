@@ -83,30 +83,33 @@ export function LeadCaptureModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && onClose) onClose()
-      }}
-    >
-      <Card className="w-full max-w-md border-border bg-card shadow-2xl">
-        <CardHeader className="text-center pb-4">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-            <Lock className="h-7 w-7 text-primary" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+      <Card className="w-full max-w-sm border-border bg-card shadow-2xl">
+        <CardHeader className="pb-3">
+          {/* Close button */}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              aria-label="Close"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M12 4L4 12M4 4l8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            </button>
+          )}
+          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+            <Lock className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle className="text-xl font-bold text-foreground">
-            {title || "Unlock Your Valuation"}
+          <CardTitle className="text-center text-lg font-bold text-foreground">
+            {title || "One quick step to see your valuation"}
           </CardTitle>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {description || "Enter your details to view your detailed agency valuation report."}
+          <p className="text-center text-sm text-muted-foreground mt-1">
+            {description || "Just your name and email — we'll show your results instantly."}
           </p>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
             <div>
-              <Label htmlFor="lc-name" className="text-sm text-muted-foreground">
-                Full Name *
-              </Label>
+              <Label htmlFor="lc-name" className="text-sm text-muted-foreground">Full Name *</Label>
               <Input
                 id="lc-name"
                 type="text"
@@ -114,13 +117,12 @@ export function LeadCaptureModal({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="mt-1"
+                autoFocus
               />
               {errors.name && <p className="mt-1 text-xs text-destructive">{errors.name}</p>}
             </div>
             <div>
-              <Label htmlFor="lc-email" className="text-sm text-muted-foreground">
-                Email Address *
-              </Label>
+              <Label htmlFor="lc-email" className="text-sm text-muted-foreground">Email Address *</Label>
               <Input
                 id="lc-email"
                 type="email"
@@ -132,9 +134,7 @@ export function LeadCaptureModal({
               {errors.email && <p className="mt-1 text-xs text-destructive">{errors.email}</p>}
             </div>
             <div>
-              <Label htmlFor="lc-phone" className="text-sm text-muted-foreground">
-                Phone (Optional)
-              </Label>
+              <Label htmlFor="lc-phone" className="text-sm text-muted-foreground">Phone <span className="text-muted-foreground/60">(optional)</span></Label>
               <Input
                 id="lc-phone"
                 type="tel"
@@ -144,34 +144,15 @@ export function LeadCaptureModal({
                 className="mt-1"
               />
             </div>
-            <div>
-              <Label htmlFor="lc-agency" className="text-sm text-muted-foreground">
-                Agency Name (Optional)
-              </Label>
-              <Input
-                id="lc-agency"
-                type="text"
-                placeholder="Smith Insurance Group"
-                value={agencyName}
-                onChange={(e) => setAgencyName(e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <Button type="submit" size="lg" className="mt-2 w-full gap-2" disabled={submitting}>
+            <Button type="submit" size="lg" className="mt-1 w-full gap-2" disabled={submitting}>
               {submitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Submitting...
-                </>
+                <><Loader2 className="h-4 w-4 animate-spin" /> Just a moment...</>
               ) : (
-                <>
-                  <CheckCircle2 className="h-4 w-4" />
-                  View My Valuation
-                </>
+                <><CheckCircle2 className="h-4 w-4" /> Show My Valuation</>
               )}
             </Button>
-            <p className="text-center text-xs text-muted-foreground/70">
-              Your information is kept private and never shared with third parties.
+            <p className="text-center text-xs text-muted-foreground/60">
+              No spam. Your info is never shared with third parties.
             </p>
           </form>
         </CardContent>

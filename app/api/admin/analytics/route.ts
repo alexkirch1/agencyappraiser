@@ -1,24 +1,9 @@
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
 import sql from "@/lib/db"
-
-const SESSION_SECRET = process.env.SESSION_SECRET || "agency-appraiser-admin-secret-2024"
-
-async function isAuthed(): Promise<boolean> {
-  const cookieStore = await cookies()
-  const token = cookieStore.get("admin_session")?.value
-  if (!token) return false
-  try {
-    const decoded = Buffer.from(token, "base64").toString()
-    const parts = decoded.split(":")
-    return parts.length >= 3 && parts[2] === SESSION_SECRET
-  } catch {
-    return false
-  }
-}
+import { isAdminAuthenticated } from "@/lib/admin-auth"
 
 export async function GET() {
-  if (!(await isAuthed())) {
+  if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
