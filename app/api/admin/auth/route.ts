@@ -55,9 +55,16 @@ export async function POST(req: NextRequest) {
       if (session?.value) {
         try {
           const decoded = Buffer.from(session.value, "base64").toString()
-          const parts = decoded.split(":")
-          if (parts.length >= 3 && parts[2] === SESSION_SECRET) {
-            return NextResponse.json({ authenticated: true, username: parts[0] })
+          // Token format: "username:timestamp:secret"
+          // Find the username (everything before the first colon)
+          const firstColon = decoded.indexOf(":")
+          if (firstColon > 0) {
+            const username = decoded.substring(0, firstColon)
+            const rest = decoded.substring(firstColon + 1)
+            // Verify the secret is present at the end
+            if (rest.endsWith(SESSION_SECRET) && username in ADMIN_USERS) {
+              return NextResponse.json({ authenticated: true, username })
+            }
           }
         } catch {
           // Invalid token
