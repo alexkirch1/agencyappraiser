@@ -1,94 +1,9 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-
-interface Props {
-  onContinue: () => void
-}
-
-// Money-themed ASCII character set — one is randomly chosen per session
-const MONEY_CHARACTERS: { art: string[]; label: string }[] = [
-  {
-    label: "Accountant",
-    art: [
-      "  _____  ",
-      " /     \\ ",
-      "| o   o |",
-      "|  ___  |",
-      " \\_____/ ",
-      " |=====| ",
-      " | $   | ",
-      " |_____| ",
-    ],
-  },
-  {
-    label: "Gold Miner",
-    art: [
-      "   ___   ",
-      "  /   \\  ",
-      " | ^_^ | ",
-      "  \\___/  ",
-      "  /| |\\  ",
-      " / |_| \\ ",
-      "   /|\\   ",
-      "  / | \\  ",
-    ],
-  },
-  {
-    label: "Banker",
-    art: [
-      " _______",
-      "|       |",
-      "| $$$   |",
-      "|_______|",
-      "  |   |  ",
-      "  |   |  ",
-      " _|___|_ ",
-      "|_______|",
-    ],
-  },
-  {
-    label: "Stock Trader",
-    art: [
-      "  ,---,  ",
-      " /     \\ ",
-      "| ^   ^ |",
-      "|  ===  |",
-      " \\ ___ / ",
-      "  |   |  ",
-      " /|   |\\ ",
-      "  /\\ /\\  ",
-    ],
-  },
-  {
-    label: "Treasure Hunter",
-    art: [
-      "  .-\"\"-.  ",
-      " / .--. \\ ",
-      "| ( ** ) |",
-      " \\ '--' / ",
-      "  '-___-' ",
-      "  [ $$$ ] ",
-      "  [_____] ",
-      "    | |    ",
-    ],
-  },
-  {
-    label: "Insurance Broker",
-    art: [
-      "  _____  ",
-      " /     \\ ",
-      "| o . o |",
-      "|  ~~~  |",
-      " \\_____/ ",
-      "  | ^ |  ",
-      " /|   |\\ ",
-      "  /   \\  ",
-    ],
-  },
-]
+import { Loader2 } from "lucide-react"
 
 interface Props {
   onContinue: () => void
@@ -97,10 +12,6 @@ interface Props {
 export function ValuationDisclaimerModal({ onContinue }: Props) {
   const [progress, setProgress] = useState(0)
   const [ready, setReady] = useState(false)
-  const characterRef = useRef(
-    MONEY_CHARACTERS[Math.floor(Math.random() * MONEY_CHARACTERS.length)]
-  )
-  const character = characterRef.current
 
   useEffect(() => {
     const duration = 3500
@@ -133,20 +44,12 @@ export function ValuationDisclaimerModal({ onContinue }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <Card className="w-full max-w-md border-border bg-card shadow-2xl overflow-hidden">
         <CardContent className="flex flex-col items-center p-8 text-center">
-          {/* ASCII money character */}
-          <div
-            className="mb-6 flex flex-col items-center"
-            style={{
-              animation: ready ? "none" : "char-bob 2s ease-in-out infinite",
-            }}
-          >
-            <div className="rounded-xl border border-border bg-secondary px-6 py-4 font-mono text-xs leading-snug text-foreground select-none">
-              {character.art.map((line, i) => (
-                <div key={i}>{line}</div>
-              ))}
+          {/* Spinner */}
+          {!ready && (
+            <div className="mb-6 flex items-center justify-center">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
             </div>
-            <p className="mt-2 text-[11px] text-muted-foreground tracking-wide uppercase">{character.label}</p>
-          </div>
+          )}
 
           {/* Progress bar and message */}
           {!ready && (
@@ -186,12 +89,7 @@ export function ValuationDisclaimerModal({ onContinue }: Props) {
         </CardContent>
       </Card>
 
-      {/* Keyframe animations */}
       <style jsx>{`
-        @keyframes char-bob {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-6px); }
-        }
         @keyframes fade-up {
           0% { opacity: 0; transform: translateY(12px); }
           100% { opacity: 1; transform: translateY(0); }

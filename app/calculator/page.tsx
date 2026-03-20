@@ -334,50 +334,47 @@ function CalculatorContent() {
               {pdfLoading ? "Generating..." : "Download PDF Report"}
             </Button>
           </div>
-          <div className="grid gap-8 mb-8 lg:grid-cols-2">
+          {/* Row 1: Market Intel + Benchmark */}
+          <div className="grid gap-6 mb-6 lg:grid-cols-2">
             <MarketIntelPanel
               modelMultiple={results?.calculatedMultiple}
               dealType="full"
             />
             <BenchmarkComparison inputs={inputs} />
-        </div>
-          <div className="grid gap-8 lg:grid-cols-2">
-            {/* Deal Simulator */}
-            <div>
-              <Card className="border-border bg-card">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold text-foreground">Deal Structure Simulator</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Explore different deal structures and see how cash vs. earnout affects your total payout.
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <DealSimulator
-                    highOffer={results.highOffer}
-                    coreScore={results.coreScore}
-                    revenueLTM={inputs.revenueLTM}
-                    revenueY2={inputs.revenueY2}
-                    revenueY3={inputs.revenueY3}
-                    revenueGrowthTrend={inputs.revenueGrowthTrend}
-                  />
-                </CardContent>
-              </Card>
-            </div>
+          </div>
 
-            {/* Risk Audit */}
-            <div>
-              <Card className="border-border bg-card p-0">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold text-foreground">Risk Audit Report</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    A detailed breakdown of risks and strengths identified from your inputs.
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <RiskAudit data={riskAudit} />
-                </CardContent>
-              </Card>
-            </div>
+          {/* Row 2: Deal Simulator + Risk Audit */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card className="border-border bg-card">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-semibold text-foreground">Deal Structure Simulator</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Compare deal structures and see how cash vs. earnout affects your total payout.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <DealSimulator
+                  highOffer={results.highOffer}
+                  coreScore={results.coreScore}
+                  revenueLTM={inputs.revenueLTM}
+                  revenueY2={inputs.revenueY2}
+                  revenueY3={inputs.revenueY3}
+                  revenueGrowthTrend={inputs.revenueGrowthTrend}
+                />
+              </CardContent>
+            </Card>
+
+            <Card className="border-border bg-card">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-semibold text-foreground">Risk Audit Report</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  A detailed breakdown of risks and strengths identified from your inputs.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <RiskAudit data={riskAudit} />
+              </CardContent>
+            </Card>
           </div>
         </div>
       )}
