@@ -1,21 +1,30 @@
 import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 
-const SESSION_SECRET = process.env.SESSION_SECRET || "agency-appraiser-admin-secret-2024"
-
-// Admin users — add or update credentials here
+// Admin users — username (case-sensitive) : password
 const ADMIN_USERS: Record<string, string> = {
   Alex:  "M0untain99",
   Trout: "M0untain!",
-  // Fallback env-var based user (if set)
-  ...(process.env.ADMIN_USERNAME && process.env.ADMIN_PASSWORD
-    ? { [process.env.ADMIN_USERNAME]: process.env.ADMIN_PASSWORD }
-    : {}),
 }
 
-function generateToken(username: string): string {
-  const payload = `${username}:${Date.now()}:${SESSION_SECRET}`
-  return Buffer.from(payload).toString("base64")
+// A simple signed session value: base64(username|MARKER)
+const MARKER = "aa-admin-v1"
+
+function makeSession(username: string): string {
+  return Buffer.from(`${username}|${MARKER}`).toString("base64")
+}
+
+function verifySession(value: string): string | null {
+  try {
+    const decoded = Buffer.from(value, "base64").toString("utf8")
+    const [username, marker] = decoded.split("|")
+    if (marker === MARKER && username && username in ADMIN_USERS) {
+      return username
+    }
+  } catch {
+    // invalid
+  }
+  return null
 }
 
 export async function POST(req: NextRequest) {
@@ -24,23 +33,19 @@ export async function POST(req: NextRequest) {
     const { action, username, password } = body
 
     if (action === "login") {
-      const expectedPassword = ADMIN_USERS[username]
-      if (expectedPassword && password === expectedPassword) {
-        const token = generateToken(username)
+      const expected = ADMIN_USERS[username as string]
+      if (expected && password === expected) {
         const cookieStore = await cookies()
-        cookieStore.set("admin_session", token, {
+        cookieStore.set("admin_session", makeSession(username), {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",
           sameSite: "lax",
-          maxAge: 60 * 60 * 24, // 24 hours
+          maxAge: 60 * 60 * 24 * 7, // 7 days
           path: "/",
         })
         return NextResponse.json({ success: true })
       }
-      return NextResponse.json(
-        { success: false, error: "Invalid credentials." },
-        { status: 401 }
-      )
+      return NextResponse.json({ success: false, error: "Invalid credentials." }, { status: 401 })
     }
 
     if (action === "logout") {
@@ -52,16 +57,9 @@ export async function POST(req: NextRequest) {
     if (action === "check") {
       const cookieStore = await cookies()
       const session = cookieStore.get("admin_session")
-      if (session?.value) {
-        try {
-          const decoded = Buffer.from(session.value, "base64").toString()
-          const parts = decoded.split(":")
-          if (parts.length >= 3 && parts[2] === SESSION_SECRET) {
-            return NextResponse.json({ authenticated: true, username: parts[0] })
-          }
-        } catch {
-          // Invalid token
-        }
+      const username = session?.value ? verifySession(session.value) : null
+      if (username) {
+        return NextResponse.json({ authenticated: true, username })
       }
       return NextResponse.json({ authenticated: false })
     }
