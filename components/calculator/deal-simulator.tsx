@@ -101,29 +101,27 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
   const growthRate = growthPct / 100
   const commissionRatePct = Math.round(commissionRate * 100)
 
-  // Per-year earnout payments based on commission rate + years selected
-  const perYearPayments: number[] = Array.from({ length: earnoutYears }, (_, i) => {
-    const yearRevenue = ltmRevenue * Math.pow(1 + growthRate, i + 1)
-    return yearRevenue * commissionRate
-  })
-  const commissionBasedTotal = perYearPayments.reduce((a, b) => a + b, 0)
-
   const cashPct = strat.cashPct
   const earnoutPct = 100 - cashPct
 
-  // Target total is always strategy's valueFactor × highOffer — stays constant
-  // regardless of years or commission rate chosen.
-  // For Full Earnout (cashPct === 0): total = commission math (no cash to adjust).
-  // For all other strategies: cash shrinks/grows so that cash + earnout = target total.
+  // Target total is locked to valueFactor × highOffer for every strategy.
+  // This never changes with years or commission rate — all sliders are informational
+  // for non-Full-Earnout strategies.
   const targetTotal = highOffer * strat.valueFactor
 
   let totalValue: number
   let cashAmount: number
   let earnoutTotal: number
+  let perYearPayments: number[]
 
   if (cashPct === 0) {
-    // Full Earnout — no cash, total is purely commission-based
-    earnoutTotal = commissionBasedTotal
+    // Full Earnout — total is actual commission math (revenue × rate × years)
+    const rawPayments = Array.from({ length: earnoutYears }, (_, i) => {
+      const yearRevenue = ltmRevenue * Math.pow(1 + growthRate, i + 1)
+      return yearRevenue * commissionRate
+    })
+    perYearPayments = rawPayments
+    earnoutTotal = rawPayments.reduce((a, b) => a + b, 0)
     cashAmount = 0
     totalValue = earnoutTotal
   } else if (earnoutPct === 0) {
@@ -131,12 +129,18 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
     cashAmount = targetTotal
     earnoutTotal = 0
     totalValue = targetTotal
+    perYearPayments = []
   } else {
-    // Blend / Mostly Earnout: earnout is commission-based, cash fills the rest to hit target
-    earnoutTotal = commissionBasedTotal
-    cashAmount = Math.max(0, targetTotal - earnoutTotal)
-    totalValue = cashAmount + earnoutTotal
+    // Blend / Mostly Earnout — total stays locked at targetTotal always.
+    // Earnout portion is fixed by strategy's earnoutPct; cash is the remainder.
+    // Years just splits the earnout portion into equal annual payments.
+    earnoutTotal = targetTotal * (earnoutPct / 100)
+    cashAmount = targetTotal * (cashPct / 100)
+    totalValue = targetTotal
+    perYearPayments = Array.from({ length: earnoutYears }, () => earnoutTotal / earnoutYears)
   }
+
+  const commissionBasedTotal = earnoutTotal
 
   return (
     <div className="flex flex-col gap-4">
@@ -253,6 +257,7 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
           {/* Per-year breakdown */}
           <div className="rounded-md bg-card border border-border divide-y divide-border">
             {perYearPayments.map((payment, i) => {
+              const isFullEarnout = cashPct === 0
               const yearRevenue = ltmRevenue * Math.pow(1 + growthRate, i + 1)
               return (
                 <div key={i} className="flex flex-col px-3 py-2.5 gap-0.5">
@@ -261,18 +266,16 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
                     <span className="text-sm font-semibold text-foreground">{formatCurrency(payment)}</span>
                   </div>
                   <span className="text-[11px] text-muted-foreground/70">
-                    {formatCurrency(yearRevenue)} revenue × {commissionRatePct}%
-                    {growthPct !== 0 && i > 0 && (
-                      <span className={`ml-2 ${growthPct > 0 ? "text-[hsl(var(--success))]" : "text-destructive"}`}>
-                        ({growthPct > 0 ? "+" : ""}{growthPct.toFixed(1)}% trajectory)
-                      </span>
-                    )}
+                    {isFullEarnout
+                      ? <>{formatCurrency(yearRevenue)} revenue × {commissionRatePct}%{growthPct !== 0 && i > 0 && <span className={`ml-2 ${growthPct > 0 ? "text-[hsl(var(--success))]" : "text-destructive"}`}>({growthPct > 0 ? "+" : ""}{growthPct.toFixed(1)}%)</span>}</>
+                      : <>Earnout portion split over {earnoutYears} {earnoutYears === 1 ? "year" : "years"}</>
+                    }
                   </span>
                 </div>
               )
             })}
             <div className="flex items-center justify-between px-3 py-2 bg-primary/5">
-              <span className="text-xs font-semibold text-foreground">Est. Commission-Based Total</span>
+              <span className="text-xs font-semibold text-foreground">Total Earnout</span>
               <span className="text-sm font-bold text-primary">{formatCurrency(commissionBasedTotal)}</span>
             </div>
           </div>
