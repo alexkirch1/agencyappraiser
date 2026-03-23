@@ -97,24 +97,30 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
     [revenueLTM, revenueY2, revenueY3, revenueGrowthTrend]
   )
 
-  // Total payout scales with strategy — Full Earnout = highOffer × 1.0, All Cash = × 0.85
-  const totalValue = highOffer * strat.valueFactor
-  const cashAmount = totalValue * (strat.cashPct / 100)
-  const earnoutTotal = totalValue * ((100 - strat.cashPct) / 100)
-
-  // Per-year earnout: each year's payment = that year's projected revenue × commission rate
   const ltmRevenue = revenueLTM ?? 0
   const growthRate = growthPct / 100
+  const commissionRatePct = Math.round(commissionRate * 100)
+
+  // Per-year earnout payments based on commission rate + years selected
   const perYearPayments: number[] = Array.from({ length: earnoutYears }, (_, i) => {
     const yearRevenue = ltmRevenue * Math.pow(1 + growthRate, i + 1)
     return yearRevenue * commissionRate
   })
   const commissionBasedTotal = perYearPayments.reduce((a, b) => a + b, 0)
-  const commissionRatePct = Math.round(commissionRate * 100)
 
-  // Slider position (0 = full earnout, 100 = all cash) — read-only, driven by strategy buttons
+  // Total value:
+  // - All Cash: fixed at strategy's valueFactor × highOffer (no earnout to adjust)
+  // - Earnout strategies: cash portion (fixed) + commission-based earnout total
   const cashPct = strat.cashPct
   const earnoutPct = 100 - cashPct
+
+  const baseCashValue = highOffer * strat.valueFactor * (cashPct / 100)
+  const totalValue = earnoutPct > 0
+    ? baseCashValue + commissionBasedTotal  // earnout driven by sliders
+    : highOffer * strat.valueFactor          // all cash — fixed
+
+  const cashAmount = earnoutPct > 0 ? baseCashValue : totalValue
+  const earnoutTotal = earnoutPct > 0 ? commissionBasedTotal : 0
 
   return (
     <div className="flex flex-col gap-4">
