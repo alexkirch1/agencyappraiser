@@ -104,43 +104,42 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
   const cashPct = strat.cashPct
   const earnoutPct = 100 - cashPct
 
-  // Target total is locked to valueFactor × highOffer for every strategy.
-  // This never changes with years or commission rate — all sliders are informational
-  // for non-Full-Earnout strategies.
-  const targetTotal = highOffer * strat.valueFactor
+  // The earnout total is ALWAYS: annual revenue × commission rate
+  // This is a fixed dollar amount — it does NOT change with years.
+  // Years only affects how it's split (1 big payment vs 2 smaller ones).
+  // The commission rate slider directly drives this number.
+  const annualEarnout = ltmRevenue * commissionRate // e.g. $200k × 75% = $150k
 
   let totalValue: number
   let cashAmount: number
   let earnoutTotal: number
   let perYearPayments: number[]
 
-  if (cashPct === 0) {
-    // Full Earnout — total is actual commission math (revenue × rate × years)
-    const rawPayments = Array.from({ length: earnoutYears }, (_, i) => {
-      const yearRevenue = ltmRevenue * Math.pow(1 + growthRate, i + 1)
-      return yearRevenue * commissionRate
-    })
-    perYearPayments = rawPayments
-    earnoutTotal = rawPayments.reduce((a, b) => a + b, 0)
+  if (earnoutPct === 0) {
+    // All Cash — no earnout at all, fixed at valueFactor × highOffer
+    cashAmount = highOffer * strat.valueFactor
+    earnoutTotal = 0
+    totalValue = cashAmount
+    perYearPayments = []
+  } else if (cashPct === 0) {
+    // Full Earnout — 100% commission-based, no cash floor
+    earnoutTotal = annualEarnout
     cashAmount = 0
     totalValue = earnoutTotal
-  } else if (earnoutPct === 0) {
-    // All Cash — fixed total, no earnout
-    cashAmount = targetTotal
-    earnoutTotal = 0
-    totalValue = targetTotal
-    perYearPayments = []
+    // Split into equal annual payments
+    perYearPayments = Array.from({ length: earnoutYears }, () => earnoutTotal / earnoutYears)
   } else {
-    // Blend / Mostly Earnout — total stays locked at targetTotal always.
-    // Earnout portion is fixed by strategy's earnoutPct; cash is the remainder.
-    // Years just splits the earnout portion into equal annual payments.
-    earnoutTotal = targetTotal * (earnoutPct / 100)
-    cashAmount = targetTotal * (cashPct / 100)
-    totalValue = targetTotal
+    // Blend / Mostly Earnout:
+    // Earnout = annual revenue × commission rate (slider drives this)
+    // Cash = targetTotal - earnout, but minimum is strategy's cash% × targetTotal × 0.5
+    const targetTotal = highOffer * strat.valueFactor
+    const minCash = targetTotal * (cashPct / 100) * 0.5 // floor: half of strategy's nominal cash
+    earnoutTotal = annualEarnout
+    cashAmount = Math.max(minCash, targetTotal - earnoutTotal)
+    totalValue = cashAmount + earnoutTotal
+    // Earnout split equally across years
     perYearPayments = Array.from({ length: earnoutYears }, () => earnoutTotal / earnoutYears)
   }
-
-  const commissionBasedTotal = earnoutTotal
 
   return (
     <div className="flex flex-col gap-4">
@@ -195,8 +194,16 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
       {/* Value comparison across strategies */}
       <div className="rounded-md border border-border bg-card divide-y divide-border">
         {strategies.map((s) => {
-          // For Full Earnout show commission-based total; others show fixed target
-          const val = s.cashPct === 0 ? totalValue : highOffer * s.valueFactor
+          // All strategies use: cash + (annualRevenue × commissionRate)
+          // except All Cash (no earnout) which is fixed at valueFactor × highOffer
+          const sTarget = highOffer * s.valueFactor
+          const sEarnout = s.cashPct === 100 ? 0 : annualEarnout
+          const sCash = s.cashPct === 100
+            ? sTarget
+            : s.cashPct === 0
+              ? 0
+              : Math.max(sTarget * (s.cashPct / 100) * 0.5, sTarget - sEarnout)
+          const val = s.cashPct === 100 ? sTarget : sCash + sEarnout
           const isActive = s.key === activeStrategy
           return (
             <div
@@ -266,10 +273,7 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
                     <span className="text-sm font-semibold text-foreground">{formatCurrency(payment)}</span>
                   </div>
                   <span className="text-[11px] text-muted-foreground/70">
-                    {isFullEarnout
-                      ? <>{formatCurrency(yearRevenue)} revenue × {commissionRatePct}%{growthPct !== 0 && i > 0 && <span className={`ml-2 ${growthPct > 0 ? "text-[hsl(var(--success))]" : "text-destructive"}`}>({growthPct > 0 ? "+" : ""}{growthPct.toFixed(1)}%)</span>}</>
-                      : <>Earnout portion split over {earnoutYears} {earnoutYears === 1 ? "year" : "years"}</>
-                    }
+                    {formatCurrency(ltmRevenue)} revenue × {commissionRatePct}% ÷ {earnoutYears} {earnoutYears === 1 ? "yr" : "yrs"}
                   </span>
                 </div>
               )
