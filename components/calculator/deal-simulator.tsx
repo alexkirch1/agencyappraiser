@@ -108,19 +108,35 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
   })
   const commissionBasedTotal = perYearPayments.reduce((a, b) => a + b, 0)
 
-  // Total value:
-  // - All Cash: fixed at strategy's valueFactor × highOffer (no earnout to adjust)
-  // - Earnout strategies: cash portion (fixed) + commission-based earnout total
   const cashPct = strat.cashPct
   const earnoutPct = 100 - cashPct
 
-  const baseCashValue = highOffer * strat.valueFactor * (cashPct / 100)
-  const totalValue = earnoutPct > 0
-    ? baseCashValue + commissionBasedTotal  // earnout driven by sliders
-    : highOffer * strat.valueFactor          // all cash — fixed
+  // Target total is always strategy's valueFactor × highOffer — stays constant
+  // regardless of years or commission rate chosen.
+  // For Full Earnout (cashPct === 0): total = commission math (no cash to adjust).
+  // For all other strategies: cash shrinks/grows so that cash + earnout = target total.
+  const targetTotal = highOffer * strat.valueFactor
 
-  const cashAmount = earnoutPct > 0 ? baseCashValue : totalValue
-  const earnoutTotal = earnoutPct > 0 ? commissionBasedTotal : 0
+  let totalValue: number
+  let cashAmount: number
+  let earnoutTotal: number
+
+  if (cashPct === 0) {
+    // Full Earnout — no cash, total is purely commission-based
+    earnoutTotal = commissionBasedTotal
+    cashAmount = 0
+    totalValue = earnoutTotal
+  } else if (earnoutPct === 0) {
+    // All Cash — fixed total, no earnout
+    cashAmount = targetTotal
+    earnoutTotal = 0
+    totalValue = targetTotal
+  } else {
+    // Blend / Mostly Earnout: earnout is commission-based, cash fills the rest to hit target
+    earnoutTotal = commissionBasedTotal
+    cashAmount = Math.max(0, targetTotal - earnoutTotal)
+    totalValue = cashAmount + earnoutTotal
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -175,7 +191,8 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
       {/* Value comparison across strategies */}
       <div className="rounded-md border border-border bg-card divide-y divide-border">
         {strategies.map((s) => {
-          const val = highOffer * s.valueFactor
+          // For Full Earnout show commission-based total; others show fixed target
+          const val = s.cashPct === 0 ? totalValue : highOffer * s.valueFactor
           const isActive = s.key === activeStrategy
           return (
             <div
