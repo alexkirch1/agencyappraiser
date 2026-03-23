@@ -264,8 +264,6 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
           {/* Per-year breakdown */}
           <div className="rounded-md bg-card border border-border divide-y divide-border">
             {perYearPayments.map((payment, i) => {
-              const isFullEarnout = cashPct === 0
-              const yearRevenue = ltmRevenue * Math.pow(1 + growthRate, i + 1)
               return (
                 <div key={i} className="flex flex-col px-3 py-2.5 gap-0.5">
                   <div className="flex items-center justify-between">
@@ -280,7 +278,7 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
             })}
             <div className="flex items-center justify-between px-3 py-2 bg-primary/5">
               <span className="text-xs font-semibold text-foreground">Total Earnout</span>
-              <span className="text-sm font-bold text-primary">{formatCurrency(commissionBasedTotal)}</span>
+              <span className="text-sm font-bold text-primary">{formatCurrency(earnoutTotal)}</span>
             </div>
           </div>
 
