@@ -68,14 +68,19 @@ export function ValuationDisclaimerModal({ onContinue }: Props) {
           {/* Disclaimer content */}
           {ready && (
             <div className="flex flex-col gap-4" style={{ animation: "fade-up 0.4s ease-out" }}>
+              <div className="flex items-center justify-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary w-fit mx-auto">
+                Beta
+              </div>
               <div className="rounded-lg border border-border bg-secondary/50 p-4 text-left">
                 <p className="text-sm leading-relaxed text-foreground">
-                  <span className="font-bold">Please Note:</span> This figure is a preliminary
-                  estimate for educational purposes only. It is not a binding offer.
+                  <span className="font-bold">Please Note:</span> AgencyAppraiser is currently in
+                  beta. This figure is a preliminary estimate for educational purposes only and is
+                  not a binding offer.
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  A member of our team may review this data to discuss a formal valuation based on
-                  these details.
+                  Valuations, deal structures, and data shown are subject to change as the platform
+                  continues to evolve. A member of our team may reach out to discuss a formal
+                  valuation based on these details.
                 </p>
               </div>
               <Button onClick={onContinue} size="lg" className="w-full text-base">

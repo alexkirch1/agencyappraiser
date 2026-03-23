@@ -40,9 +40,6 @@ const carriers: { value: CarrierName; label: string; description: string }[] = [
 ]
 
 const comingSoonCarriers: string[] = [
-  "Aegis",
-  "Alinsco",
-  "Allstate",
   "AmTrust",
   "American Modern",
   "Attune",

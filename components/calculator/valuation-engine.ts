@@ -282,8 +282,7 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
   // 7. CONDITIONAL
   let conditionalScore = 0.0
   if (isFullAgency) {
-    if (inputs.closingTimeline === "urgent") conditionalScore += 0.07
-    else if (inputs.closingTimeline === "long") conditionalScore -= 0.03
+    // closingTimeline is data-gathering only — not a valuation factor
     if (inputs.staffRetentionRisk === "secure") conditionalScore += 0.05
     else if (inputs.staffRetentionRisk === "high") conditionalScore -= 0.1
     if (inputs.avgClientTenure !== null) {
@@ -573,11 +572,7 @@ export function runRiskAudit(inputs: ValuationInputs): RiskAuditResult {
     highCount++
   }
 
-  // 13. Timeline
-  if (inputs.closingTimeline === "urgent") {
-    items.push({ level: "Moderate Risk", title: "Urgent Sale Timeline", problem: "Selling in <60 days signals distress.", psychology: "Buyers may low-ball offers expecting desperation.", mitigation: "Extend your runway if possible." })
-    moderateCount++
-  }
+  // 13. Timeline — data gathering only, not a risk factor
 
   // 14. Pipeline
   const newBiz = inputs.newBusinessValue ?? 0

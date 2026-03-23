@@ -31,6 +31,9 @@ export function Header() {
           <span className="text-lg font-bold text-foreground">
             Agency<span className="text-primary">Appraiser</span>
           </span>
+          <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+            Beta
+          </span>
         </Link>
 
         <nav className="hidden items-center gap-1 lg:flex">

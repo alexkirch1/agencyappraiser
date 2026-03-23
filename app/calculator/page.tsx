@@ -334,17 +334,16 @@ function CalculatorContent() {
               {pdfLoading ? "Generating..." : "Download PDF Report"}
             </Button>
           </div>
-          {/* Row 1: Market Intel + Benchmark */}
-          <div className="grid gap-6 mb-6 lg:grid-cols-2">
+          {/* Row 1: Market Intel (full width) */}
+          <div className="mb-6">
             <MarketIntelPanel
               modelMultiple={results?.calculatedMultiple}
               dealType="full"
             />
-            <BenchmarkComparison inputs={inputs} />
           </div>
 
           {/* Row 2: Deal Simulator + Risk Audit */}
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-6 mb-6 lg:grid-cols-2">
             <Card className="border-border bg-card">
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg font-semibold text-foreground">Deal Structure Simulator</CardTitle>
@@ -376,6 +375,9 @@ function CalculatorContent() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Row 3: How You Compare — full width at bottom */}
+          <BenchmarkComparison inputs={inputs} className="w-full" />
         </div>
       )}
 

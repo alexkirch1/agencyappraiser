@@ -97,24 +97,49 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
     [revenueLTM, revenueY2, revenueY3, revenueGrowthTrend]
   )
 
-  // Total payout scales with strategy — Full Earnout = highOffer × 1.0, All Cash = × 0.85
-  const totalValue = highOffer * strat.valueFactor
-  const cashAmount = totalValue * (strat.cashPct / 100)
-  const earnoutTotal = totalValue * ((100 - strat.cashPct) / 100)
-
-  // Per-year earnout: each year's payment = that year's projected revenue × commission rate
   const ltmRevenue = revenueLTM ?? 0
   const growthRate = growthPct / 100
-  const perYearPayments: number[] = Array.from({ length: earnoutYears }, (_, i) => {
-    const yearRevenue = ltmRevenue * Math.pow(1 + growthRate, i + 1)
-    return yearRevenue * commissionRate
-  })
-  const commissionBasedTotal = perYearPayments.reduce((a, b) => a + b, 0)
   const commissionRatePct = Math.round(commissionRate * 100)
 
-  // Slider position (0 = full earnout, 100 = all cash) — read-only, driven by strategy buttons
   const cashPct = strat.cashPct
   const earnoutPct = 100 - cashPct
+
+  // The earnout total is ALWAYS: annual revenue × commission rate
+  // This is a fixed dollar amount — it does NOT change with years.
+  // Years only affects how it's split (1 big payment vs 2 smaller ones).
+  // The commission rate slider directly drives this number.
+  const annualEarnout = ltmRevenue * commissionRate // e.g. $200k × 75% = $150k
+
+  let totalValue: number
+  let cashAmount: number
+  let earnoutTotal: number
+  let perYearPayments: number[]
+
+  if (earnoutPct === 0) {
+    // All Cash — no earnout at all, fixed at valueFactor × highOffer
+    cashAmount = highOffer * strat.valueFactor
+    earnoutTotal = 0
+    totalValue = cashAmount
+    perYearPayments = []
+  } else if (cashPct === 0) {
+    // Full Earnout — 100% commission-based, no cash floor
+    earnoutTotal = annualEarnout
+    cashAmount = 0
+    totalValue = earnoutTotal
+    // Split into equal annual payments
+    perYearPayments = Array.from({ length: earnoutYears }, () => earnoutTotal / earnoutYears)
+  } else {
+    // Blend / Mostly Earnout:
+    // Earnout = annual revenue × commission rate (slider drives this)
+    // Cash = targetTotal - earnout, but minimum is strategy's cash% × targetTotal × 0.5
+    const targetTotal = highOffer * strat.valueFactor
+    const minCash = targetTotal * (cashPct / 100) * 0.5 // floor: half of strategy's nominal cash
+    earnoutTotal = annualEarnout
+    cashAmount = Math.max(minCash, targetTotal - earnoutTotal)
+    totalValue = cashAmount + earnoutTotal
+    // Earnout split equally across years
+    perYearPayments = Array.from({ length: earnoutYears }, () => earnoutTotal / earnoutYears)
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -169,7 +194,16 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
       {/* Value comparison across strategies */}
       <div className="rounded-md border border-border bg-card divide-y divide-border">
         {strategies.map((s) => {
-          const val = highOffer * s.valueFactor
+          // All strategies use: cash + (annualRevenue × commissionRate)
+          // except All Cash (no earnout) which is fixed at valueFactor × highOffer
+          const sTarget = highOffer * s.valueFactor
+          const sEarnout = s.cashPct === 100 ? 0 : annualEarnout
+          const sCash = s.cashPct === 100
+            ? sTarget
+            : s.cashPct === 0
+              ? 0
+              : Math.max(sTarget * (s.cashPct / 100) * 0.5, sTarget - sEarnout)
+          const val = s.cashPct === 100 ? sTarget : sCash + sEarnout
           const isActive = s.key === activeStrategy
           return (
             <div
@@ -230,7 +264,6 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
           {/* Per-year breakdown */}
           <div className="rounded-md bg-card border border-border divide-y divide-border">
             {perYearPayments.map((payment, i) => {
-              const yearRevenue = ltmRevenue * Math.pow(1 + growthRate, i + 1)
               return (
                 <div key={i} className="flex flex-col px-3 py-2.5 gap-0.5">
                   <div className="flex items-center justify-between">
@@ -238,19 +271,14 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
                     <span className="text-sm font-semibold text-foreground">{formatCurrency(payment)}</span>
                   </div>
                   <span className="text-[11px] text-muted-foreground/70">
-                    {formatCurrency(yearRevenue)} revenue × {commissionRatePct}%
-                    {growthPct !== 0 && i > 0 && (
-                      <span className={`ml-2 ${growthPct > 0 ? "text-[hsl(var(--success))]" : "text-destructive"}`}>
-                        ({growthPct > 0 ? "+" : ""}{growthPct.toFixed(1)}% trajectory)
-                      </span>
-                    )}
+                    {formatCurrency(ltmRevenue)} revenue × {commissionRatePct}% ÷ {earnoutYears} {earnoutYears === 1 ? "yr" : "yrs"}
                   </span>
                 </div>
               )
             })}
             <div className="flex items-center justify-between px-3 py-2 bg-primary/5">
-              <span className="text-xs font-semibold text-foreground">Est. Commission-Based Total</span>
-              <span className="text-sm font-bold text-primary">{formatCurrency(commissionBasedTotal)}</span>
+              <span className="text-xs font-semibold text-foreground">Total Earnout</span>
+              <span className="text-sm font-bold text-primary">{formatCurrency(earnoutTotal)}</span>
             </div>
           </div>
 
