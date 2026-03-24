@@ -21,6 +21,9 @@ export async function GET() {
         l.created_at,
         l.stage,
         l.last_activity,
+        l.archived,
+        l.archive_reason,
+        l.archived_at,
         fv.low_offer,
         fv.high_offer,
         fv.core_score,
@@ -157,11 +160,27 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const { id, stage } = await request.json()
+    const body = await request.json()
+    const { id, stage, archived, archive_reason } = body
+
     if (!id || isNaN(Number(id))) {
       return NextResponse.json({ error: "Invalid lead id" }, { status: 400 })
     }
-    
+
+    // Handle archive/unarchive
+    if (typeof archived === 'boolean') {
+      await sql`
+        UPDATE leads 
+        SET archived = ${archived},
+            archive_reason = ${archive_reason ?? null},
+            archived_at = ${archived ? sql`NOW()` : null},
+            last_activity = NOW()
+        WHERE id = ${Number(id)}
+      `
+      return NextResponse.json({ success: true })
+    }
+
+    // Handle stage update
     const validStages = ['new', 'contacted', 'qualified', 'proposal', 'negotiating', 'won', 'lost']
     if (stage && !validStages.includes(stage)) {
       return NextResponse.json({ error: "Invalid stage" }, { status: 400 })
@@ -172,7 +191,7 @@ export async function PATCH(request: Request) {
       SET stage = ${stage}, last_activity = NOW() 
       WHERE id = ${Number(id)}
     `
-    
+
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error("[v0] admin leads patch error:", err)

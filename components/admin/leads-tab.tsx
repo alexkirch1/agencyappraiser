@@ -5,9 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { 
   Users, TrendingUp, Calculator, ClipboardCheck, DollarSign, RefreshCw, 
-  FolderKanban, Trophy, X, ChevronRight, ExternalLink, Trash2, 
+  FolderKanban, Trophy, X, ChevronRight, ExternalLink, Trash2, Archive,
   ArrowUpRight, ArrowDownRight, Percent, Target, Clock, Calendar,
-  LayoutGrid, List, GripVertical, Phone, Mail
+  LayoutGrid, List, GripVertical, Phone, Mail, ChevronDown, ArchiveRestore
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CompleteDealModal } from "@/components/admin/complete-deal-modal"
@@ -77,6 +77,10 @@ interface LeadRow {
   quiz_pct: string | null
   quiz_grade: string | null
   quiz_answers: Record<string, unknown> | null
+  // Archive
+  archived: boolean
+  archive_reason: string | null
+  archived_at: string | null
 }
 
 interface Stats {
@@ -122,6 +126,81 @@ const PIPELINE_STAGES = [
   { id: 'won',         label: 'Won',         dotClass: 'bg-emerald-500', activeClass: 'bg-emerald-500 text-white' },
   { id: 'lost',        label: 'Lost',        dotClass: 'bg-rose-500',    activeClass: 'bg-rose-500 text-white' },
 ]
+
+const ARCHIVE_REASONS = [
+  { id: 'not_interested',  label: 'Not Interested' },
+  { id: 'no_contact',      label: 'No Contact / Unresponsive' },
+  { id: 'bad_timing',      label: 'Bad Timing' },
+  { id: 'price_mismatch',  label: 'Price Mismatch' },
+  { id: 'chose_competitor',label: 'Chose Competitor' },
+  { id: 'duplicate',       label: 'Duplicate Lead' },
+  { id: 'not_qualified',   label: 'Not Qualified' },
+  { id: 'other',           label: 'Other' },
+]
+
+function ArchiveModal({ 
+  leadName, 
+  onConfirm, 
+  onCancel,
+  loading
+}: { 
+  leadName: string
+  onConfirm: (reason: string) => void
+  onCancel: () => void
+  loading: boolean
+}) {
+  const [selected, setSelected] = useState<string | null>(null)
+
+  return (
+    <>
+      <div className="fixed inset-0 z-[60] bg-black/50" onClick={onCancel} />
+      <div className="fixed left-1/2 top-1/2 z-[70] w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card shadow-2xl p-6">
+        <div className="flex items-start gap-3 mb-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
+            <Archive className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-foreground text-sm">Archive Lead</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {leadName} — select a reason below
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-1.5 mb-5">
+          {ARCHIVE_REASONS.map((reason) => (
+            <button
+              key={reason.id}
+              onClick={() => setSelected(reason.id)}
+              className={cn(
+                "w-full text-left rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors",
+                selected === reason.id
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border bg-secondary/30 text-foreground hover:bg-secondary/60"
+              )}
+            >
+              {reason.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="flex-1" onClick={onCancel} disabled={loading}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            className="flex-1 bg-amber-600 hover:bg-amber-700 text-white border-0"
+            disabled={!selected || loading}
+            onClick={() => selected && onConfirm(selected)}
+          >
+            {loading ? "Archiving…" : "Archive Lead"}
+          </Button>
+        </div>
+      </div>
+    </>
+  )
+}
 
 function fmt(n: string | null | undefined, prefix = "$") {
   if (!n) return "—"
@@ -235,11 +314,13 @@ function PipelineCard({
   lead, 
   onSelect,
   onStageChange,
+  onArchive,
   isDragging
 }: { 
   lead: LeadRow
   onSelect: () => void
   onStageChange: (stage: string) => void
+  onArchive: () => void
   isDragging?: boolean
 }) {
   const val = lead.estimated_value ?? lead.quick_mid
@@ -264,7 +345,16 @@ function PipelineCard({
             <h4 className="font-semibold text-sm text-foreground truncate">
               {lead.agency_name ?? lead.name}
             </h4>
-            {toolBadge(lead.tool_used)}
+            <div className="flex items-center gap-1 shrink-0">
+              {toolBadge(lead.tool_used)}
+              <button
+                onClick={(e) => { e.stopPropagation(); onArchive() }}
+                className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 p-0.5 rounded text-muted-foreground/50 hover:text-amber-600"
+                title="Archive lead"
+              >
+                <Archive className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
           <p className="text-xs text-muted-foreground truncate mt-0.5">
             {lead.name}
@@ -306,12 +396,14 @@ function PipelineColumn({
   stage, 
   leads, 
   onSelectLead,
-  onStageChange 
+  onStageChange,
+  onArchiveLead
 }: { 
   stage: typeof PIPELINE_STAGES[number]
   leads: LeadRow[]
   onSelectLead: (lead: LeadRow) => void
   onStageChange: (leadId: number, newStage: string) => void
+  onArchiveLead: (lead: LeadRow) => void
 }) {
   const totalValue = leads.reduce((sum, l) => sum + (parseFloat(l.estimated_value ?? l.quick_mid ?? '0') || 0), 0)
   const [isDragOver, setIsDragOver] = useState(false)
@@ -363,6 +455,7 @@ function PipelineColumn({
               lead={lead}
               onSelect={() => onSelectLead(lead)}
               onStageChange={(newStage) => onStageChange(lead.id, newStage)}
+              onArchive={() => onArchiveLead(lead)}
             />
           ))
         )}
@@ -390,6 +483,9 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
   const [wonDeal, setWonDeal] = useState<Deal | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [viewMode, setViewMode] = useState<'pipeline' | 'list'>('pipeline')
+  const [archivingLead, setArchivingLead] = useState<LeadRow | null>(null)
+  const [archiveLoading, setArchiveLoading] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
   const { mutate: mutateIntel } = useMarketIntel()
 
   const deleteLead = async (id: number) => {
@@ -428,6 +524,39 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
       alert("Failed to update lead stage.")
     }
   }, [])
+
+  const archiveLead = async (lead: LeadRow, reason: string) => {
+    setArchiveLoading(true)
+    try {
+      const res = await fetch("/api/admin/leads", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: lead.id, archived: true, archive_reason: reason }),
+      })
+      if (!res.ok) throw new Error("Failed to archive")
+      setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, archived: true, archive_reason: reason } : l))
+      setArchivingLead(null)
+      setViewingLead(null)
+    } catch {
+      alert("Failed to archive lead. Please try again.")
+    } finally {
+      setArchiveLoading(false)
+    }
+  }
+
+  const unarchiveLead = async (id: number) => {
+    try {
+      const res = await fetch("/api/admin/leads", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, archived: false, archive_reason: null }),
+      })
+      if (!res.ok) throw new Error("Failed to unarchive")
+      setLeads((prev) => prev.map((l) => l.id === id ? { ...l, archived: false, archive_reason: null } : l))
+    } catch {
+      alert("Failed to unarchive lead.")
+    }
+  }
 
   const fetchLeads = async () => {
     setLoading(true)
@@ -498,9 +627,13 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
     ? parseInt(weeklyTrend[weeklyTrend.length - 1]?.count ?? '0') - parseInt(weeklyTrend[weeklyTrend.length - 2]?.count ?? '0')
     : 0
 
-  // Group leads by stage for pipeline view
+  // Separate active vs archived leads
+  const activeLeads = leads.filter((l) => !l.archived)
+  const archivedLeads = leads.filter((l) => l.archived)
+
+  // Group active leads by stage for pipeline view
   const leadsByStage = PIPELINE_STAGES.reduce((acc, stage) => {
-    acc[stage.id] = leads.filter((l) => (l.stage ?? 'new') === stage.id)
+    acc[stage.id] = activeLeads.filter((l) => (l.stage ?? 'new') === stage.id)
     return acc
   }, {} as Record<string, LeadRow[]>)
 
@@ -673,6 +806,7 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
                   leads={leadsByStage[stage.id] ?? []}
                   onSelectLead={setViewingLead}
                   onStageChange={updateLeadStage}
+                  onArchiveLead={setArchivingLead}
                 />
               ))}
             </div>
@@ -983,7 +1117,7 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
             </div>
 
             {/* Drawer footer */}
-            <div className="border-t border-border px-6 py-4 flex gap-3">
+            <div className="border-t border-border px-6 py-4 flex gap-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -993,6 +1127,15 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
               >
                 <Trash2 className="h-4 w-4" />
                 {deletingId === viewingLead.id ? "Deleting…" : "Delete"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-amber-600 border-amber-300 hover:bg-amber-50 dark:border-amber-800 dark:hover:bg-amber-950/30"
+                onClick={() => setArchivingLead(viewingLead)}
+              >
+                <Archive className="h-4 w-4" />
+                Archive
               </Button>
               <Button
                 className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
@@ -1008,6 +1151,70 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
             </div>
           </div>
         </>
+      )}
+
+      {/* Archived Leads Section */}
+      {archivedLeads.length > 0 && (
+        <div className="rounded-lg border border-border overflow-hidden">
+          <button
+            onClick={() => setShowArchived((v) => !v)}
+            className="w-full flex items-center justify-between px-4 py-3 bg-secondary/30 hover:bg-secondary/50 transition-colors text-left"
+          >
+            <div className="flex items-center gap-2">
+              <Archive className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-foreground">Archived Leads</span>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                {archivedLeads.length}
+              </span>
+            </div>
+            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", showArchived && "rotate-180")} />
+          </button>
+          {showArchived && (
+            <div className="divide-y divide-border">
+              {archivedLeads.map((lead) => {
+                const reason = ARCHIVE_REASONS.find(r => r.id === lead.archive_reason)
+                return (
+                  <div key={lead.id} className="flex items-center justify-between px-4 py-3 bg-card hover:bg-secondary/20 transition-colors">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm text-muted-foreground truncate">{lead.agency_name ?? lead.name}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[11px] text-muted-foreground/60">{lead.name}</span>
+                        {reason && (
+                          <span className="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/20 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                            {reason.label}
+                          </span>
+                        )}
+                        {lead.archived_at && (
+                          <span className="text-[10px] text-muted-foreground/50">
+                            {new Date(lead.archived_at).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => unarchiveLead(lead.id)}
+                      className="ml-3 flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-primary transition-colors"
+                      title="Restore lead"
+                    >
+                      <ArchiveRestore className="h-3.5 w-3.5" />
+                      Restore
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Archive Reason Modal */}
+      {archivingLead && (
+        <ArchiveModal
+          leadName={archivingLead.agency_name ?? archivingLead.name}
+          onConfirm={(reason) => archiveLead(archivingLead, reason)}
+          onCancel={() => setArchivingLead(null)}
+          loading={archiveLoading}
+        />
       )}
 
       {/* Won / CompleteDealModal */}

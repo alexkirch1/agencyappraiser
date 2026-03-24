@@ -35,11 +35,11 @@ function StatusBadge({
       label: "ACTIVE",
     },
     completed: {
-      className: "bg-success/15 text-success border border-success/30",
+      className: "bg-emerald-100 text-emerald-700 border border-emerald-300 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800",
       label: "COMPLETED",
     },
     declined: {
-      className: "bg-destructive/15 text-destructive border border-destructive/30",
+      className: "bg-red-100 text-red-700 border border-red-300 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800",
       label: "DECLINED",
     },
   }
@@ -76,10 +76,10 @@ function SmartStat({
   size?: 'default' | 'large'
 }) {
   const highlightClass = {
-    success: 'border-success/30 bg-success/5',
-    warning: 'border-warning/30 bg-warning/5',
+    success: 'border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20',
+    warning: 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20',
     primary: 'border-primary/30 bg-primary/5',
-    destructive: 'border-destructive/30 bg-destructive/5',
+    destructive: 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/20',
   }[highlight ?? ''] ?? 'border-border'
 
   return (
@@ -93,8 +93,8 @@ function SmartStat({
           {trend && (
             <div className={cn(
               "flex items-center gap-0.5 text-[10px] font-medium rounded-full px-1.5 py-0.5",
-              trend === 'up' && "bg-success/10 text-success",
-              trend === 'down' && "bg-destructive/10 text-destructive",
+              trend === 'up' && "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+              trend === 'down' && "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
               trend === 'neutral' && "bg-muted text-muted-foreground"
             )}>
               {trend === 'up' && <TrendingUp className="h-3 w-3" />}
@@ -106,10 +106,10 @@ function SmartStat({
         <p className={cn(
           "mt-2 font-extrabold",
           size === 'large' ? 'text-3xl' : 'text-2xl',
-          highlight === 'success' && "text-success",
-          highlight === 'warning' && "text-warning",
+          highlight === 'success' && "text-emerald-600 dark:text-emerald-400",
+          highlight === 'warning' && "text-amber-600 dark:text-amber-400",
           highlight === 'primary' && "text-primary",
-          highlight === 'destructive' && "text-destructive",
+          highlight === 'destructive' && "text-red-600 dark:text-red-400",
           !highlight && "text-foreground"
         )}>{value}</p>
         {subValue && (
@@ -125,9 +125,9 @@ function ProgressBar({ value, max, color = 'primary' }: { value: number, max: nu
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0
   const colorClass = {
     primary: 'bg-primary',
-    success: 'bg-success',
-    warning: 'bg-warning',
-    destructive: 'bg-destructive',
+    success: 'bg-emerald-500',
+    warning: 'bg-amber-500',
+    destructive: 'bg-red-500',
   }[color]
 
   return (
@@ -326,7 +326,7 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
                       | Type:{" "}
                       <span className="font-bold uppercase">{deal.deal_type}</span>
                       {daysOld > 30 && deal.status === "active" && (
-                        <span className="ml-2 text-warning font-bold">STALE ({daysOld}d)</span>
+                        <span className="ml-2 text-amber-600 dark:text-amber-400 font-bold">STALE ({daysOld}d)</span>
                       )}
                     </p>
                   </div>
@@ -338,7 +338,7 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
                       }
                     />
                     <div className="text-right">
-                      <p className="text-lg font-extrabold text-success">
+                      <p className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400">
                         ${deal.valuation.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                       </p>
                       <p className="text-xs text-muted-foreground">
