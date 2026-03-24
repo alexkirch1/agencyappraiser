@@ -302,7 +302,7 @@ function CalculatorContent() {
         <div id="valuation-results" className="mt-12 border-t border-border pt-10">
           {inputs.isCaptive === true && (
             <div className="mb-6 flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/8 px-5 py-4">
-              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[hsl(var(--warning))]" />
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
               <div>
                 <p className="font-semibold text-foreground">Captive Agent — Limited Transferability</p>
                 <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">

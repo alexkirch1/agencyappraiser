@@ -194,19 +194,19 @@ export function ReportUpload({ carrier, onParsed }: Props) {
         )}
 
         {status === "success" && (
-          <div className="flex items-center justify-between rounded-lg border border-[hsl(var(--success))]/30 bg-[hsl(var(--success))]/5 p-4">
+          <div className="flex items-center justify-between rounded-lg border border-success/30 bg-success/5 p-4">
             <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-5 w-5 text-[hsl(var(--success))]" />
+              <CheckCircle2 className="h-5 w-5 text-success" />
               <div>
                 <p className="text-sm font-medium text-foreground">
                   <FileText className="mr-1.5 inline h-4 w-4 text-muted-foreground" />
                   {fileName}
                 </p>
-                <p className="text-xs text-[hsl(var(--success))]">
+                <p className="text-xs text-success">
                   {fieldsFound} field{fieldsFound !== 1 ? "s" : ""} auto-filled from report
                   <span className={`ml-2 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                    confidence >= 70 ? "bg-[hsl(var(--success))]/15 text-[hsl(var(--success))]" :
-                    confidence >= 45 ? "bg-[hsl(var(--warning))]/15 text-[hsl(var(--warning))]" :
+                    confidence >= 70 ? "bg-success/15 text-success" :
+                    confidence >= 45 ? "bg-warning/15 text-warning" :
                     "bg-destructive/15 text-destructive"
                   }`}>
                     {confidence}% confidence

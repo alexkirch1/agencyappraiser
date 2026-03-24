@@ -87,8 +87,8 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
 
             {/* Captive warning banner */}
             {inputs.isCaptive === true && (
-              <div className="mt-3 flex items-start gap-2.5 rounded-md border border-warning/40 bg-warning/8 px-4 py-3">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[hsl(var(--warning))]" />
+              <div className="mt-3 flex items-start gap-2.5 rounded-md border border-warning/40 bg-warning/10 px-4 py-3">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
                 <div>
                   <p className="text-sm font-semibold text-foreground">Captive agencies cannot be independently sold.</p>
                   <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">

@@ -130,11 +130,11 @@ export default function CarrierPage() {
                 {results && results.premium > 0 ? (
                   <>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-bold text-[hsl(var(--success))]">
+                      <span className="text-2xl font-bold text-success">
                         {formatCurrency(results.lowOffer)}
                       </span>
                       <span className="text-muted-foreground">-</span>
-                      <span className="text-2xl font-bold text-[hsl(var(--success))]">
+                      <span className="text-2xl font-bold text-success">
                         {formatCurrency(results.highOffer)}
                       </span>
                     </div>

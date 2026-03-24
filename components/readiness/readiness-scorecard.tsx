@@ -103,8 +103,8 @@ export function ReadinessScorecard() {
   const overallPct = totalItems > 0 ? Math.round((totalChecked / totalItems) * 100) : 0
 
   const getGradeInfo = (pct: number) => {
-    if (pct >= 70) return { label: "Ready", color: "text-[hsl(var(--success))]", barColor: "bg-[hsl(var(--success))]" }
-    if (pct >= 40) return { label: "In Progress", color: "text-[hsl(var(--warning))]", barColor: "bg-[hsl(var(--warning))]" }
+    if (pct >= 70) return { label: "Ready", color: "text-success", barColor: "bg-success" }
+    if (pct >= 40) return { label: "In Progress", color: "text-warning", barColor: "bg-warning" }
     return { label: "Needs Work", color: "text-destructive", barColor: "bg-destructive" }
   }
 

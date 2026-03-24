@@ -39,14 +39,14 @@ export function ValuationSidebar({ results, riskAudit }: Props) {
           <div className="flex items-end gap-3">
             <div className="flex flex-col">
               <span className="text-xs text-muted-foreground">Low</span>
-              <span className="text-2xl font-bold text-[hsl(var(--success))]">
+              <span className="text-2xl font-bold text-success">
                 {formatCurrency(results.lowOffer)}
               </span>
             </div>
             <span className="mb-1 text-lg text-muted-foreground">—</span>
             <div className="flex flex-col">
               <span className="text-xs text-muted-foreground">High</span>
-              <span className="text-2xl font-bold text-[hsl(var(--success))]">
+              <span className="text-2xl font-bold text-success">
                 {formatCurrency(results.highOffer)}
               </span>
             </div>
@@ -114,9 +114,9 @@ export function ValuationSidebar({ results, riskAudit }: Props) {
 
 function gradeColorBorder(grade: string) {
   switch (grade) {
-    case "A": return "border-[hsl(var(--success))]"
-    case "B": return "border-[hsl(var(--warning))]"
-    case "C": return "border-[hsl(var(--warning))]"
+    case "A": return "border-success"
+    case "B": return "border-warning"
+    case "C": return "border-warning"
     case "D": return "border-destructive"
     default: return "border-border"
   }

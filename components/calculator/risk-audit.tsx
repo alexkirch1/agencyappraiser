@@ -45,9 +45,9 @@ export function RiskAudit({ data }: Props) {
 
 function gradeColorBorder(grade: string) {
   switch (grade) {
-    case "A": return "border-[hsl(var(--success))]"
-    case "B": return "border-[hsl(var(--warning))]"
-    case "C": return "border-[hsl(var(--warning))]"
+    case "A": return "border-success"
+    case "B": return "border-warning"
+    case "C": return "border-warning"
     case "D": return "border-destructive"
     default: return "border-border"
   }
@@ -81,8 +81,8 @@ function RiskCard({ item }: { item: RiskAuditItem }) {
         )}
 
         {item.mitigation && (
-          <div className="rounded-md bg-[hsl(var(--warning))]/10 p-2.5">
-            <p className="text-[10px] font-semibold uppercase text-[hsl(var(--warning))]">How to Fix It</p>
+          <div className="rounded-md bg-warning/10 p-2.5">
+            <p className="text-[10px] font-semibold uppercase text-warning">How to Fix It</p>
             <p className="mt-0.5 text-xs text-muted-foreground">{item.mitigation}</p>
           </div>
         )}
@@ -96,10 +96,10 @@ function levelConfig(level: RiskAuditItem["level"]) {
     case "Strength":
       return {
         Icon: CheckCircle2,
-        textColor: "text-[hsl(var(--success))]",
-        borderColor: "border-l-[hsl(var(--success))]",
+        textColor: "text-success",
+        borderColor: "border-l-success",
         badge: "Key Strength",
-        psychBg: "bg-[hsl(var(--success))]/10",
+        psychBg: "bg-success/10",
       }
     case "High Risk":
     case "Severe Risk":
@@ -108,15 +108,15 @@ function levelConfig(level: RiskAuditItem["level"]) {
         textColor: "text-destructive",
         borderColor: "border-l-destructive",
         badge: level,
-        psychBg: "bg-primary/10",
+        psychBg: "bg-destructive/10",
       }
     case "Moderate Risk":
       return {
         Icon: AlertTriangle,
-        textColor: "text-[hsl(var(--warning))]",
-        borderColor: "border-l-[hsl(var(--warning))]",
+        textColor: "text-warning",
+        borderColor: "border-l-warning",
         badge: level,
-        psychBg: "bg-primary/10",
+        psychBg: "bg-warning/10",
       }
     case "Info":
       return {

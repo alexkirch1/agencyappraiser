@@ -88,9 +88,9 @@ export function calculateCAGR(ltm: number, y3: number): number {
 }
 
 function getRiskLevel(calculatedMultiple: number) {
-  if (calculatedMultiple >= 2.8) return { text: "VERY LOW", color: "text-[hsl(var(--success))]" }
-  if (calculatedMultiple >= 2.0) return { text: "LOW", color: "text-[hsl(var(--success))]" }
-  if (calculatedMultiple >= 1.2) return { text: "MODERATE", color: "text-[hsl(var(--warning))]" }
+  if (calculatedMultiple >= 2.8) return { text: "VERY LOW", color: "text-success" }
+  if (calculatedMultiple >= 2.0) return { text: "LOW", color: "text-success" }
+  if (calculatedMultiple >= 1.2) return { text: "MODERATE", color: "text-warning" }
   return { text: "HIGH", color: "text-destructive" }
 }
 
@@ -133,7 +133,7 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
       cagr:                  0,
       revenueRange:          `${formatCurrency(revLTM * 1.0)} - ${formatCurrency(revLTM * 1.5)}`,
       sdeRange:              sde ? `${formatCurrency(sde * 3.0)} - ${formatCurrency(sde * 5.0)}` : "---",
-      riskLevel:             { text: "CAPTIVE", color: "text-[hsl(var(--warning))]" },
+      riskLevel:             { text: "CAPTIVE", color: "text-warning" },
     }
   }
 
@@ -586,7 +586,7 @@ export function runRiskAudit(inputs: ValuationInputs): RiskAuditResult {
 
   // Grade
   let grade = "A"
-  let gradeColor = "text-[hsl(var(--success))]"
+  let gradeColor = "text-success"
   let summaryText = `Prime Target! ${strengthCount} Strengths detected.`
 
   if (severeCount > 0) {
@@ -595,11 +595,11 @@ export function runRiskAudit(inputs: ValuationInputs): RiskAuditResult {
     summaryText = "Critical structural risks identified."
   } else if (highCount > 0) {
     grade = "C"
-    gradeColor = "text-[hsl(var(--warning))]"
+    gradeColor = "text-warning"
     summaryText = "Meaningful risks exist."
   } else if (moderateCount > 2) {
     grade = "B"
-    gradeColor = "text-[hsl(var(--warning))]"
+    gradeColor = "text-warning"
     summaryText = "Solid foundation with some operational drag."
   }
 

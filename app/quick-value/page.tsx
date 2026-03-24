@@ -58,23 +58,23 @@ function getTier(retention: string, bookType: string, revenue: number | null, gr
 const TIER_MESSAGES: Record<Tier, { icon: React.ReactNode; color: string; bg: string; border: string; text: string }> = {
   high: {
     icon: <TrendingUp className="h-4 w-4" />,
-    color: "text-[hsl(var(--success))]",
-    bg: "bg-[hsl(var(--success))]/8",
-    border: "border-[hsl(var(--success))]/30",
+    color: "text-success",
+    bg: "bg-success/10",
+    border: "border-success/30",
     text: "High-Value Potential Detected. Your agency may qualify for a premium multiplier. Use the Detailed Valuation to unlock a higher precision score.",
   },
   average: {
     icon: <Calculator className="h-4 w-4" />,
     color: "text-primary",
-    bg: "bg-primary/8",
+    bg: "bg-primary/10",
     border: "border-primary/30",
     text: "Want to increase this number? Our full audit identifies the 7 key areas buyers evaluate most closely when placing their offer.",
   },
   below: {
     icon: <ShieldAlert className="h-4 w-4" />,
-    color: "text-[hsl(var(--warning))]",
-    bg: "bg-[hsl(var(--warning))]/8",
-    border: "border-[hsl(var(--warning))]/30",
+    color: "text-warning",
+    bg: "bg-warning/10",
+    border: "border-warning/30",
     text: "Risk factors detected. See exactly what is dragging down your valuation in our Full Readiness Report.",
   },
 }
@@ -173,7 +173,7 @@ export default function QuickValuePage() {
     <div className="mx-auto max-w-4xl px-4 py-8 lg:px-8">
       <div className="mb-8 text-center">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-secondary/50 px-4 py-1.5">
-          <Zap className="h-4 w-4 text-[hsl(var(--warning))]" />
+          <Zap className="h-4 w-4 text-warning" />
           <span className="text-xs font-medium text-muted-foreground">60-Second Estimate</span>
         </div>
         <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">Quick Agency Valuation</h1>
@@ -418,7 +418,7 @@ export default function QuickValuePage() {
                     {/* Midpoint as secondary */}
                     <div className="mt-1 rounded-md bg-secondary/60 px-4 py-2 text-center w-full">
                       <p className="text-[11px] text-muted-foreground">Midpoint estimate</p>
-                      <p className="text-xl font-bold text-[hsl(var(--success))] font-mono">
+                      <p className="text-xl font-bold text-success font-mono">
                         {formatCurrency(estimate.value)}
                       </p>
                     </div>
