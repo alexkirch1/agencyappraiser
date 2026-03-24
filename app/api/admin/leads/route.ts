@@ -19,6 +19,8 @@ export async function GET() {
         l.estimated_value,
         l.pipedrive_deal_id,
         l.created_at,
+        l.stage,
+        l.last_activity,
         fv.low_offer,
         fv.high_offer,
         fv.core_score,
@@ -74,20 +76,107 @@ export async function GET() {
       LIMIT 200
     `
 
-    // Also fetch summary stats
+    // Also fetch summary stats with smarter metrics
     const stats = await sql`
       SELECT
         (SELECT COUNT(*) FROM leads)              AS total_leads,
         (SELECT COUNT(*) FROM full_valuations)    AS full_valuations,
         (SELECT COUNT(*) FROM quick_valuations)   AS quick_valuations,
         (SELECT COUNT(*) FROM quiz_submissions)   AS quiz_submissions,
-        (SELECT AVG(estimated_value) FROM leads WHERE estimated_value IS NOT NULL)::NUMERIC(15,2) AS avg_value
+        (SELECT AVG(estimated_value) FROM leads WHERE estimated_value IS NOT NULL)::NUMERIC(15,2) AS avg_value,
+        (SELECT SUM(estimated_value) FROM leads WHERE estimated_value IS NOT NULL)::NUMERIC(15,2) AS total_pipeline_value,
+        (SELECT COUNT(*) FROM leads WHERE created_at >= NOW() - INTERVAL '7 days') AS leads_this_week,
+        (SELECT COUNT(*) FROM leads WHERE created_at >= NOW() - INTERVAL '30 days') AS leads_this_month,
+        (SELECT COUNT(*) FROM leads WHERE stage = 'won') AS won_leads,
+        (SELECT COUNT(*) FROM leads WHERE stage = 'lost') AS lost_leads,
+        (SELECT COUNT(*) FROM leads WHERE stage NOT IN ('won', 'lost', 'new')) AS engaged_leads,
+        (SELECT AVG(estimated_value) FROM leads WHERE stage = 'won' AND estimated_value IS NOT NULL)::NUMERIC(15,2) AS avg_won_value,
+        (SELECT SUM(estimated_value) FROM leads WHERE stage = 'won' AND estimated_value IS NOT NULL)::NUMERIC(15,2) AS total_won_value
     `
 
-    return NextResponse.json({ leads, stats: stats[0] })
+    // Stage distribution
+    const stageStats = await sql`
+      SELECT 
+        stage,
+        COUNT(*) as count,
+        SUM(estimated_value)::NUMERIC(15,2) as value
+      FROM leads
+      GROUP BY stage
+      ORDER BY 
+        CASE stage
+          WHEN 'new' THEN 1
+          WHEN 'contacted' THEN 2
+          WHEN 'qualified' THEN 3
+          WHEN 'proposal' THEN 4
+          WHEN 'negotiating' THEN 5
+          WHEN 'won' THEN 6
+          WHEN 'lost' THEN 7
+          ELSE 8
+        END
+    `
+
+    // Lead source breakdown
+    const sourceStats = await sql`
+      SELECT 
+        COALESCE(tool_used, 'unknown') as source,
+        COUNT(*) as count,
+        SUM(estimated_value)::NUMERIC(15,2) as value
+      FROM leads
+      GROUP BY tool_used
+      ORDER BY count DESC
+    `
+
+    // Weekly trend (last 8 weeks)
+    const weeklyTrend = await sql`
+      SELECT 
+        DATE_TRUNC('week', created_at) as week,
+        COUNT(*) as count,
+        SUM(estimated_value)::NUMERIC(15,2) as value
+      FROM leads
+      WHERE created_at >= NOW() - INTERVAL '8 weeks'
+      GROUP BY DATE_TRUNC('week', created_at)
+      ORDER BY week ASC
+    `
+
+    return NextResponse.json({ 
+      leads, 
+      stats: stats[0],
+      stageStats,
+      sourceStats,
+      weeklyTrend
+    })
   } catch (err) {
     console.error("[v0] admin leads fetch error:", err)
     return NextResponse.json({ error: "Failed to fetch leads" }, { status: 500 })
+  }
+}
+
+export async function PATCH(request: Request) {
+  if (!(await isAdminAuthenticated())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  try {
+    const { id, stage } = await request.json()
+    if (!id || isNaN(Number(id))) {
+      return NextResponse.json({ error: "Invalid lead id" }, { status: 400 })
+    }
+    
+    const validStages = ['new', 'contacted', 'qualified', 'proposal', 'negotiating', 'won', 'lost']
+    if (stage && !validStages.includes(stage)) {
+      return NextResponse.json({ error: "Invalid stage" }, { status: 400 })
+    }
+
+    await sql`
+      UPDATE leads 
+      SET stage = ${stage}, last_activity = NOW() 
+      WHERE id = ${Number(id)}
+    `
+    
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    console.error("[v0] admin leads patch error:", err)
+    return NextResponse.json({ error: "Failed to update lead" }, { status: 500 })
   }
 }
 
