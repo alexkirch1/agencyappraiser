@@ -1,13 +1,19 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Users, TrendingUp, Calculator, ClipboardCheck, DollarSign, RefreshCw, FolderKanban, Trophy, X, ChevronRight, ExternalLink, Trash2 } from "lucide-react"
+import { 
+  Users, TrendingUp, Calculator, ClipboardCheck, DollarSign, RefreshCw, 
+  FolderKanban, Trophy, X, ChevronRight, ExternalLink, Trash2, 
+  ArrowUpRight, ArrowDownRight, Percent, Target, Clock, Calendar,
+  LayoutGrid, List, GripVertical, Phone, Mail
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CompleteDealModal } from "@/components/admin/complete-deal-modal"
 import { useMarketIntel } from "@/lib/use-market-intel"
 import type { Deal } from "@/components/admin/admin-dashboard"
+import { cn } from "@/lib/utils"
 
 interface LeadRow {
   id: number
@@ -19,6 +25,8 @@ interface LeadRow {
   estimated_value: string | null
   pipedrive_deal_id: number | null
   created_at: string
+  stage: string | null
+  last_activity: string | null
   // Full valuation
   low_offer: string | null
   high_offer: string | null
@@ -77,13 +85,58 @@ interface Stats {
   quick_valuations: string
   quiz_submissions: string
   avg_value: string | null
+  total_pipeline_value: string | null
+  leads_this_week: string
+  leads_this_month: string
+  won_leads: string
+  lost_leads: string
+  engaged_leads: string
+  avg_won_value: string | null
+  total_won_value: string | null
 }
+
+interface StageStats {
+  stage: string
+  count: string
+  value: string | null
+}
+
+interface SourceStats {
+  source: string
+  count: string
+  value: string | null
+}
+
+interface WeeklyTrend {
+  week: string
+  count: string
+  value: string | null
+}
+
+const PIPELINE_STAGES = [
+  { id: 'new', label: 'New', color: 'bg-muted-foreground', textColor: 'text-muted-foreground' },
+  { id: 'contacted', label: 'Contacted', color: 'bg-blue-500', textColor: 'text-blue-500' },
+  { id: 'qualified', label: 'Qualified', color: 'bg-purple-500', textColor: 'text-purple-500' },
+  { id: 'proposal', label: 'Proposal', color: 'bg-amber-500', textColor: 'text-amber-500' },
+  { id: 'negotiating', label: 'Negotiating', color: 'bg-orange-500', textColor: 'text-orange-500' },
+  { id: 'won', label: 'Won', color: 'bg-success', textColor: 'text-success' },
+  { id: 'lost', label: 'Lost', color: 'bg-destructive', textColor: 'text-destructive' },
+]
 
 function fmt(n: string | null | undefined, prefix = "$") {
   if (!n) return "—"
   const num = parseFloat(n)
   if (isNaN(num)) return "—"
   return prefix + new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(num)
+}
+
+function fmtCompact(n: string | null | undefined, prefix = "$") {
+  if (!n) return "—"
+  const num = parseFloat(n)
+  if (isNaN(num)) return "—"
+  if (num >= 1000000) return prefix + (num / 1000000).toFixed(1) + "M"
+  if (num >= 1000) return prefix + (num / 1000).toFixed(0) + "K"
+  return prefix + num.toFixed(0)
 }
 
 function toolBadge(tool: string | null) {
@@ -117,6 +170,207 @@ function Row({ label, value, tooltip }: { label: string; value: string | null | 
   )
 }
 
+// Smart stat card with trend indicator
+function SmartStatCard({ 
+  label, 
+  value, 
+  subValue,
+  icon: Icon, 
+  trend,
+  trendLabel,
+  highlight 
+}: { 
+  label: string
+  value: string | number
+  subValue?: string
+  icon: React.ElementType
+  trend?: 'up' | 'down' | 'neutral'
+  trendLabel?: string
+  highlight?: 'success' | 'warning' | 'primary'
+}) {
+  const highlightClass = {
+    success: 'border-success/30 bg-success/5',
+    warning: 'border-warning/30 bg-warning/5',
+    primary: 'border-primary/30 bg-primary/5',
+  }[highlight ?? ''] ?? 'border-border'
+
+  return (
+    <Card className={cn("transition-all hover:shadow-md", highlightClass)}>
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Icon className="h-4 w-4" />
+            <span className="text-xs font-medium">{label}</span>
+          </div>
+          {trend && (
+            <div className={cn(
+              "flex items-center gap-0.5 text-[10px] font-medium rounded-full px-1.5 py-0.5",
+              trend === 'up' && "bg-success/10 text-success",
+              trend === 'down' && "bg-destructive/10 text-destructive",
+              trend === 'neutral' && "bg-muted text-muted-foreground"
+            )}>
+              {trend === 'up' && <ArrowUpRight className="h-3 w-3" />}
+              {trend === 'down' && <ArrowDownRight className="h-3 w-3" />}
+              {trendLabel}
+            </div>
+          )}
+        </div>
+        <p className={cn(
+          "mt-1 text-2xl font-bold",
+          highlight === 'success' && "text-success",
+          highlight === 'warning' && "text-warning",
+          highlight === 'primary' && "text-primary",
+          !highlight && "text-foreground"
+        )}>{value}</p>
+        {subValue && (
+          <p className="text-xs text-muted-foreground mt-0.5">{subValue}</p>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// Pipeline card component for Kanban view
+function PipelineCard({ 
+  lead, 
+  onSelect,
+  onStageChange,
+  isDragging
+}: { 
+  lead: LeadRow
+  onSelect: () => void
+  onStageChange: (stage: string) => void
+  isDragging?: boolean
+}) {
+  const val = lead.estimated_value ?? lead.quick_mid
+  const daysAgo = Math.floor((Date.now() - new Date(lead.created_at).getTime()) / 86400000)
+
+  return (
+    <div 
+      className={cn(
+        "group bg-card border border-border rounded-lg p-3 cursor-pointer transition-all hover:border-primary/50 hover:shadow-sm",
+        isDragging && "opacity-50 rotate-2 shadow-lg"
+      )}
+      onClick={onSelect}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('leadId', lead.id.toString())
+      }}
+    >
+      <div className="flex items-start gap-2">
+        <GripVertical className="h-4 w-4 text-muted-foreground/30 group-hover:text-muted-foreground mt-0.5 cursor-grab" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <h4 className="font-semibold text-sm text-foreground truncate">
+              {lead.agency_name ?? lead.name}
+            </h4>
+            {toolBadge(lead.tool_used)}
+          </div>
+          <p className="text-xs text-muted-foreground truncate mt-0.5">
+            {lead.name}
+          </p>
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-sm font-bold text-success">{fmt(val)}</span>
+            <span className="text-[10px] text-muted-foreground">
+              {daysAgo === 0 ? 'Today' : daysAgo === 1 ? '1d ago' : `${daysAgo}d ago`}
+            </span>
+          </div>
+          {(lead.phone || lead.email) && (
+            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50">
+              {lead.phone && (
+                <a 
+                  href={`tel:${lead.phone}`} 
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-muted-foreground hover:text-primary"
+                >
+                  <Phone className="h-3 w-3" />
+                </a>
+              )}
+              <a 
+                href={`mailto:${lead.email}`} 
+                onClick={(e) => e.stopPropagation()}
+                className="text-muted-foreground hover:text-primary"
+              >
+                <Mail className="h-3 w-3" />
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Pipeline column
+function PipelineColumn({ 
+  stage, 
+  leads, 
+  onSelectLead,
+  onStageChange 
+}: { 
+  stage: typeof PIPELINE_STAGES[number]
+  leads: LeadRow[]
+  onSelectLead: (lead: LeadRow) => void
+  onStageChange: (leadId: number, newStage: string) => void
+}) {
+  const totalValue = leads.reduce((sum, l) => sum + (parseFloat(l.estimated_value ?? l.quick_mid ?? '0') || 0), 0)
+  const [isDragOver, setIsDragOver] = useState(false)
+
+  return (
+    <div 
+      className={cn(
+        "flex-1 min-w-[260px] max-w-[320px] rounded-lg border transition-colors",
+        isDragOver ? "border-primary bg-primary/5" : "border-border bg-secondary/20"
+      )}
+      onDragOver={(e) => {
+        e.preventDefault()
+        setIsDragOver(true)
+      }}
+      onDragLeave={() => setIsDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault()
+        setIsDragOver(false)
+        const leadId = e.dataTransfer.getData('leadId')
+        if (leadId) {
+          onStageChange(parseInt(leadId), stage.id)
+        }
+      }}
+    >
+      {/* Column header */}
+      <div className="p-3 border-b border-border">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className={cn("w-2 h-2 rounded-full", stage.color)} />
+            <h3 className="font-semibold text-sm text-foreground">{stage.label}</h3>
+            <span className="bg-muted rounded-full px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              {leads.length}
+            </span>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          {fmtCompact(totalValue.toString())} total
+        </p>
+      </div>
+
+      {/* Cards */}
+      <div className="p-2 space-y-2 max-h-[600px] overflow-y-auto">
+        {leads.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-8">No leads</p>
+        ) : (
+          leads.map((lead) => (
+            <PipelineCard
+              key={lead.id}
+              lead={lead}
+              onSelect={() => onSelectLead(lead)}
+              onStageChange={(newStage) => onStageChange(lead.id, newStage)}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
 interface LeadsTabProps {
   deals?: Deal[]
   onNavigateToPipeline?: () => void
@@ -127,11 +381,15 @@ interface LeadsTabProps {
 export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdateDeal }: LeadsTabProps) {
   const [leads, setLeads] = useState<LeadRow[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
+  const [stageStats, setStageStats] = useState<StageStats[]>([])
+  const [sourceStats, setSourceStats] = useState<SourceStats[]>([])
+  const [weeklyTrend, setWeeklyTrend] = useState<WeeklyTrend[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [viewingLead, setViewingLead] = useState<LeadRow | null>(null)
   const [wonDeal, setWonDeal] = useState<Deal | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [viewMode, setViewMode] = useState<'pipeline' | 'list'>('pipeline')
   const { mutate: mutateIntel } = useMarketIntel()
 
   const deleteLead = async (id: number) => {
@@ -153,6 +411,24 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
     }
   }
 
+  const updateLeadStage = useCallback(async (leadId: number, newStage: string) => {
+    // Optimistic update
+    setLeads((prev) => prev.map((l) => l.id === leadId ? { ...l, stage: newStage } : l))
+    
+    try {
+      const res = await fetch("/api/admin/leads", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: leadId, stage: newStage }),
+      })
+      if (!res.ok) throw new Error("Failed to update")
+    } catch {
+      // Revert on error
+      fetchLeads()
+      alert("Failed to update lead stage.")
+    }
+  }, [])
+
   const fetchLeads = async () => {
     setLoading(true)
     setError(null)
@@ -162,6 +438,9 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
       const data = await res.json()
       setLeads(data.leads ?? [])
       setStats(data.stats ?? null)
+      setStageStats(data.stageStats ?? [])
+      setSourceStats(data.sourceStats ?? [])
+      setWeeklyTrend(data.weeklyTrend ?? [])
     } catch {
       setError("Could not load leads from database.")
     } finally {
@@ -209,6 +488,22 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
     return isNaN(n) ? v : prefix + n.toLocaleString("en-US", { maximumFractionDigits: 1 })
   }
 
+  // Calculate conversion rate
+  const conversionRate = stats && parseInt(stats.total_leads) > 0 
+    ? ((parseInt(stats.won_leads ?? '0') / parseInt(stats.total_leads)) * 100).toFixed(1)
+    : '0'
+
+  // Calculate week-over-week trend
+  const weekTrend = weeklyTrend.length >= 2 
+    ? parseInt(weeklyTrend[weeklyTrend.length - 1]?.count ?? '0') - parseInt(weeklyTrend[weeklyTrend.length - 2]?.count ?? '0')
+    : 0
+
+  // Group leads by stage for pipeline view
+  const leadsByStage = PIPELINE_STAGES.reduce((acc, stage) => {
+    acc[stage.id] = leads.filter((l) => (l.stage ?? 'new') === stage.id)
+    return acc
+  }, {} as Record<string, LeadRow[]>)
+
   return (
     <div className="flex flex-col gap-6">
       {/* Horizon Pipeline summary */}
@@ -245,39 +540,122 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
         </div>
       )}
 
-      {/* Summary stats */}
+      {/* Smart Stats Grid */}
       {stats && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
-          {[
-            { label: "Total Leads", value: stats.total_leads, icon: Users },
-            { label: "Full Valuations", value: stats.full_valuations, icon: Calculator },
-            { label: "Quick Valuations", value: stats.quick_valuations, icon: TrendingUp },
-            { label: "Quiz Submissions", value: stats.quiz_submissions, icon: ClipboardCheck },
-            { label: "Avg. Est. Value", value: fmt(stats.avg_value), icon: DollarSign },
-          ].map(({ label, value, icon: Icon }) => (
-            <Card key={label} className="border-border bg-card">
-              <CardContent className="flex flex-col gap-1 p-4">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Icon className="h-4 w-4" />
-                  <span className="text-xs font-medium">{label}</span>
-                </div>
-                <p className="text-xl font-bold text-foreground">{value}</p>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="space-y-4">
+          {/* Primary metrics */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <SmartStatCard
+              label="Total Pipeline"
+              value={fmtCompact(stats.total_pipeline_value)}
+              subValue={`${stats.total_leads} leads`}
+              icon={DollarSign}
+              highlight="primary"
+            />
+            <SmartStatCard
+              label="Won Revenue"
+              value={fmtCompact(stats.total_won_value)}
+              subValue={`${stats.won_leads ?? 0} closed`}
+              icon={Trophy}
+              highlight="success"
+            />
+            <SmartStatCard
+              label="Conversion Rate"
+              value={`${conversionRate}%`}
+              subValue={`${stats.won_leads ?? 0}/${stats.total_leads}`}
+              icon={Percent}
+              trend={parseFloat(conversionRate) > 10 ? 'up' : parseFloat(conversionRate) > 5 ? 'neutral' : 'down'}
+              trendLabel={parseFloat(conversionRate) > 10 ? 'Good' : 'Avg'}
+            />
+            <SmartStatCard
+              label="This Week"
+              value={stats.leads_this_week}
+              subValue={weekTrend >= 0 ? `+${weekTrend} vs last` : `${weekTrend} vs last`}
+              icon={Calendar}
+              trend={weekTrend > 0 ? 'up' : weekTrend < 0 ? 'down' : 'neutral'}
+              trendLabel={weekTrend > 0 ? `+${weekTrend}` : weekTrend < 0 ? `${weekTrend}` : '0'}
+            />
+            <SmartStatCard
+              label="Avg Deal Size"
+              value={fmtCompact(stats.avg_value)}
+              subValue={stats.avg_won_value ? `Won: ${fmtCompact(stats.avg_won_value)}` : undefined}
+              icon={Target}
+            />
+            <SmartStatCard
+              label="Engaged"
+              value={stats.engaged_leads ?? '0'}
+              subValue="In progress"
+              icon={Clock}
+              highlight="warning"
+            />
+          </div>
+
+          {/* Source breakdown */}
+          {sourceStats.length > 0 && (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {sourceStats.slice(0, 4).map((source) => {
+                const icon = source.source?.includes('full') ? Calculator 
+                  : source.source?.includes('quick') ? TrendingUp 
+                  : source.source?.includes('quiz') ? ClipboardCheck 
+                  : Users
+                return (
+                  <SmartStatCard
+                    key={source.source}
+                    label={source.source?.includes('full') ? 'Full Valuations'
+                      : source.source?.includes('quick') ? 'Quick Valuations'
+                      : source.source?.includes('quiz') ? 'Quiz Leads'
+                      : 'Other'}
+                    value={source.count}
+                    subValue={source.value ? fmtCompact(source.value) : undefined}
+                    icon={icon}
+                  />
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Leads table */}
-      <Card className="border-border bg-card">
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <CardTitle className="text-sm font-semibold text-foreground">All Leads</CardTitle>
+      {/* View toggle and header */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground">Leads Pipeline</h3>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg border border-border p-0.5">
+            <button
+              onClick={() => setViewMode('pipeline')}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                viewMode === 'pipeline' 
+                  ? "bg-primary text-primary-foreground" 
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              Pipeline
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                viewMode === 'list' 
+                  ? "bg-primary text-primary-foreground" 
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <List className="h-3.5 w-3.5" />
+              List
+            </button>
+          </div>
           <Button variant="ghost" size="sm" onClick={fetchLeads} className="gap-1.5 text-xs text-muted-foreground">
             <RefreshCw className="h-3.5 w-3.5" />
             Refresh
           </Button>
-        </CardHeader>
-        <CardContent className="p-0">
+        </div>
+      </div>
+
+      {/* Pipeline View */}
+      {viewMode === 'pipeline' && (
+        <div className="relative">
           {loading && (
             <div className="flex items-center justify-center py-12">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted border-t-primary" />
@@ -286,63 +664,124 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
           {error && (
             <p className="px-6 py-8 text-center text-sm text-destructive">{error}</p>
           )}
-          {!loading && !error && leads.length === 0 && (
-            <p className="px-6 py-8 text-center text-sm text-muted-foreground">No leads saved yet. Leads appear here after users submit the calculator or quiz.</p>
-          )}
-          {!loading && !error && leads.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-secondary/30">
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Name</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Agency</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Tool</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">Est. Value</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">Multiple</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground">Risk</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">Date</th>
-                    <th className="px-4 py-3" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {leads.map((lead) => {
-                    const multi = lead.calculated_multiple ?? lead.suggested_mult
-                    const grade = lead.risk_grade ?? lead.quiz_grade
-                    const val = lead.estimated_value ?? lead.quick_mid
-                    return (
-                      <tr
-                        key={lead.id}
-                        className="group cursor-pointer hover:bg-secondary/30 transition-colors"
-                        onClick={() => setViewingLead(lead)}
-                      >
-                        <td className="px-4 py-3">
-                          <p className="font-medium text-foreground">{lead.name}</p>
-                          <p className="text-xs text-muted-foreground">{lead.email}</p>
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">{lead.agency_name ?? "—"}</td>
-                        <td className="px-4 py-3">{toolBadge(lead.tool_used)}</td>
-                        <td className="px-4 py-3 text-right font-mono font-semibold text-foreground">{fmt(val)}</td>
-                        <td className="px-4 py-3 text-right font-mono text-foreground">
-                          {multi ? `${parseFloat(multi).toFixed(2)}x` : "—"}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {grade ? <Badge variant="outline" className="text-[10px]">{grade}</Badge> : "—"}
-                        </td>
-                        <td className="px-4 py-3 text-right text-xs text-muted-foreground whitespace-nowrap">
-                          {new Date(lead.created_at).toLocaleDateString()}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+          {!loading && !error && (
+            <div className="flex gap-3 overflow-x-auto pb-4">
+              {PIPELINE_STAGES.filter(s => s.id !== 'lost').map((stage) => (
+                <PipelineColumn
+                  key={stage.id}
+                  stage={stage}
+                  leads={leadsByStage[stage.id] ?? []}
+                  onSelectLead={setViewingLead}
+                  onStageChange={updateLeadStage}
+                />
+              ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+
+          {/* Lost leads summary */}
+          {leadsByStage['lost']?.length > 0 && (
+            <div className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-destructive" />
+                  <h3 className="font-semibold text-sm text-foreground">Lost</h3>
+                  <span className="bg-destructive/10 text-destructive rounded-full px-1.5 py-0.5 text-[10px] font-medium">
+                    {leadsByStage['lost'].length}
+                  </span>
+                </div>
+                <button 
+                  onClick={() => setViewMode('list')}
+                  className="text-xs text-destructive hover:underline"
+                >
+                  View all
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* List View */}
+      {viewMode === 'list' && (
+        <Card className="border-border bg-card">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardTitle className="text-sm font-semibold text-foreground">All Leads</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {loading && (
+              <div className="flex items-center justify-center py-12">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted border-t-primary" />
+              </div>
+            )}
+            {error && (
+              <p className="px-6 py-8 text-center text-sm text-destructive">{error}</p>
+            )}
+            {!loading && !error && leads.length === 0 && (
+              <p className="px-6 py-8 text-center text-sm text-muted-foreground">No leads saved yet. Leads appear here after users submit the calculator or quiz.</p>
+            )}
+            {!loading && !error && leads.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-secondary/30">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Agency</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Stage</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Tool</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">Est. Value</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">Multiple</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground">Risk</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">Date</th>
+                      <th className="px-4 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {leads.map((lead) => {
+                      const multi = lead.calculated_multiple ?? lead.suggested_mult
+                      const grade = lead.risk_grade ?? lead.quiz_grade
+                      const val = lead.estimated_value ?? lead.quick_mid
+                      const stage = PIPELINE_STAGES.find(s => s.id === (lead.stage ?? 'new'))
+                      return (
+                        <tr
+                          key={lead.id}
+                          className="group cursor-pointer hover:bg-secondary/30 transition-colors"
+                          onClick={() => setViewingLead(lead)}
+                        >
+                          <td className="px-4 py-3">
+                            <p className="font-medium text-foreground">{lead.name}</p>
+                            <p className="text-xs text-muted-foreground">{lead.email}</p>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">{lead.agency_name ?? "—"}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1.5">
+                              <div className={cn("w-2 h-2 rounded-full", stage?.color ?? 'bg-muted')} />
+                              <span className="text-xs font-medium text-muted-foreground">{stage?.label ?? 'New'}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">{toolBadge(lead.tool_used)}</td>
+                          <td className="px-4 py-3 text-right font-mono font-semibold text-foreground">{fmt(val)}</td>
+                          <td className="px-4 py-3 text-right font-mono text-foreground">
+                            {multi ? `${parseFloat(multi).toFixed(2)}x` : "—"}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {grade ? <Badge variant="outline" className="text-[10px]">{grade}</Badge> : "—"}
+                          </td>
+                          <td className="px-4 py-3 text-right text-xs text-muted-foreground whitespace-nowrap">
+                            {new Date(lead.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Lead Detail Drawer */}
       {viewingLead && !wonDeal && (
@@ -370,6 +809,27 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
               >
                 <X className="h-5 w-5" />
               </button>
+            </div>
+
+            {/* Stage selector */}
+            <div className="border-b border-border px-6 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Stage</p>
+              <div className="flex flex-wrap gap-1.5">
+                {PIPELINE_STAGES.map((stage) => (
+                  <button
+                    key={stage.id}
+                    onClick={() => updateLeadStage(viewingLead.id, stage.id)}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                      (viewingLead.stage ?? 'new') === stage.id
+                        ? cn("text-white", stage.color)
+                        : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                    )}
+                  >
+                    {stage.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Drawer body */}
@@ -557,6 +1017,11 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
             onSaved={() => {
               // Add to the pipeline as completed if callback exists
               onAddDeal?.({ ...captured, status: "completed" })
+              // Also update the lead stage to won
+              const leadId = parseInt(captured.id.replace('lead-', ''))
+              if (!isNaN(leadId)) {
+                updateLeadStage(leadId, 'won')
+              }
               setWonDeal(null)
               mutateIntel()
             }}
