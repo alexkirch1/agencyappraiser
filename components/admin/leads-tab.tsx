@@ -114,13 +114,13 @@ interface WeeklyTrend {
 }
 
 const PIPELINE_STAGES = [
-  { id: 'new', label: 'New', color: 'bg-muted-foreground', textColor: 'text-muted-foreground' },
-  { id: 'contacted', label: 'Contacted', color: 'bg-blue-500', textColor: 'text-blue-500' },
-  { id: 'qualified', label: 'Qualified', color: 'bg-purple-500', textColor: 'text-purple-500' },
-  { id: 'proposal', label: 'Proposal', color: 'bg-amber-500', textColor: 'text-amber-500' },
-  { id: 'negotiating', label: 'Negotiating', color: 'bg-orange-500', textColor: 'text-orange-500' },
-  { id: 'won', label: 'Won', color: 'bg-success', textColor: 'text-success' },
-  { id: 'lost', label: 'Lost', color: 'bg-destructive', textColor: 'text-destructive' },
+  { id: 'new',         label: 'New',         dotClass: 'bg-slate-400',   activeClass: 'bg-slate-500 text-white' },
+  { id: 'contacted',   label: 'Contacted',   dotClass: 'bg-blue-500',    activeClass: 'bg-blue-500 text-white' },
+  { id: 'qualified',   label: 'Qualified',   dotClass: 'bg-violet-500',  activeClass: 'bg-violet-500 text-white' },
+  { id: 'proposal',    label: 'Proposal',    dotClass: 'bg-amber-500',   activeClass: 'bg-amber-500 text-white' },
+  { id: 'negotiating', label: 'Negotiating', dotClass: 'bg-orange-500',  activeClass: 'bg-orange-500 text-white' },
+  { id: 'won',         label: 'Won',         dotClass: 'bg-emerald-500', activeClass: 'bg-emerald-500 text-white' },
+  { id: 'lost',        label: 'Lost',        dotClass: 'bg-rose-500',    activeClass: 'bg-rose-500 text-white' },
 ]
 
 function fmt(n: string | null | undefined, prefix = "$") {
@@ -142,8 +142,8 @@ function fmtCompact(n: string | null | undefined, prefix = "$") {
 function toolBadge(tool: string | null) {
   if (!tool) return <Badge variant="outline" className="text-[10px]">Unknown</Badge>
   if (tool.includes("full")) return <Badge className="bg-primary/10 text-primary border border-primary/20 text-[10px]">Full Val</Badge>
-  if (tool.includes("quick")) return <Badge className="bg-[hsl(var(--success))]/10 text-[hsl(var(--success))] border border-[hsl(var(--success))]/20 text-[10px]">Quick Val</Badge>
-  if (tool.includes("quiz")) return <Badge className="bg-[hsl(var(--warning))]/10 text-[hsl(var(--warning))] border border-[hsl(var(--warning))]/20 text-[10px]">Quiz</Badge>
+  if (tool.includes("quick")) return <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800 text-[10px]">Quick Val</Badge>
+  if (tool.includes("quiz")) return <Badge className="bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800 text-[10px]">Quiz</Badge>
   return <Badge variant="outline" className="text-[10px]">{tool}</Badge>
 }
 
@@ -189,8 +189,8 @@ function SmartStatCard({
   highlight?: 'success' | 'warning' | 'primary'
 }) {
   const highlightClass = {
-    success: 'border-success/30 bg-success/5',
-    warning: 'border-warning/30 bg-warning/5',
+    success: 'border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20',
+    warning: 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20',
     primary: 'border-primary/30 bg-primary/5',
   }[highlight ?? ''] ?? 'border-border'
 
@@ -205,8 +205,8 @@ function SmartStatCard({
           {trend && (
             <div className={cn(
               "flex items-center gap-0.5 text-[10px] font-medium rounded-full px-1.5 py-0.5",
-              trend === 'up' && "bg-success/10 text-success",
-              trend === 'down' && "bg-destructive/10 text-destructive",
+              trend === 'up' && "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+              trend === 'down' && "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
               trend === 'neutral' && "bg-muted text-muted-foreground"
             )}>
               {trend === 'up' && <ArrowUpRight className="h-3 w-3" />}
@@ -217,8 +217,8 @@ function SmartStatCard({
         </div>
         <p className={cn(
           "mt-1 text-2xl font-bold",
-          highlight === 'success' && "text-success",
-          highlight === 'warning' && "text-warning",
+          highlight === 'success' && "text-emerald-600 dark:text-emerald-400",
+          highlight === 'warning' && "text-amber-600 dark:text-amber-400",
           highlight === 'primary' && "text-primary",
           !highlight && "text-foreground"
         )}>{value}</p>
@@ -270,7 +270,7 @@ function PipelineCard({
             {lead.name}
           </p>
           <div className="flex items-center justify-between mt-2">
-            <span className="text-sm font-bold text-success">{fmt(val)}</span>
+            <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmt(val)}</span>
             <span className="text-[10px] text-muted-foreground">
               {daysAgo === 0 ? 'Today' : daysAgo === 1 ? '1d ago' : `${daysAgo}d ago`}
             </span>
@@ -340,7 +340,7 @@ function PipelineColumn({
       <div className="p-3 border-b border-border">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className={cn("w-2 h-2 rounded-full", stage.color)} />
+            <div className={cn("w-2 h-2 rounded-full", stage.dotClass)} />
             <h3 className="font-semibold text-sm text-foreground">{stage.label}</h3>
             <span className="bg-muted rounded-full px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
               {leads.length}
@@ -528,7 +528,7 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
             <div>
               <p className="text-xs text-muted-foreground">Completed Deals</p>
               <p className="text-base font-bold text-foreground">
-                <Trophy className="mb-0.5 mr-1 inline h-4 w-4 text-warning" />
+                <Trophy className="mb-0.5 mr-1 inline h-4 w-4 text-amber-500" />
                 {completedDeals.length}{" "}
                 <span className="text-sm font-normal text-muted-foreground">
                   — ${wonValue.toLocaleString("en-US", { maximumFractionDigits: 0 })}
@@ -680,18 +680,18 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
 
           {/* Lost leads summary */}
           {leadsByStage['lost']?.length > 0 && (
-            <div className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-4">
+            <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 dark:border-rose-900/40 dark:bg-rose-950/20 p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-destructive" />
+                  <div className="w-2 h-2 rounded-full bg-rose-500" />
                   <h3 className="font-semibold text-sm text-foreground">Lost</h3>
-                  <span className="bg-destructive/10 text-destructive rounded-full px-1.5 py-0.5 text-[10px] font-medium">
+                  <span className="bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 rounded-full px-1.5 py-0.5 text-[10px] font-medium">
                     {leadsByStage['lost'].length}
                   </span>
                 </div>
                 <button 
                   onClick={() => setViewMode('list')}
-                  className="text-xs text-destructive hover:underline"
+                  className="text-xs text-rose-600 dark:text-rose-400 hover:underline"
                 >
                   View all
                 </button>
@@ -754,7 +754,7 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
                           <td className="px-4 py-3 text-muted-foreground">{lead.agency_name ?? "—"}</td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-1.5">
-                              <div className={cn("w-2 h-2 rounded-full", stage?.color ?? 'bg-muted')} />
+                              <div className={cn("w-2 h-2 rounded-full", stage?.dotClass ?? 'bg-slate-400')} />
                               <span className="text-xs font-medium text-muted-foreground">{stage?.label ?? 'New'}</span>
                             </div>
                           </td>
@@ -815,14 +815,17 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
             <div className="border-b border-border px-6 py-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Stage</p>
               <div className="flex flex-wrap gap-1.5">
-                {PIPELINE_STAGES.map((stage) => (
+                  {PIPELINE_STAGES.map((stage) => (
                   <button
                     key={stage.id}
-                    onClick={() => updateLeadStage(viewingLead.id, stage.id)}
+                    onClick={() => {
+                      updateLeadStage(viewingLead.id, stage.id)
+                      setViewingLead((prev) => prev ? { ...prev, stage: stage.id } : prev)
+                    }}
                     className={cn(
                       "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors",
                       (viewingLead.stage ?? 'new') === stage.id
-                        ? cn("text-white", stage.color)
+                        ? stage.activeClass
                         : "bg-secondary text-muted-foreground hover:bg-secondary/80"
                     )}
                   >
@@ -856,12 +859,12 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
               <div className="grid grid-cols-3 gap-2">
                 {[
                   { label: "Low", value: fmt(viewingLead.low_offer ?? viewingLead.quick_low) },
-                  { label: "Mid / Est.", value: fmt(viewingLead.estimated_value ?? viewingLead.quick_mid), highlight: true },
+                  { label: "Mid / Est.", value: fmt(viewingLead.estimated_value ?? viewingLead.quick_mid), highlight: true as const },
                   { label: "High", value: fmt(viewingLead.high_offer ?? viewingLead.quick_high) },
                 ].map(({ label, value, highlight }) => (
-                  <div key={label} className={`rounded-lg border p-3 text-center ${highlight ? "border-success/30 bg-success/5" : "border-border bg-secondary/30"}`}>
+                  <div key={label} className={`rounded-lg border p-3 text-center ${highlight ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30" : "border-border bg-secondary/30"}`}>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</p>
-                    <p className={`mt-0.5 text-sm font-bold ${highlight ? "text-success" : "text-foreground"}`}>{value}</p>
+                    <p className={`mt-0.5 text-sm font-bold ${highlight ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"}`}>{value}</p>
                   </div>
                 ))}
               </div>
@@ -992,7 +995,7 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
                 {deletingId === viewingLead.id ? "Deleting…" : "Delete"}
               </Button>
               <Button
-                className="flex-1 gap-2 bg-success hover:bg-success/90 text-white border-0"
+                className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
                 onClick={() => {
                   const deal = leadToDeal(viewingLead)
                   setViewingLead(null)
