@@ -8,6 +8,12 @@ export async function POST() {
   if (token) await deleteSession(token)
 
   const response = NextResponse.json({ success: true })
-  response.cookies.set("session", "", { maxAge: 0, path: "/" })
+  response.cookies.set("session", "", {
+    maxAge: 0,
+    path: "/",
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+  })
   return response
 }

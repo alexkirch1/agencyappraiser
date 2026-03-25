@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { isAdminAuthenticated } from "@/lib/admin-auth"
 
 const PIPEDRIVE_TOKEN = process.env.PIPEDRIVE_API_TOKEN
 const PIPEDRIVE_DOMAIN = "rocky"
@@ -9,6 +10,9 @@ const PIPEDRIVE_DOMAIN = "rocky"
  * This is a diagnostic endpoint -- visit it in the browser to see field keys.
  */
 export async function GET() {
+  if (!(await isAdminAuthenticated())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
   if (!PIPEDRIVE_TOKEN) {
     return NextResponse.json({ error: "PIPEDRIVE_API_TOKEN not set" }, { status: 500 })
   }

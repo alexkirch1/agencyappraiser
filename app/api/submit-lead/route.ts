@@ -3,8 +3,7 @@ import sql from "@/lib/db"
 
 const PIPEDRIVE_TOKEN = process.env.PIPEDRIVE_API_TOKEN
 const PIPEDRIVE_DOMAIN = "rocky" // your Pipedrive subdomain
-// Email notifications are disabled until a valid Resend API key is configured
-const RESEND_API_KEY: string | undefined = undefined // process.env.RESEND_API_KEY
+const RESEND_API_KEY: string | undefined = process.env.RESEND_API_KEY
 const NOTIFY_EMAIL = "mergers@rockyquote.com"
 
 // We'll look up the pipeline + stage IDs dynamically on first call
@@ -324,6 +323,22 @@ export async function POST(req: Request) {
 
     if (!name || !email) {
       return NextResponse.json({ error: "Name and email are required" }, { status: 400 })
+    }
+
+    // Input length limits to prevent DB abuse
+    if (typeof name !== "string" || name.length > 200) {
+      return NextResponse.json({ error: "Invalid name" }, { status: 400 })
+    }
+    // Basic email format check
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (typeof email !== "string" || !emailRegex.test(email) || email.length > 320) {
+      return NextResponse.json({ error: "Invalid email address" }, { status: 400 })
+    }
+    if (phone && (typeof phone !== "string" || phone.length > 30)) {
+      return NextResponse.json({ error: "Invalid phone number" }, { status: 400 })
+    }
+    if (agencyName && (typeof agencyName !== "string" || agencyName.length > 300)) {
+      return NextResponse.json({ error: "Invalid agency name" }, { status: 400 })
     }
 
     const results: { pipedrive: boolean; email: boolean; dealId: number | null; leadId: number | null } = {

@@ -53,14 +53,13 @@ const defaultInputs: ValuationInputs = {
   avgClientTenure: null,
 }
 
+// Only truly required fields — the engine handles missing optional fields gracefully
+// with a small completeness penalty instead of blocking submission.
 const REQUIRED_FIELDS: { key: keyof ValuationInputs; label: string }[] = [
   { key: "isCaptive",   label: "Agency Type (Captive or Independent)" },
   { key: "scopeOfSale", label: "Scope of Sale" },
-  { key: "revenueLTM", label: "Annual Revenue (LTM)" },
-  { key: "sdeEbitda", label: "SDE / EBITDA" },
-  { key: "retentionRate", label: "Retention Rate" },
-  { key: "policyMix", label: "Commercial Lines Mix" },
-  { key: "clientConcentration", label: "Client Concentration" },
+  { key: "revenueLTM",  label: "Annual Revenue (LTM)" },
+  { key: "sdeEbitda",   label: "SDE / EBITDA" },
 ]
 
 function getMissingFields(inputs: ValuationInputs): string[] {

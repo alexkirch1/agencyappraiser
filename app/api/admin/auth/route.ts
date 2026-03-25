@@ -1,65 +1,64 @@
 import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
+import { validateAdminCredentials, signSession, verifySession } from "@/lib/admin-auth"
 
-// Admin users — username (case-sensitive) : password
-const ADMIN_USERS: Record<string, string> = {
-  Alex:  "M0untain99",
-  Trout: "M0untain!",
-}
-
-// A simple signed session value: base64(username|MARKER)
-const MARKER = "aa-admin-v1"
-
-function makeSession(username: string): string {
-  return Buffer.from(`${username}|${MARKER}`).toString("base64")
-}
-
-function verifySession(value: string): string | null {
-  try {
-    const decoded = Buffer.from(value, "base64").toString("utf8")
-    const [username, marker] = decoded.split("|")
-    if (marker === MARKER && username && username in ADMIN_USERS) {
-      return username
-    }
-  } catch {
-    // invalid
-  }
-  return null
-}
+const SESSION_COOKIE = "admin_session"
+const SESSION_MAX_AGE = 60 * 60 * 24 * 7 // 7 days
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const { action, username, password } = body
 
+    // ── Login ───────────────────────────────────────────────────────────────
     if (action === "login") {
-      const expected = ADMIN_USERS[username as string]
-      if (expected && password === expected) {
-        const cookieStore = await cookies()
-        cookieStore.set("admin_session", makeSession(username), {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          maxAge: 60 * 60 * 24 * 7, // 7 days
-          path: "/",
-        })
-        return NextResponse.json({ success: true })
+      if (
+        typeof username !== "string" ||
+        typeof password !== "string" ||
+        !username.trim() ||
+        !password.trim()
+      ) {
+        return NextResponse.json({ success: false, error: "Invalid credentials." }, { status: 401 })
       }
-      return NextResponse.json({ success: false, error: "Invalid credentials." }, { status: 401 })
-    }
 
-    if (action === "logout") {
+      const valid = validateAdminCredentials(username.trim(), password)
+      if (!valid) {
+        // Same error message for both "user not found" and "wrong password" — avoids username enumeration
+        return NextResponse.json({ success: false, error: "Invalid credentials." }, { status: 401 })
+      }
+
+      const token = signSession(username.trim())
       const cookieStore = await cookies()
-      cookieStore.delete("admin_session")
+      cookieStore.set(SESSION_COOKIE, token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: SESSION_MAX_AGE,
+        path: "/",
+      })
       return NextResponse.json({ success: true })
     }
 
+    // ── Logout ──────────────────────────────────────────────────────────────
+    if (action === "logout") {
+      const cookieStore = await cookies()
+      cookieStore.set(SESSION_COOKIE, "", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 0,
+        path: "/",
+      })
+      return NextResponse.json({ success: true })
+    }
+
+    // ── Check session ───────────────────────────────────────────────────────
     if (action === "check") {
       const cookieStore = await cookies()
-      const session = cookieStore.get("admin_session")
-      const username = session?.value ? verifySession(session.value) : null
-      if (username) {
-        return NextResponse.json({ authenticated: true, username })
+      const session = cookieStore.get(SESSION_COOKIE)
+      const resolvedUsername = session?.value ? verifySession(session.value) : null
+      if (resolvedUsername) {
+        return NextResponse.json({ authenticated: true, username: resolvedUsername })
       }
       return NextResponse.json({ authenticated: false })
     }
