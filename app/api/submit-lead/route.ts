@@ -325,6 +325,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Name and email are required" }, { status: 400 })
     }
 
+    // Input length limits to prevent DB abuse
+    if (typeof name !== "string" || name.length > 200) {
+      return NextResponse.json({ error: "Invalid name" }, { status: 400 })
+    }
+    // Basic email format check
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (typeof email !== "string" || !emailRegex.test(email) || email.length > 320) {
+      return NextResponse.json({ error: "Invalid email address" }, { status: 400 })
+    }
+    if (phone && (typeof phone !== "string" || phone.length > 30)) {
+      return NextResponse.json({ error: "Invalid phone number" }, { status: 400 })
+    }
+    if (agencyName && (typeof agencyName !== "string" || agencyName.length > 300)) {
+      return NextResponse.json({ error: "Invalid agency name" }, { status: 400 })
+    }
+
     const results: { pipedrive: boolean; email: boolean; dealId: number | null; leadId: number | null } = {
       pipedrive: false,
       email: false,
