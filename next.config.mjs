@@ -1,15 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // pdfjs-dist uses canvas which isn't available server-side
+  // pdfjs-dist requires canvas on the server — stub it out for both bundlers
   webpack: (config) => {
     config.resolve.alias.canvas = false
     return config
   },
-  experimental: {
-    turbo: {
-      resolveAlias: {
-        canvas: { browser: "./empty-module.js", default: "./empty-module.js" },
-      },
+  turbopack: {
+    resolveAlias: {
+      canvas: "./empty-module.mjs",
     },
   },
 }
