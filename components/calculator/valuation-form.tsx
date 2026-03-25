@@ -252,7 +252,7 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
             >
               {[
                 { value: "strong",    label: "Strong Growth",    sub: "10%+ per year" },
-                { value: "moderate",  label: "Moderate Growth",  sub: "3–9% per year" },
+                { value: "moderate",  label: "Moderate Growth",  sub: "3��9% per year" },
                 { value: "flat",      label: "Flat",             sub: "Roughly the same" },
                 { value: "declining", label: "Declining",        sub: "Revenue has decreased" },
               ].map((opt) => (
@@ -289,21 +289,31 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div id="field-retentionRate">
-            <Label htmlFor="retention" className="text-sm text-muted-foreground">{requiredStar("Retention Rate (%)")}<InfoTip text="The percentage of clients who renew each year. Check your management system for your actual renewal rate. This is one of the most heavily weighted factors in your valuation." /></Label>
-            <SmartInput id="retention" inputType="percent" placeholder="e.g. 92" value={inputs.retentionRate} onValueChange={(v) => update({ retentionRate: v })} className={`mt-1.5 ${fieldBorder("retentionRate")}`} />
-            {isInvalid("retentionRate") && <p className="mt-1 text-xs text-destructive">Retention rate is required</p>}
+            <Label htmlFor="retention" className="text-sm text-muted-foreground">
+              Retention Rate (%)
+              <InfoTip text="The percentage of clients who renew each year. Check your management system for your actual renewal rate. This is one of the most heavily weighted factors in your valuation." />
+              <span className="ml-1.5 text-[10px] font-normal text-muted-foreground/70">(Recommended)</span>
+            </Label>
+            <SmartInput id="retention" inputType="percent" placeholder="e.g. 92" value={inputs.retentionRate} onValueChange={(v) => update({ retentionRate: v })} className="mt-1.5" />
+            <p className="mt-1 text-xs text-muted-foreground/60">Leaving this blank will slightly reduce your estimated valuation.</p>
           </div>
           <div id="field-policyMix">
-            <Label htmlFor="policyMix" className="text-sm text-muted-foreground">{requiredStar("Commercial Lines Mix (%)")}<InfoTip text="What percentage of your total written premium comes from commercial lines vs. personal lines? Enter as a whole number (e.g. 60 for 60% commercial)." /></Label>
-            <SmartInput id="policyMix" inputType="percent" placeholder="e.g. 60" value={inputs.policyMix} onValueChange={(v) => update({ policyMix: v })} className={`mt-1.5 ${fieldBorder("policyMix")}`} />
+            <Label htmlFor="policyMix" className="text-sm text-muted-foreground">
+              Commercial Lines Mix (%)
+              <InfoTip text="What percentage of your total written premium comes from commercial lines vs. personal lines? Enter as a whole number (e.g. 60 for 60% commercial)." />
+              <span className="ml-1.5 text-[10px] font-normal text-muted-foreground/70">(Recommended)</span>
+            </Label>
+            <SmartInput id="policyMix" inputType="percent" placeholder="e.g. 60" value={inputs.policyMix} onValueChange={(v) => update({ policyMix: v })} className="mt-1.5" />
             <p className="mt-1 text-xs text-muted-foreground/70">% of premium that is Commercial Lines</p>
-            {isInvalid("policyMix") && <p className="mt-0.5 text-xs text-destructive">Policy mix is required</p>}
           </div>
           <div id="field-clientConcentration">
-            <Label htmlFor="concentration" className="text-sm text-muted-foreground">{requiredStar("Client Concentration (%)")}<InfoTip text="What share of your total revenue comes from your 10 largest clients? High concentration means more risk if a key account leaves." /></Label>
-            <SmartInput id="concentration" inputType="percent" placeholder="e.g. 15" value={inputs.clientConcentration} onValueChange={(v) => update({ clientConcentration: v })} className={`mt-1.5 ${fieldBorder("clientConcentration")}`} />
+            <Label htmlFor="concentration" className="text-sm text-muted-foreground">
+              Client Concentration (%)
+              <InfoTip text="What share of your total revenue comes from your 10 largest clients? High concentration means more risk if a key account leaves." />
+              <span className="ml-1.5 text-[10px] font-normal text-muted-foreground/70">(Recommended)</span>
+            </Label>
+            <SmartInput id="concentration" inputType="percent" placeholder="e.g. 15" value={inputs.clientConcentration} onValueChange={(v) => update({ clientConcentration: v })} className="mt-1.5" />
             <p className="mt-1 text-xs text-muted-foreground/70">% of revenue from your top 10 clients</p>
-            {isInvalid("clientConcentration") && <p className="mt-0.5 text-xs text-destructive">Client concentration is required</p>}
           </div>
           <div>
             <Label className="mb-1.5 block text-sm text-muted-foreground">

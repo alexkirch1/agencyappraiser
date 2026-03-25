@@ -1,6 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Info } from "lucide-react"
 import type { ValuationResults } from "./valuation-engine"
 import { formatCurrency } from "./valuation-engine"
 
@@ -103,6 +104,17 @@ export function ValuationSidebar({ results, riskAudit }: Props) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Completeness note */}
+      {results.completenessNote && (
+        <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2.5">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            <span className="font-semibold text-foreground">Incomplete data.</span>{" "}
+            {results.completenessNote}
+          </p>
+        </div>
+      )}
 
       {/* Scroll hint */}
       <p className="text-center text-xs text-muted-foreground">

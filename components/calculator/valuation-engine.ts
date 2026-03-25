@@ -54,6 +54,7 @@ export interface ValuationResults {
   revenueRange: string
   sdeRange: string
   riskLevel: { text: string; color: string }
+  completenessNote: string | null // null = all key fields answered
 }
 
 export interface RiskAuditItem {
@@ -115,6 +116,24 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
     return null
   }
 
+  // ── Completeness penalty ──────────────────────────────────────────────────
+  // Track which "value-influencing" optional fields are missing.
+  // Each missing field applies a small penalty and is listed in a note.
+  const missingFields: string[] = []
+  if (inputs.retentionRate === null)       missingFields.push("Retention Rate")
+  if (inputs.policyMix === null)            missingFields.push("Commercial Mix")
+  if (inputs.clientConcentration === null)  missingFields.push("Client Concentration")
+  if (inputs.carrierDiversification === null) missingFields.push("Carrier Diversification")
+  if (inputs.sellerTransitionMonths === null) missingFields.push("Transition Commitment")
+
+  // Each missing field reduces the final score by a small fraction (0.02 per field, max 0.10)
+  const completenessDiscount = Math.min(0.10, missingFields.length * 0.02)
+  const completenessNote =
+    missingFields.length > 0
+      ? `Valuation slightly reduced — missing: ${missingFields.join(", ")}. Completing these fields will improve accuracy.`
+      : null
+  // ──────────────────────────────────────────────────────────────────────────
+
   // Captive agents: We cannot purchase the agency outright (it belongs to the carrier).
   // Their transferable book value is limited to 1.0–1.5x — typically 1.0–1.2x.
   // Return early with a capped result so the UI can flag this clearly.
@@ -134,6 +153,7 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
       revenueRange:          `${formatCurrency(revLTM * 1.0)} - ${formatCurrency(revLTM * 1.5)}`,
       sdeRange:              sde ? `${formatCurrency(sde * 3.0)} - ${formatCurrency(sde * 5.0)}` : "---",
       riskLevel:             { text: "CAPTIVE", color: "text-warning" },
+      completenessNote:      null,
     }
   }
 
@@ -330,8 +350,8 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
   const rawHighOffer = revLTM * finalMultiple
   const rawLowOffer = revLTM * (finalMultiple - 0.25)
 
-  const highOffer = rawHighOffer * (1 - CUSTOMER_LOSS_DISCOUNT)
-  let lowOffer = Math.max(0, rawLowOffer) * (1 - CUSTOMER_LOSS_DISCOUNT)
+  const highOffer = rawHighOffer * (1 - CUSTOMER_LOSS_DISCOUNT) * (1 - completenessDiscount)
+  let lowOffer = Math.max(0, rawLowOffer) * (1 - CUSTOMER_LOSS_DISCOUNT) * (1 - completenessDiscount)
   if (lowOffer > highOffer) lowOffer = highOffer * 0.9
 
   return {
@@ -345,6 +365,7 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
     revenueRange: `${formatCurrency(revLTM * 0.75)} - ${formatCurrency(revLTM * desiredSweetSpotMax)}`,
     sdeRange: sde ? `${formatCurrency(sde * 5.0)} - ${formatCurrency(sde * 9.0)}` : "---",
     riskLevel: getRiskLevel(finalMultiple),
+    completenessNote,
   }
 }
 

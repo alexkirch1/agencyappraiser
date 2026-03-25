@@ -1,10 +1,9 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
-import { AlertTriangle } from "lucide-react"
+import { AlertTriangle, Info } from "lucide-react"
 import { formatCurrency } from "./valuation-engine"
 
 interface Props {
@@ -16,166 +15,210 @@ interface Props {
   revenueGrowthTrend?: string
 }
 
-type Strategy = "allcash" | "blend" | "structured" | "allearnout"
+type Strategy = "allcash" | "blend" | "allearnout"
 
-const EARNOUT_YEARS_OPTIONS = [1, 2]
-
-// Each strategy has a cash% and a total value multiplier relative to highOffer.
-// Full Earnout = 100% of value (the ideal). More cash = lower total (buyer discount).
-const strategies: {
-  key: Strategy
-  label: string
-  cashPct: number
-  valueFactor: number // multiplier on highOffer for total payout
-  description: string
-}[] = [
-  {
-    key: "allcash",
-    label: "All Cash",
-    cashPct: 100,
-    valueFactor: 0.85, // 15% discount — buyer takes all the risk upfront
-    description: "100% Cash at Close. Simplest structure, but buyers pay a premium for certainty — expect a lower total offer.",
-  },
-  {
-    key: "blend",
-    label: "Cash + Earnout",
-    cashPct: 70,
-    valueFactor: 0.92, // 8% discount — partial risk sharing
-    description: "70% Cash / 30% Earnout. A balanced structure. Some upfront certainty with modest earnout upside.",
-  },
-  {
-    key: "structured",
-    label: "Mostly Earnout",
-    cashPct: 20,
-    valueFactor: 0.97, // 3% discount — near full value, small cash anchor
-    description: "20% Cash / 80% Earnout. Near full value potential. Small cash upfront with majority paid via annual commissions.",
-  },
-  {
-    key: "allearnout",
-    label: "Full Earnout",
-    cashPct: 0,
-    valueFactor: 1.0, // 100% of value — buyer takes no upfront risk
-    description: "100% Earnout. Maximum total value. Paid entirely as a percentage of annual commissions over 1–2 years.",
-  },
-]
-
-function projectCommissions(
+// ─── Revenue projection helper ──────────────────────────────────────────────
+function projectGrowthRate(
   revLTM: number | null | undefined,
   revY2: number | null | undefined,
-  revY3: number | null | undefined,
   growthTrend: string | undefined
-): { projected: number; growthLabel: string; growthPct: number } {
+): { growthRate: number; growthLabel: string } {
   const ltm = revLTM ?? 0
-  if (ltm <= 0) return { projected: 0, growthLabel: "Unknown", growthPct: 0 }
+  if (ltm <= 0) return { growthRate: 0, growthLabel: "Unknown" }
 
   if (revY2 && revY2 > 0) {
-    const yoyGrowth = (ltm - revY2) / revY2
-    const projected = ltm * (1 + yoyGrowth)
-    const label = yoyGrowth >= 0.08 ? "Strong Growth" : yoyGrowth >= 0.02 ? "Moderate Growth" : yoyGrowth >= -0.02 ? "Flat" : "Declining"
-    return { projected: Math.max(ltm * 0.7, projected), growthLabel: label, growthPct: yoyGrowth * 100 }
+    const yoy = (ltm - revY2) / revY2
+    const label =
+      yoy >= 0.08 ? "Strong Growth" :
+      yoy >= 0.02 ? "Moderate Growth" :
+      yoy >= -0.02 ? "Flat" : "Declining"
+    return { growthRate: yoy, growthLabel: label }
   }
 
-  const trendMap: Record<string, { pct: number; label: string }> = {
-    strong:    { pct: 0.10, label: "Strong Growth (est. +10%/yr)" },
-    moderate:  { pct: 0.05, label: "Moderate Growth (est. +5%/yr)" },
-    flat:      { pct: 0.00, label: "Flat (est. 0% change)" },
-    declining: { pct: -0.07, label: "Declining (est. -7%/yr)" },
+  const trendMap: Record<string, { rate: number; label: string }> = {
+    strong:    { rate: 0.10, label: "Strong Growth (~+10%/yr)" },
+    moderate:  { rate: 0.05, label: "Moderate Growth (~+5%/yr)" },
+    flat:      { rate: 0.00, label: "Flat (~0%/yr)" },
+    declining: { rate: -0.07, label: "Declining (~-7%/yr)" },
   }
-  const trend = trendMap[growthTrend ?? ""] ?? { pct: 0, label: "Flat (assumed)" }
-  return { projected: ltm * (1 + trend.pct), growthLabel: trend.label, growthPct: trend.pct * 100 }
+  const t = trendMap[growthTrend ?? ""] ?? { rate: 0, label: "Flat (assumed)" }
+  return { growthRate: t.rate, growthLabel: t.label }
 }
 
-export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, revenueY3, revenueGrowthTrend }: Props) {
-  const [activeStrategy, setActiveStrategy] = useState<Strategy>("blend")
-  const [earnoutYears, setEarnoutYears] = useState(1)
-  const [commissionRate, setCommissionRate] = useState(0.75)
+// ─── Smart Full-Earnout defaults based on agency financials ──────────────────
+// Rules:
+//  - Larger agencies (LTM > $500k) → buyers more likely to offer 2 years
+//  - Strong growth → higher commission rate (up to 75%)
+//  - Declining revenue → cap at 50%, 1 year only
+//  - Mid-range: 60%, 1-2 years depending on size
+function smartEarnoutDefaults(
+  highOffer: number,
+  revLTM: number,
+  growthRate: number
+): { pct: number; years: number; rationale: string } {
+  const isLarge = revLTM > 500_000
+  const isGrowth = growthRate >= 0.05
+  const isDeclining = growthRate < -0.02
 
-  const strat = strategies.find((s) => s.key === activeStrategy)!
+  if (isDeclining) {
+    return {
+      pct: 50,
+      years: 1,
+      rationale: "Declining revenue limits earnout offers — buyers protect against continued book erosion.",
+    }
+  }
+  if (isGrowth && isLarge) {
+    return {
+      pct: 75,
+      years: 2,
+      rationale: "Strong growth and size support a maximum earnout. Buyers are comfortable with 2-year exposure.",
+    }
+  }
+  if (isGrowth && !isLarge) {
+    return {
+      pct: 65,
+      years: 1,
+      rationale: "Healthy growth but smaller book — buyers typically offer 1 year at a strong commission rate.",
+    }
+  }
+  if (isLarge) {
+    return {
+      pct: 60,
+      years: 2,
+      rationale: "Larger stable book supports a 2-year earnout at a moderate commission rate.",
+    }
+  }
+  return {
+    pct: 55,
+    years: 1,
+    rationale: "Flat/stable revenue and moderate size — a conservative 1-year earnout is most realistic.",
+  }
+}
 
-  const { growthLabel, growthPct } = useMemo(
-    () => projectCommissions(revenueLTM, revenueY2, revenueY3, revenueGrowthTrend),
-    [revenueLTM, revenueY2, revenueY3, revenueGrowthTrend]
+export function DealSimulator({
+  highOffer,
+  coreScore,
+  revenueLTM,
+  revenueY2,
+  revenueY3,
+  revenueGrowthTrend,
+}: Props) {
+  const ltmRevenue = revenueLTM ?? 0
+
+  const { growthRate, growthLabel } = useMemo(
+    () => projectGrowthRate(revenueLTM, revenueY2, revenueGrowthTrend),
+    [revenueLTM, revenueY2, revenueGrowthTrend]
   )
 
-  const ltmRevenue = revenueLTM ?? 0
-  const growthRate = growthPct / 100
-  const commissionRatePct = Math.round(commissionRate * 100)
+  const smartDefaults = useMemo(
+    () => smartEarnoutDefaults(highOffer, ltmRevenue, growthRate),
+    [highOffer, ltmRevenue, growthRate]
+  )
 
-  const cashPct = strat.cashPct
-  const earnoutPct = 100 - cashPct
+  const [activeStrategy, setActiveStrategy] = useState<Strategy>("allcash")
 
-  // === CORRECT EARNOUT MODEL ===
-  // Based on: cash estimate (highOffer) × earnout percentage = total earnout pool
-  // The cash estimate is the agreed baseline value.
-  // Earnout % determines what portion is performance-based vs. paid at close.
-  //
-  // e.g. $200k cash estimate, 75% earnout:
-  //   Cash at close  = $200k × 25% = $50k
-  //   Earnout pool   = $200k × 75% = $150k (to be earned back via sales)
-  //
-  // The commission rate slider (5%–75%) controls what % of annual revenue is
-  // paid each year. This is the ANNUAL earnout payment — NOT divided by years.
-  // A 2-year earnout means you receive that payment TWICE (once per year),
-  // so the total potential GROWS with more years, not stays the same.
-  //
-  // Per-year payment = cashEstimate × earnoutPct × (actualSales / projectedSales)
-  // We show the "on-target" scenario where actual = projected.
+  // Cash+Earnout sliders (10–90 each, must sum to 100)
+  const [blendCashPct, setBlendCashPct] = useState(60)
+  const blendEarnoutPct = 100 - blendCashPct
 
-  const cashEstimate = highOffer // The agreed cash value baseline
-  const annualEarnoutPayment = cashEstimate * commissionRate // Annual $ paid back via commissions
+  // Blend earnout settings
+  const [blendEarnoutCommPct, setBlendEarnoutCommPct] = useState(50)
+  const [blendEarnoutYears, setBlendEarnoutYears] = useState(1)
 
-  let totalValue: number
-  let cashAmount: number
-  let earnoutTotal: number
-  let perYearPayments: number[]
+  // Full earnout — start from smart defaults
+  const [fullEarnoutPct, setFullEarnoutPct] = useState(smartDefaults.pct)
+  const [fullEarnoutYears, setFullEarnoutYears] = useState(smartDefaults.years)
 
-  if (earnoutPct === 0) {
-    // All Cash — fixed at valueFactor × cashEstimate, no earnout
-    cashAmount = cashEstimate * strat.valueFactor
-    earnoutTotal = 0
-    totalValue = cashAmount
-    perYearPayments = []
-  } else if (cashPct === 0) {
-    // Full Earnout — 0% cash at close, 100% performance-based
-    // Each year pays annualEarnoutPayment independently based on that year's sales
-    cashAmount = 0
-    perYearPayments = Array.from({ length: earnoutYears }, (_, i) => {
-      // Apply growth trend: year 1 = LTM-based, year 2 = projected
-      const yearRevenue = ltmRevenue * Math.pow(1 + growthRate, i + 1)
-      return yearRevenue * commissionRate
-    })
-    earnoutTotal = perYearPayments.reduce((a, b) => a + b, 0)
-    totalValue = cashAmount + earnoutTotal
-  } else {
-    // Blend / Mostly Earnout:
-    // Cash at close = cashEstimate × (cashPct / 100) with valueFactor discount
-    // Earnout = annualEarnoutPayment per year (each year is independent)
-    cashAmount = cashEstimate * strat.valueFactor * (cashPct / 100)
-    perYearPayments = Array.from({ length: earnoutYears }, (_, i) => {
-      const yearRevenue = ltmRevenue * Math.pow(1 + growthRate, i + 1)
-      return yearRevenue * commissionRate
-    })
-    earnoutTotal = perYearPayments.reduce((a, b) => a + b, 0)
-    totalValue = cashAmount + earnoutTotal
+  // ─── CALCULATIONS ────────────────────────────────────────────────────────
+
+  // Baseline: All Cash = highOffer (no discount, this IS the valuation)
+  const allCashValue = highOffer
+
+  // Per-year projected revenue
+  function projectedRevenue(year: number) {
+    return ltmRevenue > 0 ? ltmRevenue * Math.pow(1 + growthRate, year) : 0
   }
+
+  // Cash + Earnout
+  // Cash at close = highOffer × (blendCashPct / 100)   — proportional slice of valuation
+  // Per-year earnout = that year's projected revenue × (blendEarnoutCommPct / 100)
+  // Guard: if earnout total > (highOffer × blendEarnoutPct/100 × 1.5) it's unrealistic
+  const blendCashAtClose = highOffer * (blendCashPct / 100)
+  const blendYearlyPayments = Array.from({ length: blendEarnoutYears }, (_, i) =>
+    projectedRevenue(i + 1) * (blendEarnoutCommPct / 100)
+  )
+  const blendEarnoutTotal = blendYearlyPayments.reduce((a, b) => a + b, 0)
+
+  // Warn if earnout is overly optimistic (>2x the earnout share of valuation)
+  const blendEarnoutCeiling = highOffer * (blendEarnoutPct / 100) * 2
+  const blendEarnoutOverflow = blendEarnoutTotal > blendEarnoutCeiling
+
+  const blendTotalValue = blendCashAtClose + blendEarnoutTotal
+
+  // Full Earnout
+  // No cash at close. Annual payment = projectedRevenue × (fullEarnoutPct / 100)
+  const fullYearlyPayments = Array.from({ length: fullEarnoutYears }, (_, i) =>
+    projectedRevenue(i + 1) * (fullEarnoutPct / 100)
+  )
+  const fullEarnoutTotal = fullYearlyPayments.reduce((a, b) => a + b, 0)
+  const fullTotalValue = fullEarnoutTotal
+
+  // Active values
+  const activeTotal =
+    activeStrategy === "allcash" ? allCashValue :
+    activeStrategy === "blend" ? blendTotalValue :
+    fullTotalValue
+
+  const activeCash =
+    activeStrategy === "allcash" ? allCashValue :
+    activeStrategy === "blend" ? blendCashAtClose :
+    0
+
+  const activeEarnout =
+    activeStrategy === "blend" ? blendEarnoutTotal :
+    activeStrategy === "allearnout" ? fullEarnoutTotal :
+    0
+
+  // ─── UI ──────────────────────────────────────────────────────────────────
+
+  const strategies: { key: Strategy; label: string; description: string }[] = [
+    {
+      key: "allcash",
+      label: "All Cash",
+      description:
+        "100% of the agreed value paid at closing. Simplest and most certain — this is your baseline number.",
+    },
+    {
+      key: "blend",
+      label: "Cash + Earnout",
+      description:
+        "Part of the value paid at close, remainder earned over 1–2 years via commission percentage. You control the split.",
+    },
+    {
+      key: "allearnout",
+      label: "Full Earnout",
+      description:
+        "No cash at close — all value comes from a percentage of annual commissions over 1–2 years. Highest potential total, zero upfront certainty.",
+    },
+  ]
 
   return (
     <div className="flex flex-col gap-4">
       {/* Total payout display */}
       <div className="rounded-lg border border-border bg-secondary/30 px-4 py-4 text-center">
         <p className="text-xs uppercase tracking-wide text-muted-foreground">Estimated Total Payout</p>
-        <p className="text-3xl font-bold text-success">{formatCurrency(totalValue)}</p>
-        {earnoutPct > 0 ? (
+        <p className="text-3xl font-bold text-success">{formatCurrency(activeTotal)}</p>
+        {activeStrategy !== "allcash" ? (
           <p className="mt-1 text-xs text-muted-foreground">
-            {formatCurrency(cashAmount)} cash + {formatCurrency(earnoutTotal)} earnout
+            {formatCurrency(activeCash)} cash + {formatCurrency(activeEarnout)} earnout
           </p>
         ) : (
-          <p className="mt-1 text-xs text-muted-foreground">100% cash at close</p>
+          <p className="mt-1 text-xs text-muted-foreground">100% cash at close — baseline valuation</p>
         )}
       </div>
 
-      {/* Strategy quick-select */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {/* Strategy tabs */}
+      <div className="grid grid-cols-3 gap-2">
         {strategies.map((s) => (
           <button
             key={s.key}
@@ -193,89 +236,113 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
 
       {/* Strategy description */}
       <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2.5">
-        <p className="text-sm font-semibold text-primary">{strat.label}</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">{strat.description}</p>
+        <p className="text-sm font-semibold text-primary">
+          {strategies.find((s) => s.key === activeStrategy)?.label}
+        </p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {strategies.find((s) => s.key === activeStrategy)?.description}
+        </p>
       </div>
 
-      {/* Cash vs Earnout bar */}
-      <div className="flex h-4 w-full overflow-hidden rounded-full bg-secondary">
-        <div className="bg-success transition-all duration-300" style={{ width: `${cashPct}%` }} />
-        <div className="bg-chart-5 transition-all duration-300" style={{ width: `${earnoutPct}%` }} />
-      </div>
-      <div className="flex justify-between text-xs text-muted-foreground">
-        <span>Cash: <span className="font-semibold text-foreground">{formatCurrency(cashAmount)}</span></span>
-        {earnoutPct > 0 && (
-          <span>Earnout: <span className="font-semibold text-foreground">{formatCurrency(earnoutTotal)}</span></span>
-        )}
-      </div>
-
-      {/* Value comparison across strategies */}
-      <div className="rounded-md border border-border bg-card divide-y divide-border">
-        {strategies.map((s) => {
-          // Re-compute each strategy's total using the same correct model:
-          // Cash = cashEstimate × valueFactor × (cashPct/100)
-          // Earnout = sum of per-year payments (each year = projectedRevenue × commissionRate)
-          const sYearPayments = Array.from({ length: earnoutYears }, (_, i) => {
-            if (s.cashPct === 100) return 0
-            const yr = ltmRevenue * Math.pow(1 + growthRate, i + 1)
-            return yr * commissionRate
-          })
-          const sEarnout = sYearPayments.reduce((a, b) => a + b, 0)
-          const sCash = s.cashPct === 100
-            ? cashEstimate * s.valueFactor
-            : cashEstimate * s.valueFactor * (s.cashPct / 100)
-          const val = sCash + sEarnout
-          const isActive = s.key === activeStrategy
-          return (
-            <div
-              key={s.key}
-              className={`flex items-center justify-between px-3 py-2 cursor-pointer transition-colors ${isActive ? "bg-primary/5" : "hover:bg-secondary/50"}`}
-              onClick={() => setActiveStrategy(s.key)}
-            >
-              <span className={`text-xs ${isActive ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{s.label}</span>
-              <div className="flex items-center gap-2">
-                <span className={`text-sm font-bold ${isActive ? "text-success" : "text-muted-foreground"}`}>{formatCurrency(val)}</span>
-                {s.key === "allearnout" && <span className="text-[10px] font-medium text-primary bg-primary/10 rounded px-1.5 py-0.5">Best</span>}
-              </div>
+      {/* ── ALL CASH ── */}
+      {activeStrategy === "allcash" && (
+        <div className="rounded-lg border border-border bg-secondary/30 p-4 flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <Info className="h-4 w-4 shrink-0 text-primary" />
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              All Cash is your <span className="font-semibold text-foreground">baseline valuation</span> — the full agreed value paid at closing, no contingencies. All other structures are calculated relative to this number.
+            </p>
+          </div>
+          <div className="rounded-md border border-border bg-card divide-y divide-border">
+            <div className="flex items-center justify-between px-3 py-2.5">
+              <span className="text-xs text-muted-foreground">Cash at Close</span>
+              <span className="text-sm font-bold text-success">{formatCurrency(allCashValue)}</span>
             </div>
-          )
-        })}
-      </div>
+            <div className="flex items-center justify-between px-3 py-2.5">
+              <span className="text-xs text-muted-foreground">Earnout</span>
+              <span className="text-sm text-muted-foreground">None</span>
+            </div>
+            <div className="flex items-center justify-between px-3 py-2.5 bg-primary/5">
+              <span className="text-xs font-semibold text-foreground">Total</span>
+              <span className="text-sm font-bold text-primary">{formatCurrency(allCashValue)}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* Earnout breakdown — only when there's an earnout component */}
-      {earnoutPct > 0 && (
+      {/* ── CASH + EARNOUT ── */}
+      {activeStrategy === "blend" && (
         <div className="rounded-lg border border-border bg-secondary/30 p-4 flex flex-col gap-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Earnout Structure</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Structure Your Split
+          </p>
 
-          {/* Commission rate */}
+          {/* Cash/Earnout split slider */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Commission rate on annual revenue:</span>
-              <span className="font-bold font-mono text-foreground">{commissionRatePct}%</span>
+              <span className="text-muted-foreground">Cash at Close</span>
+              <span className="font-bold font-mono text-foreground">{blendCashPct}%</span>
             </div>
             <Slider
-              value={[commissionRatePct]}
-              onValueChange={([v]) => setCommissionRate(v / 100)}
-              min={5}
+              value={[blendCashPct]}
+              onValueChange={([v]) => setBlendCashPct(v)}
+              min={10}
+              max={90}
+              step={5}
+            />
+            <div className="flex justify-between text-[11px] text-muted-foreground">
+              <span>10% cash</span>
+              <span>90% cash</span>
+            </div>
+          </div>
+
+          {/* Split visual bar */}
+          <div className="flex flex-col gap-1">
+            <div className="flex h-5 w-full overflow-hidden rounded-full bg-secondary">
+              <div
+                className="bg-success transition-all duration-200"
+                style={{ width: `${blendCashPct}%` }}
+              />
+              <div
+                className="bg-chart-5 transition-all duration-200"
+                style={{ width: `${blendEarnoutPct}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-[11px]">
+              <span className="text-success font-medium">Cash {blendCashPct}% — {formatCurrency(blendCashAtClose)}</span>
+              <span className="text-chart-5 font-medium">Earnout {blendEarnoutPct}% — {formatCurrency(blendEarnoutTotal)}</span>
+            </div>
+          </div>
+
+          {/* Earnout commission rate */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Earnout — Commission Rate on Annual Revenue</span>
+              <span className="font-bold font-mono text-foreground">{blendEarnoutCommPct}%</span>
+            </div>
+            <Slider
+              value={[blendEarnoutCommPct]}
+              onValueChange={([v]) => setBlendEarnoutCommPct(v)}
+              min={10}
               max={75}
               step={5}
             />
             <div className="flex justify-between text-[11px] text-muted-foreground">
-              <span>5% (min)</span>
+              <span>10% (min)</span>
               <span>75% (max)</span>
             </div>
           </div>
 
           {/* Payout period */}
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Payout over:</span>
-            {EARNOUT_YEARS_OPTIONS.map((y) => (
+            <span className="text-xs text-muted-foreground">Earnout over:</span>
+            {[1, 2].map((y) => (
               <Button
                 key={y}
                 size="sm"
-                variant={earnoutYears === y ? "default" : "outline"}
+                variant={blendEarnoutYears === y ? "default" : "outline"}
                 className="h-7 px-3 text-xs"
-                onClick={() => setEarnoutYears(y)}
+                onClick={() => setBlendEarnoutYears(y)}
               >
                 {y} {y === 1 ? "Year" : "Years"}
               </Button>
@@ -284,52 +351,192 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
 
           {/* Per-year breakdown */}
           <div className="rounded-md bg-card border border-border divide-y divide-border">
-            {perYearPayments.map((payment, i) => {
-              // Back-calculate what revenue projection this year used
-              const yearRevenue = ltmRevenue * Math.pow(1 + growthRate, i + 1)
-              const isProjected = i > 0
-              return (
-                <div key={i} className="flex flex-col px-3 py-2.5 gap-0.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">
-                      Year {i + 1} earnout
-                      {isProjected && (
-                        <span className="ml-1.5 text-[10px] text-muted-foreground/60">(projected)</span>
-                      )}
-                    </span>
-                    <span className="text-sm font-semibold text-foreground">{formatCurrency(payment)}</span>
-                  </div>
-                  <span className="text-[11px] text-muted-foreground/70">
-                    {formatCurrency(Math.round(yearRevenue))} est. revenue × {commissionRatePct}% commission rate
+            <div className="flex items-center justify-between px-3 py-2.5">
+              <span className="text-xs text-muted-foreground">Cash at Close</span>
+              <span className="text-sm font-semibold text-success">{formatCurrency(blendCashAtClose)}</span>
+            </div>
+            {blendYearlyPayments.map((payment, i) => (
+              <div key={i} className="flex flex-col px-3 py-2.5 gap-0.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    Year {i + 1} earnout
+                    {i > 0 && <span className="ml-1 text-[10px] text-muted-foreground/60">(projected)</span>}
                   </span>
+                  <span className="text-sm font-semibold text-foreground">{formatCurrency(payment)}</span>
                 </div>
-              )
-            })}
+                <span className="text-[11px] text-muted-foreground/70">
+                  {formatCurrency(Math.round(projectedRevenue(i + 1)))} est. revenue × {blendEarnoutCommPct}%
+                </span>
+              </div>
+            ))}
             <div className="flex items-center justify-between px-3 py-2 bg-primary/5">
-              <span className="text-xs font-semibold text-foreground">
-                Total Earnout ({earnoutYears} {earnoutYears === 1 ? "year" : "years"})
-              </span>
-              <span className="text-sm font-bold text-primary">{formatCurrency(earnoutTotal)}</span>
+              <span className="text-xs font-semibold text-foreground">Total Payout</span>
+              <span className="text-sm font-bold text-primary">{formatCurrency(blendTotalValue)}</span>
             </div>
           </div>
 
-          <div className="rounded-md border border-border bg-card px-3 py-3 text-xs text-muted-foreground space-y-1">
-            <p className="font-medium text-foreground text-[11px] uppercase tracking-wide">How this works</p>
-            <p>The cash estimate ({formatCurrency(cashEstimate)}) is the agreed baseline. The earnout is paid back annually as a % of actual commissions — each year stands on its own.</p>
-            <p>Choosing a {earnoutYears}-year earnout at {commissionRatePct}% means you could earn up to <span className="font-semibold text-foreground">{formatCurrency(earnoutTotal)}</span> in addition to your {formatCurrency(cashAmount)} upfront — for a total of <span className="font-semibold text-foreground">{formatCurrency(totalValue)}</span>.</p>
-            {growthRate !== 0 && (
-              <p className="text-[10px]">Year 2+ projections apply your {growthRate > 0 ? "+" : ""}{(growthRate * 100).toFixed(0)}% revenue trend ({growthLabel}).</p>
-            )}
+          {/* Overflow warning */}
+          {blendEarnoutOverflow && (
+            <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2.5">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                <span className="font-semibold text-foreground">Projected earnout may be unrealistic.</span>{" "}
+                The earnout total exceeds a realistic ceiling for this deal. Consider reducing the commission rate or switching to 1 year.
+              </p>
+            </div>
+          )}
+
+          {growthRate !== 0 && (
+            <p className="text-[10px] text-muted-foreground">
+              Year 2 applies your {growthRate > 0 ? "+" : ""}{(growthRate * 100).toFixed(0)}% revenue trend ({growthLabel}).
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ── FULL EARNOUT ── */}
+      {activeStrategy === "allearnout" && (
+        <div className="rounded-lg border border-border bg-secondary/30 p-4 flex flex-col gap-4">
+          {/* Smart defaults badge */}
+          <div className="flex items-start gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2.5">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <div>
+              <p className="text-xs font-semibold text-foreground">Smart Estimate Applied</p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
+                {smartDefaults.rationale}
+              </p>
+            </div>
           </div>
+
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Earnout Terms
+          </p>
+
+          {/* Commission % slider */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Commission Rate on Annual Revenue</span>
+              <span className="font-bold font-mono text-foreground">{fullEarnoutPct}%</span>
+            </div>
+            <Slider
+              value={[fullEarnoutPct]}
+              onValueChange={([v]) => setFullEarnoutPct(v)}
+              min={10}
+              max={75}
+              step={5}
+            />
+            <div className="flex justify-between text-[11px] text-muted-foreground">
+              <span>10%</span>
+              <span className="text-muted-foreground/60">75% max (rarely offered)</span>
+            </div>
+          </div>
+
+          {/* Year selector */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Payout period:</span>
+            {[1, 2].map((y) => (
+              <Button
+                key={y}
+                size="sm"
+                variant={fullEarnoutYears === y ? "default" : "outline"}
+                className="h-7 px-3 text-xs"
+                onClick={() => setFullEarnoutYears(y)}
+              >
+                {y} {y === 1 ? "Year" : "Years"}
+              </Button>
+            ))}
+          </div>
+
+          {/* Year-by-year breakdown */}
+          <div className="rounded-md bg-card border border-border divide-y divide-border">
+            <div className="flex items-center justify-between px-3 py-2.5">
+              <span className="text-xs text-muted-foreground">Cash at Close</span>
+              <span className="text-sm text-muted-foreground">None</span>
+            </div>
+            {fullYearlyPayments.map((payment, i) => (
+              <div key={i} className="flex flex-col px-3 py-2.5 gap-0.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    Year {i + 1} earnout
+                    {i > 0 && <span className="ml-1 text-[10px] text-muted-foreground/60">(projected)</span>}
+                  </span>
+                  <span className="text-sm font-semibold text-foreground">{formatCurrency(payment)}</span>
+                </div>
+                <span className="text-[11px] text-muted-foreground/70">
+                  {formatCurrency(Math.round(projectedRevenue(i + 1)))} est. revenue × {fullEarnoutPct}%
+                </span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between px-3 py-2 bg-primary/5">
+              <span className="text-xs font-semibold text-foreground">
+                Total ({fullEarnoutYears} {fullEarnoutYears === 1 ? "year" : "years"})
+              </span>
+              <span className="text-sm font-bold text-primary">{formatCurrency(fullEarnoutTotal)}</span>
+            </div>
+          </div>
+
+          {growthRate !== 0 && (
+            <p className="text-[10px] text-muted-foreground">
+              Year 2 projections apply your {growthRate > 0 ? "+" : ""}{(growthRate * 100).toFixed(0)}% revenue trend ({growthLabel}).
+            </p>
+          )}
 
           <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2.5">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              <span className="font-semibold text-foreground">Estimates only.</span> Final earnout depends on negotiated commission rates, actual book retention, and carrier terms.
+              <span className="font-semibold text-foreground">Not guaranteed.</span> Full earnout offers are rare and depend heavily on book retention, negotiated commission rates, and carrier terms. The 2-year / 75% scenario is best-case — most sellers receive less.
             </p>
           </div>
         </div>
       )}
+
+      {/* ── STRATEGY COMPARISON ── */}
+      <div className="rounded-md border border-border bg-card divide-y divide-border">
+        <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Strategy Comparison
+        </p>
+        {(
+          [
+            { key: "allcash" as Strategy,    label: "All Cash",       val: allCashValue,   badge: null },
+            { key: "blend" as Strategy,      label: "Cash + Earnout", val: blendTotalValue, badge: null },
+            { key: "allearnout" as Strategy, label: "Full Earnout",   val: fullTotalValue,  badge: "Best" },
+          ] as { key: Strategy; label: string; val: number; badge: string | null }[]
+        ).map(({ key, label, val, badge }) => (
+          <div
+            key={key}
+            className={`flex items-center justify-between px-3 py-2 cursor-pointer transition-colors ${
+              activeStrategy === key ? "bg-primary/5" : "hover:bg-secondary/50"
+            }`}
+            onClick={() => setActiveStrategy(key)}
+          >
+            <span
+              className={`text-xs ${activeStrategy === key ? "font-semibold text-foreground" : "text-muted-foreground"}`}
+            >
+              {label}
+            </span>
+            <div className="flex items-center gap-2">
+              <span
+                className={`text-sm font-bold ${activeStrategy === key ? "text-success" : "text-muted-foreground"}`}
+              >
+                {formatCurrency(val)}
+              </span>
+              {badge && (
+                <span className="text-[10px] font-medium text-primary bg-primary/10 rounded px-1.5 py-0.5">
+                  {badge}
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Disclaimer */}
+      <div className="flex items-start gap-2 rounded-md border border-border bg-card px-3 py-2.5">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+        <p className="text-[11px] text-muted-foreground leading-relaxed">
+          <span className="font-semibold text-foreground">Estimates only.</span> Final deal terms depend on due diligence, negotiated commission rates, book retention, and carrier agreements.
+        </p>
+      </div>
     </div>
   )
 }
