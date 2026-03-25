@@ -138,7 +138,7 @@ export function CommissionUpload({ onParsed }: Props) {
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-[hsl(var(--success))]" />
+              <CheckCircle2 className="h-4 w-4 text-success" />
               <div>
                 <p className="text-sm font-medium text-foreground">
                   <FileText className="mr-1 inline h-3.5 w-3.5 text-muted-foreground" />
@@ -147,7 +147,7 @@ export function CommissionUpload({ onParsed }: Props) {
                     <span className="ml-2 text-xs text-muted-foreground">({result.statementMonth})</span>
                   )}
                 </p>
-                <p className="text-xs text-[hsl(var(--success))]">
+                <p className="text-xs text-success">
                   Commission statement parsed · Format {result.format}
                 </p>
               </div>

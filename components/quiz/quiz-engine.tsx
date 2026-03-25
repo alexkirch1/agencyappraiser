@@ -124,9 +124,9 @@ const questions: QuizQuestion[] = [
 ]
 
 function getGrade(score: number) {
-  if (score >= 85) return { grade: "A", color: "text-[hsl(var(--success))]", borderColor: "border-[hsl(var(--success))]", label: "Exit Ready", description: "Your agency is well-positioned for a premium exit. You have strong fundamentals and preparation. Focus on maximizing your multiple through the Deal Simulator." }
+  if (score >= 85) return { grade: "A", color: "text-success", borderColor: "border-success", label: "Exit Ready", description: "Your agency is well-positioned for a premium exit. You have strong fundamentals and preparation. Focus on maximizing your multiple through the Deal Simulator." }
   if (score >= 65) return { grade: "B", color: "text-primary", borderColor: "border-primary", label: "Nearly Ready", description: "You're in solid shape with some areas to improve. Addressing the weak spots below could significantly increase your valuation multiple." }
-  if (score >= 40) return { grade: "C", color: "text-[hsl(var(--warning))]", borderColor: "border-[hsl(var(--warning))]", label: "Needs Work", description: "There are meaningful gaps in your exit readiness. Buyers will identify these during due diligence and discount your valuation accordingly." }
+  if (score >= 40) return { grade: "C", color: "text-warning", borderColor: "border-warning", label: "Needs Work", description: "There are meaningful gaps in your exit readiness. Buyers will identify these during due diligence and discount your valuation accordingly." }
   return { grade: "D", color: "text-destructive", borderColor: "border-destructive", label: "Not Ready", description: "Significant preparation is needed before going to market. Selling now would likely result in a below-market valuation. Use the recommendations below to build your action plan." }
 }
 
@@ -228,7 +228,7 @@ export function QuizEngine() {
                   <span className="w-32 shrink-0 text-xs text-muted-foreground">{q.category}</span>
                   <div className="flex h-2 flex-1 overflow-hidden rounded-full bg-secondary">
                     <div
-                      className={`rounded-full transition-all ${pctScore >= 70 ? "bg-[hsl(var(--success))]" : pctScore >= 40 ? "bg-[hsl(var(--warning))]" : "bg-destructive"}`}
+                      className={`rounded-full transition-all ${pctScore >= 70 ? "bg-success" : pctScore >= 40 ? "bg-warning" : "bg-destructive"}`}
                       style={{ width: `${pctScore}%` }}
                     />
                   </div>
@@ -249,14 +249,14 @@ export function QuizEngine() {
               .sort((a, b) => a.score - b.score)
               .map((q) => (
                 <div key={q.idx} className="rounded-lg border border-border p-3">
-                  <p className="text-xs font-semibold text-[hsl(var(--warning))]">{q.category}</p>
+                  <p className="text-xs font-semibold text-warning">{q.category}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     You scored {q.score}/10. The top answer was: &quot;{q.options[0].label}&quot;
                   </p>
                 </div>
               ))}
             {questions.every((_, i) => (answers[i] ?? 0) >= 7) && (
-              <p className="text-sm text-[hsl(var(--success))]">All categories are strong. You are well-prepared.</p>
+              <p className="text-sm text-success">All categories are strong. You are well-prepared.</p>
             )}
           </CardContent>
         </Card>

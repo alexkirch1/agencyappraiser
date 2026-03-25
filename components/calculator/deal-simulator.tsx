@@ -104,11 +104,25 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
   const cashPct = strat.cashPct
   const earnoutPct = 100 - cashPct
 
-  // The earnout total is ALWAYS: annual revenue × commission rate
-  // This is a fixed dollar amount — it does NOT change with years.
-  // Years only affects how it's split (1 big payment vs 2 smaller ones).
-  // The commission rate slider directly drives this number.
-  const annualEarnout = ltmRevenue * commissionRate // e.g. $200k × 75% = $150k
+  // === CORRECT EARNOUT MODEL ===
+  // Based on: cash estimate (highOffer) × earnout percentage = total earnout pool
+  // The cash estimate is the agreed baseline value.
+  // Earnout % determines what portion is performance-based vs. paid at close.
+  //
+  // e.g. $200k cash estimate, 75% earnout:
+  //   Cash at close  = $200k × 25% = $50k
+  //   Earnout pool   = $200k × 75% = $150k (to be earned back via sales)
+  //
+  // The commission rate slider (5%–75%) controls what % of annual revenue is
+  // paid each year. This is the ANNUAL earnout payment — NOT divided by years.
+  // A 2-year earnout means you receive that payment TWICE (once per year),
+  // so the total potential GROWS with more years, not stays the same.
+  //
+  // Per-year payment = cashEstimate × earnoutPct × (actualSales / projectedSales)
+  // We show the "on-target" scenario where actual = projected.
+
+  const cashEstimate = highOffer // The agreed cash value baseline
+  const annualEarnoutPayment = cashEstimate * commissionRate // Annual $ paid back via commissions
 
   let totalValue: number
   let cashAmount: number
@@ -116,29 +130,33 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
   let perYearPayments: number[]
 
   if (earnoutPct === 0) {
-    // All Cash — no earnout at all, fixed at valueFactor × highOffer
-    cashAmount = highOffer * strat.valueFactor
+    // All Cash — fixed at valueFactor × cashEstimate, no earnout
+    cashAmount = cashEstimate * strat.valueFactor
     earnoutTotal = 0
     totalValue = cashAmount
     perYearPayments = []
   } else if (cashPct === 0) {
-    // Full Earnout — 100% commission-based, no cash floor
-    earnoutTotal = annualEarnout
+    // Full Earnout — 0% cash at close, 100% performance-based
+    // Each year pays annualEarnoutPayment independently based on that year's sales
     cashAmount = 0
-    totalValue = earnoutTotal
-    // Split into equal annual payments
-    perYearPayments = Array.from({ length: earnoutYears }, () => earnoutTotal / earnoutYears)
+    perYearPayments = Array.from({ length: earnoutYears }, (_, i) => {
+      // Apply growth trend: year 1 = LTM-based, year 2 = projected
+      const yearRevenue = ltmRevenue * Math.pow(1 + growthRate, i + 1)
+      return yearRevenue * commissionRate
+    })
+    earnoutTotal = perYearPayments.reduce((a, b) => a + b, 0)
+    totalValue = cashAmount + earnoutTotal
   } else {
     // Blend / Mostly Earnout:
-    // Earnout = annual revenue × commission rate (slider drives this)
-    // Cash = targetTotal - earnout, but minimum is strategy's cash% × targetTotal × 0.5
-    const targetTotal = highOffer * strat.valueFactor
-    const minCash = targetTotal * (cashPct / 100) * 0.5 // floor: half of strategy's nominal cash
-    earnoutTotal = annualEarnout
-    cashAmount = Math.max(minCash, targetTotal - earnoutTotal)
+    // Cash at close = cashEstimate × (cashPct / 100) with valueFactor discount
+    // Earnout = annualEarnoutPayment per year (each year is independent)
+    cashAmount = cashEstimate * strat.valueFactor * (cashPct / 100)
+    perYearPayments = Array.from({ length: earnoutYears }, (_, i) => {
+      const yearRevenue = ltmRevenue * Math.pow(1 + growthRate, i + 1)
+      return yearRevenue * commissionRate
+    })
+    earnoutTotal = perYearPayments.reduce((a, b) => a + b, 0)
     totalValue = cashAmount + earnoutTotal
-    // Earnout split equally across years
-    perYearPayments = Array.from({ length: earnoutYears }, () => earnoutTotal / earnoutYears)
   }
 
   return (
@@ -146,7 +164,7 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
       {/* Total payout display */}
       <div className="rounded-lg border border-border bg-secondary/30 px-4 py-4 text-center">
         <p className="text-xs uppercase tracking-wide text-muted-foreground">Estimated Total Payout</p>
-        <p className="text-3xl font-bold text-[hsl(var(--success))]">{formatCurrency(totalValue)}</p>
+        <p className="text-3xl font-bold text-success">{formatCurrency(totalValue)}</p>
         {earnoutPct > 0 ? (
           <p className="mt-1 text-xs text-muted-foreground">
             {formatCurrency(cashAmount)} cash + {formatCurrency(earnoutTotal)} earnout
@@ -181,8 +199,8 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
 
       {/* Cash vs Earnout bar */}
       <div className="flex h-4 w-full overflow-hidden rounded-full bg-secondary">
-        <div className="bg-[hsl(var(--success))] transition-all duration-300" style={{ width: `${cashPct}%` }} />
-        <div className="bg-[hsl(var(--chart-5))] transition-all duration-300" style={{ width: `${earnoutPct}%` }} />
+        <div className="bg-success transition-all duration-300" style={{ width: `${cashPct}%` }} />
+        <div className="bg-chart-5 transition-all duration-300" style={{ width: `${earnoutPct}%` }} />
       </div>
       <div className="flex justify-between text-xs text-muted-foreground">
         <span>Cash: <span className="font-semibold text-foreground">{formatCurrency(cashAmount)}</span></span>
@@ -194,16 +212,19 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
       {/* Value comparison across strategies */}
       <div className="rounded-md border border-border bg-card divide-y divide-border">
         {strategies.map((s) => {
-          // All strategies use: cash + (annualRevenue × commissionRate)
-          // except All Cash (no earnout) which is fixed at valueFactor × highOffer
-          const sTarget = highOffer * s.valueFactor
-          const sEarnout = s.cashPct === 100 ? 0 : annualEarnout
+          // Re-compute each strategy's total using the same correct model:
+          // Cash = cashEstimate × valueFactor × (cashPct/100)
+          // Earnout = sum of per-year payments (each year = projectedRevenue × commissionRate)
+          const sYearPayments = Array.from({ length: earnoutYears }, (_, i) => {
+            if (s.cashPct === 100) return 0
+            const yr = ltmRevenue * Math.pow(1 + growthRate, i + 1)
+            return yr * commissionRate
+          })
+          const sEarnout = sYearPayments.reduce((a, b) => a + b, 0)
           const sCash = s.cashPct === 100
-            ? sTarget
-            : s.cashPct === 0
-              ? 0
-              : Math.max(sTarget * (s.cashPct / 100) * 0.5, sTarget - sEarnout)
-          const val = s.cashPct === 100 ? sTarget : sCash + sEarnout
+            ? cashEstimate * s.valueFactor
+            : cashEstimate * s.valueFactor * (s.cashPct / 100)
+          const val = sCash + sEarnout
           const isActive = s.key === activeStrategy
           return (
             <div
@@ -213,7 +234,7 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
             >
               <span className={`text-xs ${isActive ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{s.label}</span>
               <div className="flex items-center gap-2">
-                <span className={`text-sm font-bold ${isActive ? "text-[hsl(var(--success))]" : "text-muted-foreground"}`}>{formatCurrency(val)}</span>
+                <span className={`text-sm font-bold ${isActive ? "text-success" : "text-muted-foreground"}`}>{formatCurrency(val)}</span>
                 {s.key === "allearnout" && <span className="text-[10px] font-medium text-primary bg-primary/10 rounded px-1.5 py-0.5">Best</span>}
               </div>
             </div>
@@ -264,26 +285,45 @@ export function DealSimulator({ highOffer, coreScore, revenueLTM, revenueY2, rev
           {/* Per-year breakdown */}
           <div className="rounded-md bg-card border border-border divide-y divide-border">
             {perYearPayments.map((payment, i) => {
+              // Back-calculate what revenue projection this year used
+              const yearRevenue = ltmRevenue * Math.pow(1 + growthRate, i + 1)
+              const isProjected = i > 0
               return (
                 <div key={i} className="flex flex-col px-3 py-2.5 gap-0.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Year {i + 1} payment</span>
+                    <span className="text-xs text-muted-foreground">
+                      Year {i + 1} earnout
+                      {isProjected && (
+                        <span className="ml-1.5 text-[10px] text-muted-foreground/60">(projected)</span>
+                      )}
+                    </span>
                     <span className="text-sm font-semibold text-foreground">{formatCurrency(payment)}</span>
                   </div>
                   <span className="text-[11px] text-muted-foreground/70">
-                    {formatCurrency(ltmRevenue)} revenue × {commissionRatePct}% ÷ {earnoutYears} {earnoutYears === 1 ? "yr" : "yrs"}
+                    {formatCurrency(Math.round(yearRevenue))} est. revenue × {commissionRatePct}% commission rate
                   </span>
                 </div>
               )
             })}
             <div className="flex items-center justify-between px-3 py-2 bg-primary/5">
-              <span className="text-xs font-semibold text-foreground">Total Earnout</span>
+              <span className="text-xs font-semibold text-foreground">
+                Total Earnout ({earnoutYears} {earnoutYears === 1 ? "year" : "years"})
+              </span>
               <span className="text-sm font-bold text-primary">{formatCurrency(earnoutTotal)}</span>
             </div>
           </div>
 
-          <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 px-3 py-2.5">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[hsl(var(--warning))]" />
+          <div className="rounded-md border border-border bg-card px-3 py-3 text-xs text-muted-foreground space-y-1">
+            <p className="font-medium text-foreground text-[11px] uppercase tracking-wide">How this works</p>
+            <p>The cash estimate ({formatCurrency(cashEstimate)}) is the agreed baseline. The earnout is paid back annually as a % of actual commissions — each year stands on its own.</p>
+            <p>Choosing a {earnoutYears}-year earnout at {commissionRatePct}% means you could earn up to <span className="font-semibold text-foreground">{formatCurrency(earnoutTotal)}</span> in addition to your {formatCurrency(cashAmount)} upfront — for a total of <span className="font-semibold text-foreground">{formatCurrency(totalValue)}</span>.</p>
+            {growthRate !== 0 && (
+              <p className="text-[10px]">Year 2+ projections apply your {growthRate > 0 ? "+" : ""}{(growthRate * 100).toFixed(0)}% revenue trend ({growthLabel}).</p>
+            )}
+          </div>
+
+          <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2.5">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
             <p className="text-[11px] text-muted-foreground leading-relaxed">
               <span className="font-semibold text-foreground">Estimates only.</span> Final earnout depends on negotiated commission rates, actual book retention, and carrier terms.
             </p>

@@ -17,8 +17,8 @@ const tools = [
     icon: Zap,
     title: "Quick Valuation",
     description: "Get a ballpark estimate in 60 seconds with just a few inputs and an adjustable multiplier.",
-    accent: "text-[hsl(var(--warning))]",
-    accentBg: "bg-[hsl(var(--warning))]/10",
+    accent: "text-warning",
+    accentBg: "bg-warning/10",
     tag: "Start Here",
   },
   {
@@ -35,8 +35,8 @@ const tools = [
     icon: Target,
     title: "Carrier Report",
     description: "Value a specific carrier book of business. Upload your carrier report or enter metrics directly to get a carrier-specific estimate.",
-    accent: "text-[hsl(var(--chart-4))]",
-    accentBg: "bg-[hsl(var(--chart-4))]/10",
+    accent: "text-chart-4",
+    accentBg: "bg-chart-4/10",
     tag: null,
   },
 ]
@@ -76,7 +76,7 @@ export default function HomePage() {
           <div className="mt-12 flex flex-wrap items-center justify-center gap-x-10 gap-y-3 text-sm text-muted-foreground">
             {["7-Category Scorecard", "Deal Structure Simulator", "14-Point Risk Audit"].map((item) => (
               <div key={item} className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-[hsl(var(--success))]" />
+                <CheckCircle2 className="h-4 w-4 text-success" />
                 <span>{item}</span>
               </div>
             ))}
