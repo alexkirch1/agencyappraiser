@@ -539,141 +539,239 @@ function parseSafeco(lines: string[]): Partial<CarrierInputs> {
 // BERKSHIRE HATHAWAY GUARD — Producer Activity Report (PAR)
 // =====================================================
 //
-// Report structure (from real 03/26/2026 PAR):
+// REAL EXTRACTED TEXT STRUCTURE (from pdfjs Y-grouped rows):
 //
-// WRITTEN PREMIUM (Calendar Year Basis):
-//   Rows: New | Renewal | Total
-//   Columns: [CurrYTD_Policies, CurrYTD_Premium, CurrR12_Policies, CurrR12_Premium,
-//             PrevYTD_Policies, PrevYTD_Premium, PrevR12_Policies, PrevR12_Premium]
-//   → CurrR12_Premium = n[3] on "Total" row
-//   → CurrYTD_Premium = n[1] on "Total" row
-//   → New policies YTD = n[0] on "New" row
-//   → Renewal policies YTD = n[0] on "Renewal" row
+// The PDF renderer groups all text items on the same Y-position into one line,
+// separated by spaces. This means section headers, row labels, and data values
+// often appear on the SAME line. Key observations from real 03/26/2026 PAR:
 //
-// SUBMITTED (Policy Year Basis) — same 8-col layout:
-//   → Total CurrR12 Premium = n[3]
+// Written Premium:
+//   "Written Premium: (Calendar Year Basis)"         ← section header
+//   "New Renewal 14 21,160 112 85,876 23 725 245 353,219"  ← New row + start of Renewal
+//   "35 100,320 208 659,670 33 98,719 314 927,875"         ← rest of Renewal row
+//   "Total 49 121,480 320 745,546 56 99,444 559 1,281,094" ← Total row (8 values: Pol,Prem x 4 periods)
+//   → Total row: n[0]=CurrYTD_Pol, n[1]=CurrYTD_Prem, n[2]=CurrR12_Pol, n[3]=CurrR12_Prem ...
+//   → New row (same line as "New Renewal"): first 4 nums before Renewal values
+//     We pick n[0]=New_CurrYTD_Pol, n[2]=New_CurrR12_Pol
 //
-// HIT RATIO (Policy Year Basis) — =WP/Quoted — values are percentages:
-//   Rows: New | Renewal | Total
-//   Columns: [CurrYTD_New_%, CurrR12_New_%, PrevYTD_New_%, PrevR12_New_%,
-//             CurrYTD_Ren_%, CurrR12_Ren_%, PrevYTD_Ren_%, PrevR12_Ren_%]
-//   NOTE: Hit ratio rows have 8 pct values each pair being [policy_hit%, premium_hit%]
-//   We parse the Total row: renewal hit ratio (CurrYTD) and new business hit ratio (CurrYTD)
+// Hit Ratio:
+//   "Hit Ratio: New (Policy Year Basis) Renewal =WP/Quoted) Total" ← all labels on one line
+//   "60.87% 36.48% 59.57% 23.80% 60.53% 14.20% 43.79% 25.40%"    ← New row: 8 pct values
+//   "83.33% 93.35% 82.75% 84.42% 82.50% 87.58% 86.03% 83.98%"    ← Renewal row: 8 pct values
+//   "75.38% 70.44% 72.91% 59.35% 71.79% 51.45% 60.39% 51.94%"    ← Total row: 8 pct values
+//   → New CurrYTD hit ratio = first value of New row = 60.87%
+//   → Renewal CurrYTD hit ratio = first value of Renewal row = 83.33%
 //
-// YIELD RATIO (Policy Year Basis) — =WP/Submitted:
-//   Total row → CurrYTD total yield ratio = n[1] (second pct value, premium basis)
+// Yield Ratio:
+//   "Yield Ratio: New (Policy Year Basis) Renewal =WP/Submitted Total"
+//   "41.18% 17.53% 44.98% 7.06% ..."   ← New row
+//   "76.09% 99.57% ..."                 ← Renewal row
+//   "61.25% 50.39% 46.08% 24.78% ..."  ← Total row: CurrYTD_Pol%, CurrYTD_Prem%, ...
+//   → Total CurrYTD = 61.25% (first value) — use as overall yield indicator
 //
-// DIRECT LOSS RATIOS section:
-//   Rows: year labels (1983-2020, 2021, 2022, 2023, 2024, 2025, 01/01/2026-xx/xx/2026)
-//   Each row has SUBTOTAL rows with: [Earned, Incurred, IncurredLossRatio%]
-//   GRAND TOTAL row: [Earned_total, Incurred_total, IncLossRatio%]
-//   → Extract SUBTOTAL loss ratio for each year block + GRAND TOTAL
+// Direct Loss Ratios:
+//   "Direct Loss Ratios:"
+//   "1983-2020 2021 2022 2023 2024 2025 01/01/2026-02/28/2026" ← year headers (one combined line!)
+//   "Incurred Direct Accident Year Calendar Year Calendar Year" ← sub-header
+//   "Earned Incurred Loss Ratio"                                ← column header
+//   "SUBTOTAL 38,639.39 10,160.82 10,160.82 26.30%"           ← 1983-2020 subtotal
+//   "622,377.94 1,401,275.63 968,410.61 155.60%"              ← 2021 data (no SUBTOTAL label? sometimes)
+//   "1,159,684.50 831,535.92 854,714.25 73.70%"               ← 2022
+//   "1,759,363.27 2,141,457.21 2,175,894.47 123.68%"          ← 2023
+//   "SUBTOTAL 3,541,425.71 4,374,268.76 3,999,019.33 112.92%" ← 2024 subtotal
+//   "1,585,981.16 1,421,459.64 1,725,257.11 108.78%"          ← 2025
+//   "954,283.52 373,405.22 543,424.07 56.95%"                 ← 2026 YTD
+//   "100,184.14 60,000.00 -38,566.89 -38.50%"                 ← additional YTD line
+//   "SUBTOTAL 2,640,448.82 1,854,864.86 2,230,114.29 84.46%"  ← recent years subtotal
+//   "GRAND TOTAL 6,220,513.92 6,239,294.44 6,239,294.44 100.30%"
+//
+// KEY INSIGHT: Year headers all appear on ONE line (because same Y position in PDF).
+// We must detect loss ratio data by line position after "Direct Loss Ratios:" header,
+// counting SUBTOTAL occurrences to map to year groups.
 // =====================================================
 
 function parseBerkshire(lines: string[]): Partial<CarrierInputs> {
   const result: Partial<CarrierInputs> = {}
 
-  type BHSection = "written_premium" | "submitted" | "quoted" | "issued" | "hit_ratio" | "yield_ratio" | "quoted_ratio" | "loss_ratios" | null
+  // ── State tracking ──
+  type BHSection = "written_premium" | "hit_ratio" | "yield_ratio" | "loss_ratios" | "other" | null
   let section: BHSection = null
-  let currentLossYear: string | null = null
+
+  // For hit/yield ratio: track which data row we're on (0=New, 1=Renewal, 2=Total)
+  let hitRatioRow  = 0
+  let yieldRatioRow = 0
+  // For loss ratios: track SUBTOTAL occurrence count to map to year groups
+  let subtotalCount = 0
+  // Track whether we've seen the year-header line in loss ratios (triggers data parsing)
+  let lossHeaderSeen = false
 
   for (let i = 0; i < lines.length; i++) {
-    const raw  = lines[i]
-    const lower = raw.toLowerCase().replace(/\s+/g, " ").trim()
+    const raw = lines[i]
 
-    // ── Section detection ──
-    if (/written\s*premium.*calendar\s*year/i.test(raw))  { section = "written_premium"; continue }
-    if (/^submitted\b/i.test(raw))                         { section = "submitted";       continue }
-    if (/^quoted\b.*policy\s*year/i.test(raw))             { section = "quoted";          continue }
-    if (/^issued\s*premium/i.test(raw))                    { section = "issued";          continue }
-    if (/^hit\s*ratio/i.test(raw))                         { section = "hit_ratio";       continue }
-    if (/^yield\s*ratio/i.test(raw))                       { section = "yield_ratio";     continue }
-    if (/^quoted\s*ratio/i.test(raw))                      { section = "quoted_ratio";    continue }
-    if (/direct\s*loss\s*ratios?/i.test(raw))              { section = "loss_ratios";     continue }
+    // ── Section detection (headers can contain row labels mixed in) ──
+    if (/written\s+premium.*calendar\s+year/i.test(raw)) {
+      section = "written_premium"
+      continue
+    }
+    if (/^hit\s+ratio/i.test(raw)) {
+      section = "hit_ratio"
+      hitRatioRow = 0
+      continue
+    }
+    if (/^yield\s+ratio/i.test(raw)) {
+      section = "yield_ratio"
+      yieldRatioRow = 0
+      continue
+    }
+    if (/direct\s+loss\s+ratio/i.test(raw)) {
+      section = "loss_ratios"
+      lossHeaderSeen = false
+      subtotalCount = 0
+      continue
+    }
+    // Other sections we don't need — reset to avoid misparse
+    if (/^submitted\b/i.test(raw) || /^quoted\b/i.test(raw) ||
+        /^issued\s+premium/i.test(raw) || /^quoted\s+ratio/i.test(raw)) {
+      section = "other"
+      continue
+    }
 
-    // Skip header/label rows
-    if (/^current\s*ytd|^prev\s*ytd|^policies\s*premium/i.test(raw)) continue
-    if (/^report\s*parameters|^agency:|^market\s*type/i.test(raw))   continue
-    if (/^note:|^\s*ay\s*loss/i.test(raw))                             continue
+    // Skip header/label-only rows
+    if (/^(current|prev)\s+(ytd|rolling)/i.test(raw)) continue
+    if (/^policies\s+premium/i.test(raw))              continue
+    if (/^report\s+parameters/i.test(raw))             continue
+    if (/^note:/i.test(raw) || /ay\s+loss\s+ratio/i.test(raw)) continue
+    if (/^incurred\s+direct\s+accident/i.test(raw))   continue
+    if (/^earned\s+incurred\s+loss\s+ratio/i.test(raw)) continue
 
-    // ── WRITTEN PREMIUM ──
+    // ── WRITTEN PREMIUM section ──
     if (section === "written_premium") {
-      const n = nums(raw)
-      if (/^new\b/i.test(raw) && n.length >= 2) {
-        result.bh_new_policies_ytd = n[0]   // CurrYTD policy count
-      }
-      if (/^renewal\b/i.test(raw) && n.length >= 2) {
-        result.bh_renewal_policies_ytd = n[0]
-      }
-      if (/^total\b/i.test(raw) && n.length >= 4) {
-        result.bh_written_premium_ytd = n[1]   // CurrYTD Premium
-        result.bh_written_premium_r12 = n[3]   // CurrR12 Premium
-      }
-    }
-
-    // ── HIT RATIO — we want the "Total" row ──
-    // Format (from PAR): "New  60.87%  59.57%  60.53%  43.79%  ..."
-    // Each row has 8 pct values: [CurrYTD_Pol%, CurrR12_Pol%, PrevYTD_Pol%, PrevR12_Pol%,
-    //                              CurrYTD_Prem%, CurrR12_Prem%, PrevYTD_Prem%, PrevR12_Prem%]
-    // We want CurrYTD_Prem% = n[4] on "New" row, n[4] on "Renewal" row
-    if (section === "hit_ratio") {
-      const n = numsFromToks(accountingTok(raw.replace(/^(New|Renewal|Total)\s*/i, "")))
-      const validPcts = n.filter(v => v >= 0 && v <= 100)
-      if (/^new\b/i.test(raw) && validPcts.length >= 4) {
-        // CurrYTD new hit ratio — take 1st pct value (policy basis) as proxy
-        result.bh_hit_ratio_new = validPcts[0]
-      }
-      if (/^renewal\b/i.test(raw) && validPcts.length >= 4) {
-        result.bh_hit_ratio_renewal = validPcts[0]
-      }
-    }
-
-    // ── YIELD RATIO — "Total" row, total yield = n[1] (premium basis CurrYTD) ──
-    if (section === "yield_ratio" && /^total\b/i.test(raw)) {
-      const n = numsFromToks(accountingTok(raw.replace(/^total\s*/i, ""))).filter(v => v >= 0 && v <= 100)
-      if (n.length >= 2) result.bh_yield_ratio_total = n[1]
-      else if (n.length === 1) result.bh_yield_ratio_total = n[0]
-    }
-
-    // ── DIRECT LOSS RATIOS ──
-    // Year block header: "1983-2020", "2021", "2022", "2023", "2024", "2025", "01/01/2026-..."
-    if (section === "loss_ratios") {
-      // Year header detection
-      if (/^1983[-–]2020/i.test(raw))                         currentLossYear = "legacy"
-      else if (/^2021\b/.test(raw) && !nums(raw).length)      currentLossYear = "2021"
-      else if (/^2022\b/.test(raw) && !nums(raw).length)      currentLossYear = "2022"
-      else if (/^2023\b/.test(raw) && !nums(raw).length)      currentLossYear = "2023"
-      else if (/^2024\b/.test(raw) && !nums(raw).length)      currentLossYear = "2024"
-      else if (/^2025\b/.test(raw) && !nums(raw).length)      currentLossYear = "2025"
-      else if (/^0?1\/0?1\/20\d{2}/.test(raw))                currentLossYear = "ytd"
-
-      // SUBTOTAL rows — "SUBTOTAL  38,639.39  10,160.82  10,160.82  26.30%"
-      // n[0]=Earned, n[1]=Incurred, n[2]=IncurredForCalc, n[3]=LossRatio%
-      if (/^subtotal\b/i.test(raw)) {
+      // "Total 49 121,480 320 745,546 56 99,444 559 1,281,094"
+      // 8 numeric values: [CurrYTD_Pol, CurrYTD_Prem, CurrR12_Pol, CurrR12_Prem, ...]
+      if (/\btotal\b/i.test(raw)) {
         const n = nums(raw)
-        // Loss ratio is the last value that looks like a percentage (could be >100)
-        const lrIdx = n.length - 1
-        const lr = n[lrIdx]
-        if (lr !== undefined) {
-          if (currentLossYear === "legacy") result.bh_loss_ratio_1983_2020 = lr
-          else if (currentLossYear === "2022") result.bh_loss_ratio_2022 = lr
-          else if (currentLossYear === "2023") result.bh_loss_ratio_2023 = lr
-          else if (currentLossYear === "2024") result.bh_loss_ratio_2024 = lr
-          else if (currentLossYear === "2025") result.bh_loss_ratio_2025 = lr
-          else if (currentLossYear === "ytd")  result.bh_loss_ratio_ytd  = lr
+        if (n.length >= 4) {
+          result.bh_written_premium_ytd = n[1]   // CurrYTD Premium ($)
+          result.bh_written_premium_r12 = n[3]   // CurrR12 Premium ($)
+        }
+        if (n.length >= 2) {
+          result.bh_new_policies_ytd     = n[0]   // We'll refine below if possible
         }
       }
+      // "New Renewal 14 21,160 112 85,876 23 725 245 353,219" — first number = New CurrYTD policies
+      if (/\bnew\b/i.test(raw) && /\brenewal\b/i.test(raw)) {
+        const n = nums(raw)
+        if (n.length >= 2) {
+          result.bh_new_policies_ytd = n[0]
+          // Renewal policies are further along — layout: New_Pol, New_Prem, New_R12Pol, New_R12Prem,
+          //   Ren_Pol, Ren_Prem, Ren_R12Pol, Ren_R12Prem (but "Renewal" label may split the line)
+          // Best we can do from merged line: new=n[0], renewal likely around n[4]
+          if (n.length >= 5) result.bh_renewal_policies_ytd = n[4]
+        }
+      }
+    }
 
-      // GRAND TOTAL — "GRAND TOTAL  6,220,513.92  6,239,294.44  6,239,294.44  100.30%"
-      if (/^grand\s*total\b/i.test(raw)) {
+    // ── HIT RATIO section — each subsequent numeric-only line = next row (New, Renewal, Total) ──
+    if (section === "hit_ratio") {
+      const n = nums(raw)
+      if (n.length >= 4 && n.every(v => v >= 0 && v <= 100)) {
+        // Row order: 0=New, 1=Renewal, 2=Total
+        // Each row has 8 values: [CurrYTD_Pol%, CurrYTD_Prem%, CurrR12_Pol%, CurrR12_Prem%, ...]
+        // We want CurrYTD (first value) for each row — this is the policy-count-based hit ratio
+        if (hitRatioRow === 0) {
+          result.bh_hit_ratio_new = n[0]       // New CurrYTD hit ratio %
+        } else if (hitRatioRow === 1) {
+          result.bh_hit_ratio_renewal = n[0]   // Renewal CurrYTD hit ratio %
+        }
+        hitRatioRow++
+      }
+    }
+
+    // ── YIELD RATIO section — same structure as hit ratio ──
+    if (section === "yield_ratio") {
+      const n = nums(raw)
+      if (n.length >= 4 && n.every(v => v >= 0 && v <= 100)) {
+        if (yieldRatioRow === 2) {
+          // Total row: n[0]=CurrYTD_Pol_Yield%, n[1]=CurrYTD_Prem_Yield%
+          // Premium-basis yield is more meaningful
+          result.bh_yield_ratio_total = n.length >= 2 ? n[1] : n[0]
+        }
+        yieldRatioRow++
+      }
+    }
+
+    // ── DIRECT LOSS RATIOS section ──
+    if (section === "loss_ratios") {
+      // The year header line looks like: "1983-2020 2021 2022 2023 2024 2025 01/01/2026-..."
+      // It's a label line (no SUBTOTAL, no big decimals) — just marks that we're ready
+      if (/1983/i.test(raw) && /202[0-9]/.test(raw)) {
+        lossHeaderSeen = true
+        continue
+      }
+      if (!lossHeaderSeen) continue
+
+      // GRAND TOTAL — highest priority, parse first
+      if (/grand\s+total/i.test(raw)) {
         const n = nums(raw)
         if (n.length >= 1) result.bh_grand_total_loss_ratio = n[n.length - 1]
+        continue
+      }
+
+      // SUBTOTAL rows — "SUBTOTAL 38,639.39 10,160.82 10,160.82 26.30%"
+      // Each SUBTOTAL maps to a year group in order: 1=1983-2020, 2=2024, 3=recent
+      if (/subtotal/i.test(raw)) {
+        const n = nums(raw)
+        const lr = n.length >= 1 ? n[n.length - 1] : null
+        subtotalCount++
+        if (lr !== null) {
+          if (subtotalCount === 1) result.bh_loss_ratio_1983_2020 = lr
+          else if (subtotalCount === 2) result.bh_loss_ratio_2024 = lr  // 2024 block subtotal
+          // subtotalCount===3 is the "recent years" aggregate — store as grand ref only
+        }
+        continue
+      }
+
+      // Pure numeric data rows (no label) — assign to year groups by position
+      // Order of data rows between SUBTOTALs, based on real PDF:
+      // Before subtotal 1: [1983-2020 data] → subtotal 1 = legacy LR (26.30%)
+      // After subtotal 1:
+      //   line 1 = 2021 → result.bh_loss_ratio_2022 (skipping 2021 — not in our fields)
+      //   line 2 = 2022 → result.bh_loss_ratio_2022
+      //   line 3 = 2023 → result.bh_loss_ratio_2023
+      // subtotal 2 = 2024 (112.92%)
+      // After subtotal 2:
+      //   line 1 = 2025
+      //   line 2 = YTD 2026
+      //   possibly more YTD rows...
+      const n = nums(raw)
+      if (n.length >= 3) {
+        // Only process lines that look like: Earned, Incurred, IncurredCalc, LossRatio%
+        // Loss ratio is always the last value
+        const lr = n[n.length - 1]
+        if (subtotalCount === 0) {
+          // Before first subtotal: no intermediate lines in BH PAR for legacy block
+        } else if (subtotalCount === 1) {
+          // Lines after legacy subtotal, before 2024 subtotal: 2021, 2022, 2023
+          // We track with a secondary counter
+          const linesAfterLegacy = (result._bhLossLineIdx as number | undefined) ?? 0
+          ;(result as Record<string, unknown>)._bhLossLineIdx = linesAfterLegacy + 1
+          if (linesAfterLegacy === 0) { /* 2021 — not in fields, skip */ }
+          else if (linesAfterLegacy === 1) result.bh_loss_ratio_2022 = lr
+          else if (linesAfterLegacy === 2) result.bh_loss_ratio_2023 = lr
+        } else if (subtotalCount === 2) {
+          // Lines after 2024 subtotal: 2025, then YTD rows
+          const linesAfter2024 = (result._bhLossLineIdx2 as number | undefined) ?? 0
+          ;(result as Record<string, unknown>)._bhLossLineIdx2 = linesAfter2024 + 1
+          if (linesAfter2024 === 0) result.bh_loss_ratio_2025 = lr
+          else if (linesAfter2024 === 1) result.bh_loss_ratio_ytd = lr
+        }
       }
     }
   }
 
-  // Derive current annual goal from submitted if not found explicitly
-  // (PAR shows "Current Annual Goal: 0" if not set — leave null in that case)
+  // Clean up internal tracking keys
+  delete (result as Record<string, unknown>)._bhLossLineIdx
+  delete (result as Record<string, unknown>)._bhLossLineIdx2
 
   return result
 }
