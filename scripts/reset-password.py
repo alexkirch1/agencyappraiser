@@ -8,7 +8,7 @@ except ImportError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "bcrypt", "-q"])
     import bcrypt
 
-password = "Agency@2024"
+password = "M0untain99!"
 hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
 
 print(f"Password: {password}")
@@ -19,4 +19,4 @@ assert bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
 print("Verification: OK")
 print()
 print("Run this SQL in Neon:")
-print(f"UPDATE users SET password_hash = '{hashed}' WHERE email = 'alex@rockyquote.com';")
+print(f"UPDATE users SET name = 'Alex', password_hash = '{hashed}' WHERE email = 'alex@rockyquote.com';")
