@@ -4,41 +4,24 @@ import { useState, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Upload, FileText, CheckCircle2, AlertCircle, X, Loader2, ChevronDown, ChevronUp } from "lucide-react"
 import type { CarrierInputs } from "./carrier-engine"
-import { parseCommissionStatement, type CommissionParseResult } from "./commission-statement-parser"
+import type { CommissionParseResult } from "./commission-statement-parser"
 
-// Re-use the same PDF extractor logic (row-aware)
-async function extractTextFromPDF(file: File): Promise<string> {
-  const pdfjsLib = await import("pdfjs-dist")
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
-  const arrayBuffer = await file.arrayBuffer()
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-  let fullText = ""
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i)
-    const content = await page.getTextContent()
-    const items = content.items.filter(
-      (item): item is typeof item & { str: string; transform: number[] } =>
-        "str" in item && item.str.trim() !== ""
-    )
-    items.sort((a, b) => {
-      const yDiff = b.transform[5] - a.transform[5]
-      if (Math.abs(yDiff) > 3) return yDiff
-      return a.transform[4] - b.transform[4]
-    })
-    const rows: string[][] = []
-    let currentRow: { y: number; strs: string[] } | null = null
-    for (const item of items) {
-      const y = item.transform[5]
-      if (!currentRow || Math.abs(currentRow.y - y) > 3) {
-        currentRow = { y, strs: [item.str] }
-        rows.push(currentRow.strs)
-      } else {
-        currentRow.strs.push(item.str)
-      }
-    }
-    fullText += rows.map(r => r.join("  ")).join("\n") + "\n"
+async function parseCommissionWithAI(file: File): Promise<CommissionParseResult> {
+  const formData = new FormData()
+  formData.append("file", file)
+
+  const res = await fetch("/api/parse-commission", {
+    method: "POST",
+    body: formData,
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Unknown error" }))
+    throw new Error(err.error || `Server error ${res.status}`)
   }
-  return fullText
+
+  const { parsed } = await res.json()
+  return parsed as CommissionParseResult
 }
 
 function fmt$(n: number): string {
@@ -63,9 +46,8 @@ export function CommissionUpload({ onParsed }: Props) {
     }
     setStatus("loading"); setFileName(file.name); setErrorMsg("")
     try {
-      const text = await extractTextFromPDF(file)
-      const parsed = parseCommissionStatement(text)
-      const hasData = (parsed.totalWrittenPremium ?? 0) > 0 || (parsed.totalPolicies ?? 0) > 0
+      const parsed = await parseCommissionWithAI(file)
+      const hasData = (parsed.totalWrittenPremium ?? 0) !== 0 || (parsed.totalPolicies ?? 0) > 0
       if (!hasData) {
         setStatus("error")
         setErrorMsg("Could not extract commission data. Make sure this is an EZLynx Horizon commission statement PDF.")
@@ -73,15 +55,18 @@ export function CommissionUpload({ onParsed }: Props) {
       }
       setResult(parsed)
       setStatus("success")
-      // Map to CarrierInputs book quality fields
       onParsed({
-        book_avg_premium_per_policy:  parsed.book_avg_premium_per_policy,
-        book_new_business_pct:        parsed.book_new_business_pct,
-        book_policies_per_customer:   parsed.book_policies_per_customer,
+        book_avg_premium_per_policy: parsed.book_avg_premium_per_policy,
+        book_new_business_pct:       parsed.book_new_business_pct,
+        book_policies_per_customer:  parsed.book_policies_per_customer,
       }, parsed)
-    } catch {
+    } catch (err) {
       setStatus("error")
-      setErrorMsg("Failed to parse the PDF. The file may be encrypted or in an unsupported format.")
+      setErrorMsg(
+        err instanceof Error
+          ? `Parse failed: ${err.message}`
+          : "Failed to parse the PDF. The file may be encrypted or in an unsupported format."
+      )
     }
   }, [onParsed])
 
@@ -119,7 +104,7 @@ export function CommissionUpload({ onParsed }: Props) {
       {status === "loading" && (
         <div className="flex items-center gap-3 p-4">
           <Loader2 className="h-4 w-4 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Parsing {fileName}...</p>
+          <p className="text-sm text-muted-foreground">AI is reading {fileName}... (10-20 sec)</p>
         </div>
       )}
 
