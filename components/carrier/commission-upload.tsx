@@ -1,5 +1,5 @@
 "use client"
-
+// v2 — AI-powered, no pdfjs-dist
 import { useState, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Upload, FileText, CheckCircle2, AlertCircle, X, Loader2, ChevronDown, ChevronUp, Sparkles } from "lucide-react"
