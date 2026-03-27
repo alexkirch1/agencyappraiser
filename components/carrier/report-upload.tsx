@@ -3,70 +3,43 @@
 import { useState, useRef, useCallback } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Upload, FileText, CheckCircle2, AlertCircle, X, Loader2 } from "lucide-react"
+import { Upload, FileText, CheckCircle2, AlertCircle, X, Loader2, Sparkles } from "lucide-react"
 import type { CarrierName, CarrierInputs } from "./carrier-engine"
-import { parseCarrierReport } from "./carrier-report-parser"
 
 interface Props {
   carrier: CarrierName
   onParsed: (fields: Partial<CarrierInputs>) => void
 }
 
-async function extractTextFromPDF(file: File): Promise<string> {
-  const pdfjsLib = await import("pdfjs-dist")
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
+async function parseWithAI(
+  file: File,
+  carrier: string
+): Promise<{ parsed: Partial<CarrierInputs>; fieldsFound: number }> {
+  const formData = new FormData()
+  formData.append("file", file)
+  formData.append("carrier", carrier)
 
-  const arrayBuffer = await file.arrayBuffer()
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+  const res = await fetch("/api/parse-carrier-report", {
+    method: "POST",
+    body: formData,
+  })
 
-  let fullText = ""
-
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i)
-    const content = await page.getTextContent()
-
-    // Group text items by their Y position (row) so we preserve row structure.
-    // Items within 3px of each other vertically are considered the same row.
-    const items = content.items.filter(
-      (item): item is typeof item & { str: string; transform: number[] } => "str" in item && item.str.trim() !== ""
-    )
-
-    // Sort by Y descending (top of page first), then X ascending (left to right)
-    items.sort((a, b) => {
-      const yDiff = b.transform[5] - a.transform[5]
-      if (Math.abs(yDiff) > 3) return yDiff
-      return a.transform[4] - b.transform[4]
-    })
-
-    // Group into rows by Y proximity
-    const rows: string[][] = []
-    let currentRow: { y: number; strs: string[] } | null = null
-    for (const item of items) {
-      const y = item.transform[5]
-      if (!currentRow || Math.abs(currentRow.y - y) > 3) {
-        currentRow = { y, strs: [item.str] }
-        rows.push(currentRow.strs)
-      } else {
-        currentRow.strs.push(item.str)
-      }
-    }
-
-    // Join each row's items with a space, rows separated by newline
-    const pageText = rows.map(r => r.join(" ")).join("\n")
-    fullText += pageText + "\n"
-
-    console.log("[v0] Page", i, "text:\n", pageText)
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Unknown error" }))
+    throw new Error(err.error || `Server error ${res.status}`)
   }
 
-  console.log("[v0] Full PDF text:\n", fullText)
-  return fullText
+  const { parsed, fieldsFound } = await res.json()
+  return { parsed, fieldsFound }
 }
 
 const carrierReportNames: Record<CarrierName, string> = {
-  progressive: "Account Production Report",
-  travelers:   "PI Production Report",
-  hartford:    "Partner Breakdown Report",
-  safeco:      "Agency Development Profile (ADP)",
+  progressive:   "Account Production Report",
+  travelers:     "PI Production Report",
+  hartford:      "Partner Breakdown Report",
+  safeco:        "Agency Development Profile (ADP)",
+  berkshire:     "Producer Activity Report (PAR)",
+  libertymutual: "CL ADP or CL ADP Summary",
 }
 
 export function ReportUpload({ carrier, onParsed }: Props) {
@@ -91,37 +64,35 @@ export function ReportUpload({ carrier, onParsed }: Props) {
       setErrorMsg("")
 
       try {
-        const text = await extractTextFromPDF(file)
-        const parsed = parseCarrierReport(text, carrier)
-        const count = Object.values(parsed).filter(
-          (v) => v !== null && v !== undefined && v !== ""
-        ).length
+        const { parsed, fieldsFound: count } = await parseWithAI(file, carrier)
 
         if (count === 0) {
           setStatus("error")
-          setRawPreview(text.split("\n").slice(0, 60).join("\n"))
           setErrorMsg(
-            "Could not extract any fields from this PDF. Make sure you are uploading the correct report type for this carrier. You can still fill in the fields manually."
+            "The AI could not extract any fields from this PDF. Make sure you are uploading the correct report type for this carrier. You can still fill in the fields manually."
           )
         } else {
-          // Estimate confidence based on fields found vs expected
           const expectedFields: Record<string, number> = {
-            progressive: 7,
-            travelers:   8,
-            hartford:    9,
-            safeco:      10,
+            progressive:   7,
+            travelers:     8,
+            hartford:      9,
+            safeco:        10,
+            berkshire:     11,
+            libertymutual: 8,
           }
           const expected = expectedFields[carrier] || 5
-          const conf = Math.min(100, Math.round((count / expected) * 80 + 20))
+          const conf = Math.min(98, Math.round((count / expected) * 78 + 20))
           setFieldsFound(count)
           setConfidence(conf)
           setStatus("success")
           onParsed(parsed)
         }
-      } catch {
+      } catch (err) {
         setStatus("error")
         setErrorMsg(
-          "Failed to parse the PDF. The file may be encrypted or in an unsupported format. You can still fill in the fields manually."
+          err instanceof Error
+            ? `Parse failed: ${err.message}. You can still fill in the fields manually.`
+            : "Failed to parse the PDF. You can still fill in the fields manually."
         )
       }
     },
@@ -177,7 +148,9 @@ export function ReportUpload({ carrier, onParsed }: Props) {
                 Upload {carrierReportNames[carrier]}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Drag and drop a PDF or click to browse. Fields will auto-fill.
+                {carrier === "libertymutual"
+                  ? "Upload your CL ADP Summary first, then upload your CL ADP for more detail. AI will read both."
+                  : "Drag and drop a PDF or click to browse. AI will auto-fill the fields."}
               </p>
             </div>
           </div>
@@ -187,8 +160,8 @@ export function ReportUpload({ carrier, onParsed }: Props) {
           <div className="flex items-center gap-3 rounded-lg border border-border p-4">
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
             <div>
-              <p className="text-sm font-medium text-foreground">Parsing {fileName}...</p>
-              <p className="text-xs text-muted-foreground">Extracting carrier data from your report</p>
+              <p className="text-sm font-medium text-foreground">Reading {fileName}...</p>
+              <p className="text-xs text-muted-foreground">AI is extracting carrier data — this takes 10-20 seconds</p>
             </div>
           </div>
         )}
@@ -203,7 +176,8 @@ export function ReportUpload({ carrier, onParsed }: Props) {
                   {fileName}
                 </p>
                 <p className="text-xs text-success">
-                  {fieldsFound} field{fieldsFound !== 1 ? "s" : ""} auto-filled from report
+                  <Sparkles className="mr-1 inline h-3 w-3" />
+                  {fieldsFound} field{fieldsFound !== 1 ? "s" : ""} auto-filled by AI
                   <span className={`ml-2 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
                     confidence >= 70 ? "bg-success/15 text-success" :
                     confidence >= 45 ? "bg-warning/15 text-warning" :

@@ -2,7 +2,7 @@
 // Carrier Valuation Engine — Travelers, Progressive, Hartford
 // =====================================================
 
-export type CarrierName = "progressive" | "travelers" | "hartford" | "safeco"
+export type CarrierName = "progressive" | "travelers" | "hartford" | "safeco" | "berkshire" | "libertymutual"
 export type BookType = "personal" | "commercial" | "both" | "auto" | "home"
 
 export interface CarrierInputs {
@@ -55,6 +55,36 @@ export interface CarrierInputs {
   safeco_right_track_pct: number | null   // Right Track participation % of auto policies
   safeco_nb_dwp: number | null            // YTD New Business DWP ($)
   safeco_gold_service: boolean            // Gold Service designation
+  // ---- Berkshire Hathaway Guard (BH Guard) ----
+  // Source: Producer Activity Report (PAR) — commercial lines (WC, BOP, CL Auto, Umbrella, etc.)
+  bh_written_premium_r12: number | null    // Rolling 12-month Written Premium ($) — from "Prev Rolling 12" WP row
+  bh_written_premium_ytd: number | null    // Current YTD Written Premium ($)
+  bh_new_policies_ytd: number | null       // YTD New policies written (count)
+  bh_renewal_policies_ytd: number | null   // YTD Renewal policies written (count)
+  bh_hit_ratio_renewal: number | null      // Renewal Hit Ratio % (WP/Quoted) — from PAR Hit Ratio section
+  bh_hit_ratio_new: number | null          // New Business Hit Ratio %
+  bh_yield_ratio_total: number | null      // Yield Ratio Total % (WP/Submitted) — overall conversion strength
+  bh_loss_ratio_1983_2020: number | null   // Cumulative loss ratio (legacy book quality)
+  bh_loss_ratio_2022: number | null        // 2022 Calendar Year loss ratio %
+  bh_loss_ratio_2023: number | null        // 2023 Calendar Year loss ratio %
+  bh_loss_ratio_2024: number | null        // 2024 Calendar Year loss ratio %
+  bh_loss_ratio_2025: number | null        // 2025 Calendar Year loss ratio %
+  bh_loss_ratio_ytd: number | null         // YTD loss ratio (current year partial)
+  bh_grand_total_loss_ratio: number | null // Grand Total blended loss ratio % across all years
+  bh_annual_goal: number | null            // Current Annual Goal ($) if set
+  // ---- Liberty Mutual Commercial Lines (CL ADP / CL ADP Summary) ----
+  // Source: CL ADP or CL ADP Summary PDF
+  // Values stored in ACTUAL DOLLARS (parser converts $M → $ when needed)
+  lm_dwp_ytd: number | null           // Direct Written Premium YTD ($)
+  lm_dwp_pytd: number | null          // Prior YTD DWP ($) — for growth calc
+  lm_dwp_r12: number | null           // Rolling 12 DWP ($) — most accurate for valuation
+  lm_nb_dwp_ytd: number | null        // New Business DWP YTD ($)
+  lm_pif: number | null               // PIF (current)
+  lm_loss_ratio_ytd: number | null    // YTD Loss Ratio %
+  lm_loss_ratio_2yr: number | null    // 2 Years + YTD Loss Ratio %
+  lm_premium_retention: number | null // Premium Retention % (from Renewal section)
+  lm_plif_renewal: number | null      // PLIF Renewal count
+
   // ---- Book Quality (all carriers) — sourced from commission statements / active policy list ----
 
   book_preferred_pct: number | null      // % policies in preferred/standard tier (vs non-standard)
@@ -302,6 +332,132 @@ export function calculateCarrierValuation(inputs: CarrierInputs): CarrierResults
   }
 
   // -------------------------------------------------------
+  // Berkshire Hathaway Guard (BH Guard)
+  // -------------------------------------------------------
+  else if (carrier === "berkshire") {
+    // Use Rolling 12-month WP as the base (most stable signal); fall back to YTD annualized
+    const r12wp  = inputs.bh_written_premium_r12 ?? 0
+    const ytdwp  = inputs.bh_written_premium_ytd ?? 0
+    basePremium  = r12wp > 0 ? r12wp : ytdwp
+
+    // BH Guard is a commercial carrier — base multiple starts at 1.5
+    // (commercial books command a premium vs personal lines at same revenue size)
+    finalMultiple = 1.5
+
+    // ── Loss ratio adjustments (primary underwriting quality signal) ──
+    // BH Guard benchmarks: Grand Total LR ~100% = breakeven; <90% = strong; >110% = poor
+    const grandLR = inputs.bh_grand_total_loss_ratio
+    if (grandLR !== null) {
+      if (grandLR < 75)       finalMultiple += 0.30   // Exceptional — rare for BH Guard book
+      else if (grandLR < 90)  finalMultiple += 0.18   // Strong underwriting
+      else if (grandLR < 100) finalMultiple += 0.06   // Near breakeven — neutral/slight positive
+      else if (grandLR < 115) finalMultiple -= 0.10   // Above target — mild concern
+      else                    finalMultiple -= 0.22   // Significantly above target — risk discount
+    }
+
+    // Recent year trend — weight 2024 and 2025 most heavily (buyer cares about trajectory)
+    const lr2024 = inputs.bh_loss_ratio_2024
+    const lr2025 = inputs.bh_loss_ratio_2025
+    const lrYTD  = inputs.bh_loss_ratio_ytd
+
+    // If recent years are better than legacy avg → improving trend = positive
+    if (lr2024 !== null && lr2024 < 85)  finalMultiple += 0.08
+    else if (lr2024 !== null && lr2024 > 120) finalMultiple -= 0.08
+
+    if (lr2025 !== null && lr2025 < 85)  finalMultiple += 0.06
+    else if (lr2025 !== null && lr2025 > 120) finalMultiple -= 0.06
+
+    if (lrYTD !== null && lrYTD < 60)   finalMultiple += 0.04   // YTD is early but very clean
+    else if (lrYTD !== null && lrYTD > 100) finalMultiple -= 0.03
+
+    // ── Hit Ratio — renewal is most important (indicates book retention / agency effort) ──
+    const hitRenewal = inputs.bh_hit_ratio_renewal
+    const hitNew     = inputs.bh_hit_ratio_new
+    if (hitRenewal !== null) {
+      if (hitRenewal >= 85)      finalMultiple += 0.10  // Excellent renewal conversion
+      else if (hitRenewal >= 75) finalMultiple += 0.05
+      else if (hitRenewal < 60)  finalMultiple -= 0.07  // Losing renewals is a red flag
+    }
+    if (hitNew !== null) {
+      if (hitNew >= 55)          finalMultiple += 0.06  // Strong new business pipeline
+      else if (hitNew < 30)      finalMultiple -= 0.05
+    }
+
+    // ── Yield Ratio — measures overall submitted→bound efficiency ──
+    const yieldTotal = inputs.bh_yield_ratio_total
+    if (yieldTotal !== null) {
+      if (yieldTotal >= 45)      finalMultiple += 0.06
+      else if (yieldTotal >= 30) finalMultiple += 0.02
+      else if (yieldTotal < 15)  finalMultiple -= 0.05
+    }
+
+    // ── New vs renewal policy mix ──
+    const newPols     = inputs.bh_new_policies_ytd ?? 0
+    const renewalPols = inputs.bh_renewal_policies_ytd ?? 0
+    const totalPols   = newPols + renewalPols
+    if (totalPols > 0) {
+      const renewalPct = (renewalPols / totalPols) * 100
+      // Higher renewal % = more stable, mature book
+      if (renewalPct >= 70)      finalMultiple += 0.06
+      else if (renewalPct < 45)  finalMultiple -= 0.05
+    }
+
+    // ── Volume tiers (BH Guard commercial — smaller books vs personal lines) ──
+    if (basePremium >= 3_000_000)      finalMultiple += 0.10
+    else if (basePremium >= 1_500_000) finalMultiple += 0.06
+    else if (basePremium >= 750_000)   finalMultiple += 0.03
+  }
+
+  // -------------------------------------------------------
+  // Liberty Mutual Commercial Lines
+  // Source: CL ADP or CL ADP Summary — values now stored in actual dollars
+  // -------------------------------------------------------
+  else if (carrier === "libertymutual") {
+    const dwpR12   = inputs.lm_dwp_r12     ?? 0
+    const dwpYTD   = inputs.lm_dwp_ytd     ?? 0
+    const dwpPYTD  = inputs.lm_dwp_pytd    ?? 0
+    const nbDWP    = inputs.lm_nb_dwp_ytd  ?? 0
+    const lrYTD    = inputs.lm_loss_ratio_ytd   ?? 100
+    const lr2yr    = inputs.lm_loss_ratio_2yr   ?? 100
+    const retention = inputs.lm_premium_retention ?? 0
+
+    // Prefer Rolling 12 DWP (most accurate), then YTD, then NB
+    basePremium = dwpR12 > 0 ? dwpR12 : (dwpYTD > 0 ? dwpYTD : nbDWP)
+    finalMultiple = 1.5  // CL commercial base
+
+    // ── Loss ratio (2yr blended is primary signal for commercial) ──
+    if (lr2yr > 0) {
+      if (lr2yr < 60)       finalMultiple += 0.25
+      else if (lr2yr < 75)  finalMultiple += 0.12
+      else if (lr2yr < 90)  finalMultiple += 0.02
+      else if (lr2yr < 110) finalMultiple -= 0.12
+      else                  finalMultiple -= 0.22
+    } else if (lrYTD > 0) {
+      if (lrYTD < 60)       finalMultiple += 0.20
+      else if (lrYTD < 75)  finalMultiple += 0.10
+      else if (lrYTD > 100) finalMultiple -= 0.18
+    }
+
+    // ── Premium retention — key stickiness signal ──
+    if (retention >= 80)       finalMultiple += 0.12
+    else if (retention >= 70)  finalMultiple += 0.06
+    else if (retention > 0 && retention < 60) finalMultiple -= 0.08
+
+    // ── Growth signal: YTD vs PYTD ──
+    if (dwpYTD > 0 && dwpPYTD > 0) {
+      const growthPct = ((dwpYTD - dwpPYTD) / dwpPYTD) * 100
+      if (growthPct >= 20)       finalMultiple += 0.08
+      else if (growthPct >= 10)  finalMultiple += 0.04
+      else if (growthPct < -10)  finalMultiple -= 0.06
+    }
+
+    // ── Volume tiers ──
+    if (basePremium >= 5_000_000)      finalMultiple += 0.10
+    else if (basePremium >= 2_000_000) finalMultiple += 0.06
+    else if (basePremium >= 500_000)   finalMultiple += 0.02
+  }
+
+  // -------------------------------------------------------
   // Book Quality adjustments (apply to all carriers when data available)
   // -------------------------------------------------------
   if (basePremium > 0) {
@@ -404,6 +560,30 @@ export const defaultCarrierInputs: CarrierInputs = {
   safeco_right_track_pct: null,
   safeco_nb_dwp: null,
   safeco_gold_service: false,
+  bh_written_premium_r12: null,
+  bh_written_premium_ytd: null,
+  bh_new_policies_ytd: null,
+  bh_renewal_policies_ytd: null,
+  bh_hit_ratio_renewal: null,
+  bh_hit_ratio_new: null,
+  bh_yield_ratio_total: null,
+  bh_loss_ratio_1983_2020: null,
+  bh_loss_ratio_2022: null,
+  bh_loss_ratio_2023: null,
+  bh_loss_ratio_2024: null,
+  bh_loss_ratio_2025: null,
+  bh_loss_ratio_ytd: null,
+  bh_grand_total_loss_ratio: null,
+  bh_annual_goal: null,
+  lm_dwp_ytd: null,
+  lm_dwp_pytd: null,
+  lm_dwp_r12: null,
+  lm_nb_dwp_ytd: null,
+  lm_pif: null,
+  lm_loss_ratio_ytd: null,
+  lm_loss_ratio_2yr: null,
+  lm_premium_retention: null,
+  lm_plif_renewal: null,
   book_preferred_pct: null,
   book_policies_per_customer: null,
   book_avg_premium_per_policy: null,

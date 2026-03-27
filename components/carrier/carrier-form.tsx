@@ -37,13 +37,22 @@ const carriers: { value: CarrierName; label: string; description: string }[] = [
     label: "Safeco",
     description: "Auto, Home, Condo, Renters, Umbrella & Landlord",
   },
+  {
+    value: "berkshire",
+    label: "BH Guard",
+    description: "WC, BOP, Comm. Auto, Umbrella & Specialty",
+  },
+  {
+    value: "libertymutual",
+    label: "Liberty Mutual CL",
+    description: "Commercial Lines — BOP, WC, GL & Auto",
+  },
 ]
 
 const comingSoonCarriers: string[] = [
   "AmTrust",
   "American Modern",
   "Attune",
-  "Berkshire Hathaway Guard",
   "Berkshire Hathaway Homestate",
   "BiBERK",
   "Builders & Tradesmen (BTIS)",
@@ -68,7 +77,7 @@ const comingSoonCarriers: string[] = [
   "Kemper Personal",
   "Kemper Specialty",
   "Lemonade",
-  "Liberty Mutual Commercial Lines",
+
   "Local Edge",
   "Markel",
   "Mendota",
@@ -206,6 +215,12 @@ export function CarrierForm({ inputs, onChange }: Props) {
               {carrier === "safeco" && (
                 <SafecoFields inputs={inputs} update={update} bookType={bookType as BookType} />
               )}
+              {carrier === "berkshire" && (
+                <BerkshireFields inputs={inputs} update={update} />
+              )}
+              {carrier === "libertymutual" && (
+                <LibertyMutualFields inputs={inputs} update={update} />
+              )}
             </CardContent>
           </Card>
 
@@ -296,6 +311,15 @@ const defaultFieldReset: Partial<CarrierInputs> = {
   safeco_home_dwp: null, safeco_home_pif: null, safeco_home_lr: null, safeco_home_retention: null,
   safeco_other_dwp: null, safeco_other_lr: null, safeco_other_retention: null,
   safeco_cross_sell_pct: null, safeco_right_track_pct: null, safeco_nb_dwp: null, safeco_gold_service: false,
+  bh_written_premium_r12: null, bh_written_premium_ytd: null,
+  bh_new_policies_ytd: null, bh_renewal_policies_ytd: null,
+  bh_hit_ratio_renewal: null, bh_hit_ratio_new: null, bh_yield_ratio_total: null,
+  bh_loss_ratio_1983_2020: null, bh_loss_ratio_2022: null, bh_loss_ratio_2023: null,
+  bh_loss_ratio_2024: null, bh_loss_ratio_2025: null, bh_loss_ratio_ytd: null,
+  bh_grand_total_loss_ratio: null, bh_annual_goal: null,
+  lm_dwp_ytd: null, lm_dwp_pytd: null, lm_dwp_r12: null, lm_nb_dwp_ytd: null, lm_pif: null,
+  lm_loss_ratio_ytd: null, lm_loss_ratio_2yr: null,
+  lm_premium_retention: null, lm_plif_renewal: null,
   book_preferred_pct: null, book_policies_per_customer: null, book_avg_premium_per_policy: null,
   book_new_business_pct: null, book_monoline_pct: null, book_digital_docs_pct: null,
 }
@@ -320,6 +344,16 @@ function getBookTypeOptions(carrier: string) {
       { value: "auto",  label: "Auto Only" },
       { value: "home",  label: "Home Only" },
       { value: "both",  label: "Auto + Home + Other" },
+    ]
+  }
+  if (carrier === "berkshire") {
+    return [
+      { value: "commercial", label: "Commercial Lines" },
+    ]
+  }
+  if (carrier === "libertymutual") {
+    return [
+      { value: "commercial", label: "Commercial Lines" },
     ]
   }
   // Progressive
@@ -491,6 +525,239 @@ function SafecoFields({
           </div>
           <Switch checked={inputs.safeco_gold_service} onCheckedChange={(v) => update({ safeco_gold_service: v })} />
         </div>
+      </div>
+    </>
+  )
+}
+
+// -----------------------------------------------------------------------
+// Berkshire Hathaway Guard Fields
+// -----------------------------------------------------------------------
+function BerkshireFields({
+  inputs, update,
+}: { inputs: CarrierInputs; update: (p: Partial<CarrierInputs>) => void }) {
+  return (
+    <>
+      {/* Written Premium */}
+      <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+        <p className="text-sm font-semibold text-foreground">Written Premium</p>
+        <p className="text-xs text-muted-foreground">From the Written Premium (Calendar Year Basis) section of your PAR report.</p>
+        <NumField
+          label="Rolling 12-Month Written Premium ($)"
+          value={inputs.bh_written_premium_r12}
+          onChange={(v) => update({ bh_written_premium_r12: v })}
+          placeholder="e.g. 600,000"
+          type="currency"
+          hint="Current Rolling 12 Months — Total row, Premium column. Most accurate for valuation."
+        />
+        <NumField
+          label="Current YTD Written Premium ($)"
+          value={inputs.bh_written_premium_ytd}
+          onChange={(v) => update({ bh_written_premium_ytd: v })}
+          placeholder="e.g. 100,000"
+          type="currency"
+          hint="Current YTD (01/01/xxxx–xx/xx/xxxx) — Total row, Premium column"
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <NumField
+            label="YTD New Policies"
+            value={inputs.bh_new_policies_ytd}
+            onChange={(v) => update({ bh_new_policies_ytd: v })}
+            placeholder="e.g. 20"
+            type="count"
+            hint="New row — Current YTD Policies column"
+          />
+          <NumField
+            label="YTD Renewal Policies"
+            value={inputs.bh_renewal_policies_ytd}
+            onChange={(v) => update({ bh_renewal_policies_ytd: v })}
+            placeholder="e.g. 80"
+            type="count"
+            hint="Renewal row — Current YTD Policies column"
+          />
+        </div>
+      </div>
+
+      {/* Conversion Ratios */}
+      <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+        <p className="text-sm font-semibold text-foreground">Conversion & Activity Ratios</p>
+        <p className="text-xs text-muted-foreground">From the Hit Ratio and Yield Ratio sections of your PAR report.</p>
+        <div className="grid grid-cols-2 gap-3">
+          <NumField
+            label="Renewal Hit Ratio (%)"
+            value={inputs.bh_hit_ratio_renewal}
+            onChange={(v) => update({ bh_hit_ratio_renewal: v })}
+            placeholder="e.g. 80"
+            type="percent"
+            hint="Renewal row — Current YTD % (WP/Quoted). Strong renewal hit = high book retention."
+          />
+          <NumField
+            label="New Business Hit Ratio (%)"
+            value={inputs.bh_hit_ratio_new}
+            onChange={(v) => update({ bh_hit_ratio_new: v })}
+            placeholder="e.g. 55"
+            type="percent"
+            hint="New row — Current YTD % (WP/Quoted)"
+          />
+        </div>
+        <NumField
+          label="Total Yield Ratio (%)"
+          value={inputs.bh_yield_ratio_total}
+          onChange={(v) => update({ bh_yield_ratio_total: v })}
+          placeholder="e.g. 50"
+          type="percent"
+          hint="Total row — Current YTD Premium % (WP/Submitted). Measures overall submission-to-bind efficiency."
+        />
+      </div>
+
+      {/* Loss Ratios */}
+      <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+        <p className="text-sm font-semibold text-foreground">Direct Loss Ratios</p>
+        <p className="text-xs text-muted-foreground">From the Direct Loss Ratios section. Each value is the Incurred Loss Ratio % for that year&apos;s SUBTOTAL row.</p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <NumField
+            label="Legacy (1983–2020) LR %"
+            value={inputs.bh_loss_ratio_1983_2020}
+            onChange={(v) => update({ bh_loss_ratio_1983_2020: v })}
+            placeholder="e.g. 40"
+            type="percent"
+            hint="SUBTOTAL row for 1983-2020 block"
+          />
+          <NumField
+            label="2022 Loss Ratio %"
+            value={inputs.bh_loss_ratio_2022}
+            onChange={(v) => update({ bh_loss_ratio_2022: v })}
+            placeholder="e.g. 75"
+            type="percent"
+            hint="2022 SUBTOTAL Incurred Loss Ratio"
+          />
+          <NumField
+            label="2023 Loss Ratio %"
+            value={inputs.bh_loss_ratio_2023}
+            onChange={(v) => update({ bh_loss_ratio_2023: v })}
+            placeholder="e.g. 95"
+            type="percent"
+            hint="2023 SUBTOTAL Incurred Loss Ratio"
+          />
+          <NumField
+            label="2024 Loss Ratio %"
+            value={inputs.bh_loss_ratio_2024}
+            onChange={(v) => update({ bh_loss_ratio_2024: v })}
+            placeholder="e.g. 90"
+            type="percent"
+            hint="2024 SUBTOTAL Incurred Loss Ratio"
+          />
+          <NumField
+            label="2025 Loss Ratio %"
+            value={inputs.bh_loss_ratio_2025}
+            onChange={(v) => update({ bh_loss_ratio_2025: v })}
+            placeholder="e.g. 85"
+            type="percent"
+            hint="2025 SUBTOTAL Incurred Loss Ratio"
+          />
+          <NumField
+            label="Current YTD Loss Ratio %"
+            value={inputs.bh_loss_ratio_ytd}
+            onChange={(v) => update({ bh_loss_ratio_ytd: v })}
+            placeholder="e.g. 60"
+            type="percent"
+            hint="Current partial-year SUBTOTAL from the last block in the Loss Ratio section"
+          />
+        </div>
+        <NumField
+          label="Grand Total Blended Loss Ratio (%)"
+          value={inputs.bh_grand_total_loss_ratio}
+          onChange={(v) => update({ bh_grand_total_loss_ratio: v })}
+          placeholder="e.g. 88"
+          type="percent"
+          hint="GRAND TOTAL row — all years combined. This is the primary underwriting quality signal."
+        />
+      </div>
+    </>
+  )
+}
+
+// -----------------------------------------------------------------------
+// Liberty Mutual Commercial Lines Fields
+// -----------------------------------------------------------------------
+function LibertyMutualFields({
+  inputs, update,
+}: { inputs: CarrierInputs; update: (p: Partial<CarrierInputs>) => void }) {
+  return (
+    <>
+      <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+        <p className="text-sm font-semibold text-foreground">Written Premium</p>
+        <p className="text-xs text-muted-foreground">From your CL ADP or CL ADP Summary report. Upload either PDF to auto-fill these fields.</p>
+        <NumField
+          label="Rolling 12 DWP ($)"
+          value={inputs.lm_dwp_r12}
+          onChange={(v) => update({ lm_dwp_r12: v })}
+          placeholder="e.g. 500,000"
+          type="currency"
+          hint="Rolling 12 months Direct Written Premium — most accurate for valuation"
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <NumField
+            label="YTD DWP ($)"
+            value={inputs.lm_dwp_ytd}
+            onChange={(v) => update({ lm_dwp_ytd: v })}
+            placeholder="e.g. 100,000"
+            type="currency"
+            hint="Year-to-date Direct Written Premium"
+          />
+          <NumField
+            label="Prior YTD DWP ($)"
+            value={inputs.lm_dwp_pytd}
+            onChange={(v) => update({ lm_dwp_pytd: v })}
+            placeholder="e.g. 80,000"
+            type="currency"
+            hint="Prior year-to-date DWP — for growth comparison"
+          />
+        </div>
+        <NumField
+          label="New Business DWP YTD ($)"
+          value={inputs.lm_nb_dwp_ytd}
+          onChange={(v) => update({ lm_nb_dwp_ytd: v })}
+          placeholder="e.g. 50,000"
+          type="currency"
+          hint="New Business DWP YTD"
+        />
+        <NumField
+          label="Policies in Force (PIF)"
+          value={inputs.lm_pif}
+          onChange={(v) => update({ lm_pif: v })}
+          placeholder="e.g. 200"
+          type="count"
+          hint="Current PIF count"
+        />
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+        <p className="text-sm font-semibold text-foreground">Retention & Loss Ratios</p>
+        <NumField
+          label="Premium Retention (%)"
+          value={inputs.lm_premium_retention}
+          onChange={(v) => update({ lm_premium_retention: v })}
+          placeholder="e.g. 70"
+          type="percent"
+          hint="Premium Retention % from the Renewal section"
+        />
+        <NumField
+          label="YTD Loss Ratio (%)"
+          value={inputs.lm_loss_ratio_ytd}
+          onChange={(v) => update({ lm_loss_ratio_ytd: v })}
+          placeholder="e.g. 65"
+          type="percent"
+          hint="YTD Loss Ratio"
+        />
+        <NumField
+          label="2 Years + YTD Loss Ratio (%)"
+          value={inputs.lm_loss_ratio_2yr}
+          onChange={(v) => update({ lm_loss_ratio_2yr: v })}
+          placeholder="e.g. 85"
+          type="percent"
+          hint="2 Years + YTD blended loss ratio — the primary underwriting quality signal"
+        />
       </div>
     </>
   )
