@@ -317,7 +317,7 @@ const defaultFieldReset: Partial<CarrierInputs> = {
   bh_loss_ratio_1983_2020: null, bh_loss_ratio_2022: null, bh_loss_ratio_2023: null,
   bh_loss_ratio_2024: null, bh_loss_ratio_2025: null, bh_loss_ratio_ytd: null,
   bh_grand_total_loss_ratio: null, bh_annual_goal: null,
-  lm_dwp_ytd: null, lm_dwp_pytd: null, lm_nb_dwp_ytd: null, lm_pif: null,
+  lm_dwp_ytd: null, lm_dwp_pytd: null, lm_dwp_r12: null, lm_nb_dwp_ytd: null, lm_pif: null,
   lm_loss_ratio_ytd: null, lm_loss_ratio_2yr: null,
   lm_premium_retention: null, lm_plif_renewal: null,
   book_preferred_pct: null, book_policies_per_customer: null, book_avg_premium_per_policy: null,
@@ -687,40 +687,48 @@ function LibertyMutualFields({
     <>
       <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
         <p className="text-sm font-semibold text-foreground">Written Premium</p>
-        <p className="text-xs text-muted-foreground">From the Direct Written Premium section of your CL ADP Summary. Values shown in $M (e.g. 0.11 = $110,000).</p>
+        <p className="text-xs text-muted-foreground">From your CL ADP or CL ADP Summary report. Upload either PDF to auto-fill these fields.</p>
+        <NumField
+          label="Rolling 12 DWP ($)"
+          value={inputs.lm_dwp_r12}
+          onChange={(v) => update({ lm_dwp_r12: v })}
+          placeholder="e.g. 500,000"
+          type="currency"
+          hint="Rolling 12 months Direct Written Premium — most accurate for valuation"
+        />
         <div className="grid grid-cols-2 gap-3">
           <NumField
-            label="DWP YTD ($M)"
+            label="YTD DWP ($)"
             value={inputs.lm_dwp_ytd}
             onChange={(v) => update({ lm_dwp_ytd: v })}
-            placeholder="e.g. 0.5"
-            type="number"
-            hint="Direct Written Premium YTD — from the DWP tile on your ADP Summary"
+            placeholder="e.g. 100,000"
+            type="currency"
+            hint="Year-to-date Direct Written Premium"
           />
           <NumField
-            label="DWP Prior YTD ($M)"
+            label="Prior YTD DWP ($)"
             value={inputs.lm_dwp_pytd}
             onChange={(v) => update({ lm_dwp_pytd: v })}
-            placeholder="e.g. 0.4"
-            type="number"
-            hint="Prior Year DWP YTD — for growth comparison"
+            placeholder="e.g. 80,000"
+            type="currency"
+            hint="Prior year-to-date DWP — for growth comparison"
           />
         </div>
         <NumField
-          label="New Business DWP YTD ($M)"
+          label="New Business DWP YTD ($)"
           value={inputs.lm_nb_dwp_ytd}
           onChange={(v) => update({ lm_nb_dwp_ytd: v })}
-          placeholder="e.g. 0.1"
-          type="number"
-          hint="New Business DWP YTD — from the New Business DWP tile"
+          placeholder="e.g. 50,000"
+          type="currency"
+          hint="New Business DWP YTD"
         />
         <NumField
           label="Policies in Force (PIF)"
           value={inputs.lm_pif}
           onChange={(v) => update({ lm_pif: v })}
-          placeholder="e.g. 300"
+          placeholder="e.g. 200"
           type="count"
-          hint="Current PIF — from the PIF tile on your ADP Summary"
+          hint="Current PIF count"
         />
       </div>
 
@@ -730,9 +738,9 @@ function LibertyMutualFields({
           label="Premium Retention (%)"
           value={inputs.lm_premium_retention}
           onChange={(v) => update({ lm_premium_retention: v })}
-          placeholder="e.g. 72"
+          placeholder="e.g. 70"
           type="percent"
-          hint="Premium Retention % — from the Renewal tile on your ADP Summary"
+          hint="Premium Retention % from the Renewal section"
         />
         <NumField
           label="YTD Loss Ratio (%)"
@@ -740,7 +748,7 @@ function LibertyMutualFields({
           onChange={(v) => update({ lm_loss_ratio_ytd: v })}
           placeholder="e.g. 65"
           type="percent"
-          hint="YTD Loss Ratio — from the Loss Ratio tile"
+          hint="YTD Loss Ratio"
         />
         <NumField
           label="2 Years + YTD Loss Ratio (%)"
@@ -748,7 +756,7 @@ function LibertyMutualFields({
           onChange={(v) => update({ lm_loss_ratio_2yr: v })}
           placeholder="e.g. 85"
           type="percent"
-          hint="2 Years + YTD blended loss ratio — the primary underwriting quality signal for LM CL"
+          hint="2 Years + YTD blended loss ratio — the primary underwriting quality signal"
         />
       </div>
     </>

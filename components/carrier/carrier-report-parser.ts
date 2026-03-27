@@ -537,73 +537,93 @@ function parseSafeco(lines: string[]): Partial<CarrierInputs> {
 }
 
 // =====================================================
-// LIBERTY MUTUAL — CL ADP Summary
+// LIBERTY MUTUAL — CL ADP / CL ADP Summary
 // =====================================================
 //
-// Verified real text structure (from CL ADP Summary PDF, 03/2026):
+// TWO PDF FORMATS SUPPORTED:
 //
-//   "Direct Written Premium"
-//   "YTD  PYTD% Growth"
-//   "$0.11M$0.08M33.9%"          ← YTD, PYTD, Growth% on one line
-//   "New Business DWP"
-//   "YTDPYTDGrowth %"
-//   "$0.1M$0.0M12.4%"
-//   "PIF"
-//   "YTD  PYTDGrowth %"
-//   "10,5448,31426.8%"           ← current PIF, prior PIF, growth
-//   "Renewal"
-//   "PLIF Renewal  Premium Retention"
-//   "6,49269.6%"                 ← PLIF renewal count, premium retention %
-//   "Loss Ratio"
-//   "YTDPYTD% Growth"
-//   "65.0%12.5%418.9%"           ← YTD LR, PYTD LR, growth
-//   "2 Years + YTD Loss Ratio"
-//   "YTDPYTD% Growth"
-//   "99.3%204.2%-51.4%"          ← 2yr+YTD LR, prior, growth
+// 1. CL ADP Summary (condensed dashboard view):
+//    - Values in $M format concatenated: "$0.11M$0.08M33.9%"
+//    - PIF concatenated: "10,5448,31426.8%"
 //
-// Key: values are concatenated without spaces (e.g. "$0.11M$0.08M33.9%")
-// We split on $ and % boundaries then parse each token.
+// 2. CL ADP Full Report (tabular detail view):
+//    - Dollar amounts in actual $ with commas: "$108,119", "$80,759"
+//    - Has "Rolling 12" value which is ideal for valuation
+//    - Summary tiles at bottom: "YTD DWP", "YTD Growth Rate", etc.
+//
+// The parser detects format by checking for $M vs plain $ amounts.
 // =====================================================
 
 function parseLibertyMutual(lines: string[]): Partial<CarrierInputs> {
   const result: Partial<CarrierInputs> = {}
 
+  // Join all lines for pattern matching on summary tiles (Full ADP format)
+  const blob = lines.join(" ")
+
   // ─────────────────────────────────────────────────────────────────────────
-  // CONFIRMED REAL PDF TEXT (each entry = one line):
-  //
-  //   "Direct Written Premium"
-  //   "YTD"
-  //   " "                              ← blank/space line
-  //   "PYTD% Growth"
-  //   "$0.11M$0.08M33.9%"              ← DATA LINE (YTD $M, PYTD $M, Growth%)
-  //   "Click here for detail"
-  //   ...
-  //   "New Business DWP"
-  //   "YTDPYTDGrowth %"
-  //   "$0.1M$0.0M12.4%"                ← DATA LINE
-  //   ...
-  //   "PIF"
-  //   "YTD"
-  //   " "
-  //   "PYTDGrowth %"
-  //   "10,5448,31426.8%"               ← DATA LINE (PIF concatenated with PYTD and Growth)
-  //   ...
-  //   "Renewal"
-  //   "PLIF Renewal"
-  //   " "
-  //   "Premium Retention"
-  //   "6,49269.6%"                     ← DATA LINE (PLIF count + retention %)
-  //   ...
-  //   "Loss Ratio"
-  //   "YTDPYTD% Growth"
-  //   "65.0%12.5%418.9%"               ← DATA LINE (YTD LR%, PYTD LR%, Growth%)
-  //   ...
-  //   "2 Years + YTD Loss Ratio"
-  //   "YTDPYTD% Growth"
-  //   "99.3%204.2%-51.4%"              ← DATA LINE
-  //
-  // Strategy: track section, then look for the data line pattern in each section.
-  // Data lines are identified by containing $ or % with numeric values.
+  // FULL ADP FORMAT DETECTION
+  // The full ADP has summary tiles at the bottom with labeled values:
+  //   "$108,119 YTD DWP 33.9% YTD Growth Rate $51,938 YTD NB DWP $687,518 Rolling 12 DWP"
+  // We detect this by looking for "Rolling 12 DWP" or "YTD DWP" as labels.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const isFullADP = /Rolling 12 DWP|YTD DWP/i.test(blob) && /\$[\d,]+\s+YTD DWP/i.test(blob)
+
+  if (isFullADP) {
+    // ── Parse Full ADP format ──
+
+    // YTD DWP: "$108,119 YTD DWP" → 108119
+    const ytdDwpMatch = blob.match(/\$([\d,]+)\s*YTD DWP/i)
+    if (ytdDwpMatch) result.lm_dwp_ytd = parseFloat(ytdDwpMatch[1].replace(/,/g, ""))
+
+    // Rolling 12 DWP: "$687,518 Rolling 12 DWP" → 687518
+    const r12Match = blob.match(/\$([\d,]+)\s*Rolling 12 DWP/i)
+    if (r12Match) result.lm_dwp_r12 = parseFloat(r12Match[1].replace(/,/g, ""))
+
+    // YTD NB DWP: "$51,938 YTD NB DWP" → 51938
+    const nbDwpMatch = blob.match(/\$([\d,]+)\s*YTD NB DWP/i)
+    if (nbDwpMatch) result.lm_nb_dwp_ytd = parseFloat(nbDwpMatch[1].replace(/,/g, ""))
+
+    // Look for tabular data in the "Total" row
+    // Format: "Total $108,119 $80,759 33.9% $26,271 $687,518 200 19.0% $51,938 12.4% $9,331 69.6% 73.2%"
+    // Columns: YTD DWP, Prior YTD, Growth%, MTD, Rolling12, PLIF, PLIF Growth%, NB DWP, NB Growth%, MTD NB, Retention%, PLIF Ratio
+    const totalRowMatch = blob.match(/Total\s+\$([\d,]+)\s+\$([\d,]+)\s+([\d.]+)%\s+\$?[\d,()-]+\s+\$([\d,]+)\s+(\d+)\s+([\d.]+)%\s+\$([\d,]+)\s+([\d.]+)%\s+\$?[\d,()-]+\s+([\d.]+)%/i)
+    if (totalRowMatch) {
+      result.lm_dwp_ytd     = parseFloat(totalRowMatch[1].replace(/,/g, ""))
+      result.lm_dwp_pytd    = parseFloat(totalRowMatch[2].replace(/,/g, ""))
+      result.lm_dwp_r12     = parseFloat(totalRowMatch[4].replace(/,/g, ""))
+      result.lm_pif         = parseFloat(totalRowMatch[5])
+      result.lm_nb_dwp_ytd  = parseFloat(totalRowMatch[7].replace(/,/g, ""))
+      result.lm_premium_retention = parseFloat(totalRowMatch[10])
+    }
+
+    // YTD Loss Ratio: "0.0% YTD Loss Ratio" in the summary tiles
+    const ytdLrMatch = blob.match(/([\d.]+)%\s*YTD Loss Ratio/i)
+    if (ytdLrMatch) result.lm_loss_ratio_ytd = parseFloat(ytdLrMatch[1])
+
+    // 2 Year + YTD Loss Ratio from the table: look for it in the loss ratio section
+    // The table has columns ending with "2 Year + YTD Loss Ratio"
+    // Row format: "Total $109,744 $2 0.0% 0.0% ... 99.3%"
+    // The last % in the profitability section is the 2yr+YTD LR
+    const lossRowMatch = blob.match(/Total\s+\$[\d,]+\s+\$\d.*?([\d.]+)%\s*$/im)
+    // Better: look for the explicit "2 Year + YTD Loss Ratio" column value
+    // In the loss table: "99.3%" is in the last column of the Total row
+    const twoYrMatch = blob.match(/2 Year \+ YTD Loss\s*Ratio[^%]+([\d.]+)%/i)
+    if (twoYrMatch) result.lm_loss_ratio_2yr = parseFloat(twoYrMatch[1])
+
+    // Fallback: extract from loss section row
+    if (!result.lm_loss_ratio_2yr) {
+      // Look for pattern like "99.3%" at the end of a Total row in loss section
+      const lossSection = blob.match(/Loss Ratio \(Calendar\)[\s\S]*?Total\s+\$[\d,]+[\s\S]*?([\d.]+)%\s*(?=Direct Written|$)/i)
+      if (lossSection) result.lm_loss_ratio_2yr = parseFloat(lossSection[1])
+    }
+
+    return result
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SUMMARY FORMAT (condensed dashboard)
+  // Values concatenated: "$0.11M$0.08M33.9%", "10,5448,31426.8%"
   // ─────────────────────────────────────────────────────────────────────────
 
   type LMSection = "dwp" | "nb_dwp" | "pif" | "renewal" | "loss_ratio" | "loss_ratio_2yr" | null
@@ -613,7 +633,7 @@ function parseLibertyMutual(lines: string[]): Partial<CarrierInputs> {
     const line = rawLine.trim()
     if (!line) continue
 
-    // ── Section headers (order matters — check 2yr loss BEFORE loss ratio) ──
+    // ── Section headers ──
     if (/^Direct Written Premium$/i.test(line)) { section = "dwp"; continue }
     if (/^New Business DWP$/i.test(line))        { section = "nb_dwp"; continue }
     if (/^Earned Premium$/i.test(line))          { section = null; continue }
@@ -622,16 +642,20 @@ function parseLibertyMutual(lines: string[]): Partial<CarrierInputs> {
     if (/2 Years? \+ YTD Loss Ratio/i.test(line)) { section = "loss_ratio_2yr"; continue }
     if (/^Loss Ratio$/i.test(line))              { section = "loss_ratio"; continue }
 
-    // Skip non-data lines (headers, labels, navigation)
-    if (/^YTD$|^PYTD|^Growth|^Click here|^Month$|^Year\d|^Jan$|^Feb$|^Mar$|^Apr$|^Jun$|^Jul$|^Aug$|^Sep$|^Oct$|^Nov$|^Dec$/i.test(line)) continue
+    // Skip header/label lines
+    if (/^YTD$|^PYTD|^Growth|^Click here|^Month$/i.test(line)) continue
     if (/PLIF Renewal|Premium Retention/i.test(line) && !/\d/.test(line)) continue
 
     // ── DWP: "$0.11M$0.08M33.9%" ──
     if (section === "dwp" && line.includes("$")) {
-      // Extract all $X.XXM values
       const dollarMatches = [...line.matchAll(/\$(\d+(?:\.\d+)?)M/gi)]
-      if (dollarMatches.length >= 1) result.lm_dwp_ytd  = parseFloat(dollarMatches[0][1])
-      if (dollarMatches.length >= 2) result.lm_dwp_pytd = parseFloat(dollarMatches[1][1])
+      if (dollarMatches.length >= 1) {
+        // Convert $M to actual dollars
+        result.lm_dwp_ytd = parseFloat(dollarMatches[0][1]) * 1_000_000
+      }
+      if (dollarMatches.length >= 2) {
+        result.lm_dwp_pytd = parseFloat(dollarMatches[1][1]) * 1_000_000
+      }
       section = null
       continue
     }
@@ -639,24 +663,16 @@ function parseLibertyMutual(lines: string[]): Partial<CarrierInputs> {
     // ── New Business DWP: "$0.1M$0.0M12.4%" ──
     if (section === "nb_dwp" && line.includes("$")) {
       const dollarMatches = [...line.matchAll(/\$(\d+(?:\.\d+)?)M/gi)]
-      if (dollarMatches.length >= 1) result.lm_nb_dwp_ytd = parseFloat(dollarMatches[0][1])
+      if (dollarMatches.length >= 1) {
+        result.lm_nb_dwp_ytd = parseFloat(dollarMatches[0][1]) * 1_000_000
+      }
       section = null
       continue
     }
 
     // ── PIF: "10,5448,31426.8%" ──
-    // The YTD PIF and PYTD PIF are concatenated (no separator). We want the first number.
     if (section === "pif" && /^\d/.test(line)) {
-      // Split by looking for where digits transition after a comma pattern ends
-      // "10,544" followed by "8,314" — but they're mashed together as "10,5448,314"
-      // Strategy: take all leading digits+commas until we hit an unexpected pattern
-      // Actually the format is: YTD_PIF + PYTD_PIF + Growth%
-      // The comma placement gives us: "10,544" is 10544, "8,314" is 8314
-      // Mashed: "10,5448,31426.8%" — notice "10,544" then "8,314" then "26.8%"
-      // The trick: find the % and strip it, then parse remaining as two numbers
-      const withoutPct = line.replace(/[\d.-]+%/g, "")  // remove "26.8%"
-      // Now: "10,5448,314" — we need to split this. 
-      // Heuristic: typical PIF is 3-6 digits. Let's take first match of \d{1,3}(,\d{3})*
+      const withoutPct = line.replace(/[\d.-]+%/g, "")
       const pifMatch = withoutPct.match(/^(\d{1,3}(?:,\d{3})*)/)
       if (pifMatch) {
         const pif = parseFloat(pifMatch[1].replace(/,/g, ""))
@@ -666,12 +682,10 @@ function parseLibertyMutual(lines: string[]): Partial<CarrierInputs> {
       continue
     }
 
-    // ── Renewal: "6,49269.6%" — PLIF count + premium retention % ──
+    // ── Renewal: "6,49269.6%" ──
     if (section === "renewal" && /\d/.test(line)) {
-      // Extract the percentage (premium retention)
       const pctMatch = line.match(/(\d+(?:\.\d+)?)%/)
       if (pctMatch) result.lm_premium_retention = parseFloat(pctMatch[1])
-      // Extract leading count (PLIF renewal)
       const countMatch = line.match(/^(\d{1,3}(?:,\d{3})*)/)
       if (countMatch) {
         const c = parseFloat(countMatch[1].replace(/,/g, ""))

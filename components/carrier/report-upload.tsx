@@ -60,12 +60,12 @@ async function extractTextFromPDF(file: File): Promise<string> {
 }
 
 const carrierReportNames: Record<CarrierName, string> = {
-  progressive:  "Account Production Report",
-  travelers:    "PI Production Report",
-  hartford:     "Partner Breakdown Report",
-  safeco:       "Agency Development Profile (ADP)",
-  berkshire:    "Producer Activity Report (PAR)",
-  libertymutual: "CL ADP Summary",
+  progressive:   "Account Production Report",
+  travelers:     "PI Production Report",
+  hartford:      "Partner Breakdown Report",
+  safeco:        "Agency Development Profile (ADP)",
+  berkshire:     "Producer Activity Report (PAR)",
+  libertymutual: "CL ADP or CL ADP Summary",
 }
 
 export function ReportUpload({ carrier, onParsed }: Props) {
@@ -110,7 +110,7 @@ export function ReportUpload({ carrier, onParsed }: Props) {
             hartford:      9,
             safeco:        10,
             berkshire:     11,
-            libertymutual: 7,
+            libertymutual: 8,
           }
           const expected = expectedFields[carrier] || 5
           const conf = Math.min(100, Math.round((count / expected) * 80 + 20))
