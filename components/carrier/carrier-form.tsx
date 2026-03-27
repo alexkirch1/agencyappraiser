@@ -530,7 +530,7 @@ function BerkshireFields({
           label="Rolling 12-Month Written Premium ($)"
           value={inputs.bh_written_premium_r12}
           onChange={(v) => update({ bh_written_premium_r12: v })}
-          placeholder="e.g. 745,546"
+          placeholder="e.g. 600,000"
           type="currency"
           hint="Current Rolling 12 Months — Total row, Premium column. Most accurate for valuation."
         />
@@ -538,7 +538,7 @@ function BerkshireFields({
           label="Current YTD Written Premium ($)"
           value={inputs.bh_written_premium_ytd}
           onChange={(v) => update({ bh_written_premium_ytd: v })}
-          placeholder="e.g. 121,480"
+          placeholder="e.g. 100,000"
           type="currency"
           hint="Current YTD (01/01/xxxx–xx/xx/xxxx) — Total row, Premium column"
         />
@@ -547,7 +547,7 @@ function BerkshireFields({
             label="YTD New Policies"
             value={inputs.bh_new_policies_ytd}
             onChange={(v) => update({ bh_new_policies_ytd: v })}
-            placeholder="e.g. 14"
+            placeholder="e.g. 20"
             type="count"
             hint="New row — Current YTD Policies column"
           />
@@ -555,7 +555,7 @@ function BerkshireFields({
             label="YTD Renewal Policies"
             value={inputs.bh_renewal_policies_ytd}
             onChange={(v) => update({ bh_renewal_policies_ytd: v })}
-            placeholder="e.g. 35"
+            placeholder="e.g. 80"
             type="count"
             hint="Renewal row — Current YTD Policies column"
           />
@@ -571,7 +571,7 @@ function BerkshireFields({
             label="Renewal Hit Ratio (%)"
             value={inputs.bh_hit_ratio_renewal}
             onChange={(v) => update({ bh_hit_ratio_renewal: v })}
-            placeholder="e.g. 83.33"
+            placeholder="e.g. 80"
             type="percent"
             hint="Renewal row — Current YTD % (WP/Quoted). Strong renewal hit = high book retention."
           />
@@ -579,7 +579,7 @@ function BerkshireFields({
             label="New Business Hit Ratio (%)"
             value={inputs.bh_hit_ratio_new}
             onChange={(v) => update({ bh_hit_ratio_new: v })}
-            placeholder="e.g. 60.87"
+            placeholder="e.g. 55"
             type="percent"
             hint="New row — Current YTD % (WP/Quoted)"
           />
@@ -588,7 +588,7 @@ function BerkshireFields({
           label="Total Yield Ratio (%)"
           value={inputs.bh_yield_ratio_total}
           onChange={(v) => update({ bh_yield_ratio_total: v })}
-          placeholder="e.g. 61.25"
+          placeholder="e.g. 50"
           type="percent"
           hint="Total row — Current YTD Premium % (WP/Submitted). Measures overall submission-to-bind efficiency."
         />
@@ -603,7 +603,7 @@ function BerkshireFields({
             label="Legacy (1983–2020) LR %"
             value={inputs.bh_loss_ratio_1983_2020}
             onChange={(v) => update({ bh_loss_ratio_1983_2020: v })}
-            placeholder="e.g. 26.30"
+            placeholder="e.g. 40"
             type="percent"
             hint="SUBTOTAL row for 1983-2020 block"
           />
@@ -611,7 +611,7 @@ function BerkshireFields({
             label="2022 Loss Ratio %"
             value={inputs.bh_loss_ratio_2022}
             onChange={(v) => update({ bh_loss_ratio_2022: v })}
-            placeholder="e.g. 73.70"
+            placeholder="e.g. 75"
             type="percent"
             hint="2022 SUBTOTAL Incurred Loss Ratio"
           />
@@ -619,7 +619,7 @@ function BerkshireFields({
             label="2023 Loss Ratio %"
             value={inputs.bh_loss_ratio_2023}
             onChange={(v) => update({ bh_loss_ratio_2023: v })}
-            placeholder="e.g. 123.68"
+            placeholder="e.g. 95"
             type="percent"
             hint="2023 SUBTOTAL Incurred Loss Ratio"
           />
@@ -627,7 +627,7 @@ function BerkshireFields({
             label="2024 Loss Ratio %"
             value={inputs.bh_loss_ratio_2024}
             onChange={(v) => update({ bh_loss_ratio_2024: v })}
-            placeholder="e.g. 112.92"
+            placeholder="e.g. 90"
             type="percent"
             hint="2024 SUBTOTAL Incurred Loss Ratio"
           />
@@ -635,7 +635,7 @@ function BerkshireFields({
             label="2025 Loss Ratio %"
             value={inputs.bh_loss_ratio_2025}
             onChange={(v) => update({ bh_loss_ratio_2025: v })}
-            placeholder="e.g. 108.78"
+            placeholder="e.g. 85"
             type="percent"
             hint="2025 SUBTOTAL Incurred Loss Ratio"
           />
@@ -643,7 +643,7 @@ function BerkshireFields({
             label="Current YTD Loss Ratio %"
             value={inputs.bh_loss_ratio_ytd}
             onChange={(v) => update({ bh_loss_ratio_ytd: v })}
-            placeholder="e.g. 56.95"
+            placeholder="e.g. 60"
             type="percent"
             hint="Current partial-year SUBTOTAL from the last block in the Loss Ratio section"
           />
@@ -652,7 +652,7 @@ function BerkshireFields({
           label="Grand Total Blended Loss Ratio (%)"
           value={inputs.bh_grand_total_loss_ratio}
           onChange={(v) => update({ bh_grand_total_loss_ratio: v })}
-          placeholder="e.g. 100.30"
+          placeholder="e.g. 88"
           type="percent"
           hint="GRAND TOTAL row — all years combined. This is the primary underwriting quality signal."
         />
