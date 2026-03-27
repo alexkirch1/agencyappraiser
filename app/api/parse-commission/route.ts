@@ -21,27 +21,36 @@ const CommissionSchema = z.object({
   })).describe("Breakdown of metrics by carrier/company"),
 })
 
-const SYSTEM_PROMPT = `You are an expert insurance commission statement data extractor.
+const SYSTEM_PROMPT = `You are an expert insurance book of business data extractor.
 
-You will receive an EZLynx Horizon commission statement PDF in one of two formats:
+You will receive an EZLynx Book of Business Detail report PDF. This report lists all active policies for an agency.
 
-FORMAT A — "Commissions By Producer":
-- Columns: Producer, Account Name, Master Company, Policy Number, LOB Code, Transaction Type, Premium - Written, Total Commission, Commission Split, Payee
-- Transaction types: PRWL (renewal), PNBS (new business), PCR (cancel reinstate), PXL (cancel), PHBS (home new business)
-- LOB and TRX may be fused: "AUTOPRWL" = Auto Renewal, "AUTOPNBS" = Auto New Business
+TYPICAL COLUMNS (may vary):
+- Customer / Account Name
+- Carrier / Company
+- Policy Number
+- Line of Business (LOB): Auto, Home, Commercial, Life, etc.
+- Policy Status: Active, Cancelled, etc.
+- Effective Date / Expiration Date
+- Written Premium / Annual Premium
+- Policy Type: New Business (NB) or Renewal
 
-FORMAT B — "Commission Detail":
-- Columns: Producer, Account, Master Company, Policy, LOB, TRX, Eff Date, Premium, Comm, Split Comm
-- Transaction types: NB (new business), RB (renewal/rewrite), MSC (misc)
+The report may also be a commission statement with columns like:
+- Producer, Account Name, Master Company, Policy Number, LOB Code, Transaction Type, Premium Written, Commission
 
-RULES:
-- Count UNIQUE policy numbers for totalPolicies (not total rows)
-- Count UNIQUE account names for totalCustomers
-- For newBusinessCount: NBS, PNBS, PHBS, NB transaction types = new business
-- Skip subtotal rows, branch total rows, summary rows, header rows
-- Written premium can be negative (cancellations) — include in the sum
-- Return null if you cannot determine a value with confidence
-- For carrierBreakdown: group by "Master Company" field`
+EXTRACTION RULES:
+- totalWrittenPremium: sum ALL written/annual premium values (active policies only if status shown)
+- totalPolicies: count UNIQUE policy numbers
+- totalCustomers: count UNIQUE customer/account names
+- newBusinessCount: count policies marked as New Business, NB, or equivalent
+- renewalCount: count policies marked as Renewal, RWL, RB, or equivalent
+- book_avg_premium_per_policy: totalWrittenPremium / totalPolicies
+- book_new_business_pct: (newBusinessCount / (newBusinessCount + renewalCount)) * 100
+- book_policies_per_customer: totalPolicies / totalCustomers
+- statementMonth: the report date or period shown (e.g. "March 2026")
+- carrierBreakdown: group by carrier/company name, summing premium and counting policies
+- Skip header rows, subtotal rows, grand total rows, blank rows
+- Return null for any field you cannot determine with confidence`
 
 export async function POST(req: Request) {
   try {
@@ -65,7 +74,7 @@ export async function POST(req: Request) {
           content: [
             {
               type: "text",
-              text: "Extract all commission statement metrics from this EZLynx Horizon PDF. Count unique policies and customers carefully. Return null for any field you cannot determine with confidence.",
+              text: "Extract all book of business metrics from this EZLynx PDF. Count unique policies and customers carefully. Sum all written premiums. Return null for any field you cannot determine with confidence.",
             },
             {
               type: "file",

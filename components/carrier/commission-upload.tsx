@@ -2,11 +2,11 @@
 
 import { useState, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { Upload, FileText, CheckCircle2, AlertCircle, X, Loader2, ChevronDown, ChevronUp } from "lucide-react"
+import { Upload, FileText, CheckCircle2, AlertCircle, X, Loader2, ChevronDown, ChevronUp, Sparkles } from "lucide-react"
 import type { CarrierInputs } from "./carrier-engine"
 import type { CommissionParseResult } from "./commission-statement-parser"
 
-async function parseCommissionWithAI(file: File): Promise<CommissionParseResult> {
+async function parseBookOfBusinessWithAI(file: File): Promise<CommissionParseResult> {
   const formData = new FormData()
   formData.append("file", file)
 
@@ -33,11 +33,11 @@ interface Props {
 }
 
 export function CommissionUpload({ onParsed }: Props) {
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
-  const [fileName, setFileName]     = useState("")
-  const [errorMsg, setErrorMsg]     = useState("")
-  const [result, setResult]         = useState<CommissionParseResult | null>(null)
-  const [expanded, setExpanded]     = useState(false)
+  const [status, setStatus]     = useState<"idle" | "loading" | "success" | "error">("idle")
+  const [fileName, setFileName] = useState("")
+  const [errorMsg, setErrorMsg] = useState("")
+  const [result, setResult]     = useState<CommissionParseResult | null>(null)
+  const [expanded, setExpanded] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const handleFile = useCallback(async (file: File) => {
@@ -46,11 +46,11 @@ export function CommissionUpload({ onParsed }: Props) {
     }
     setStatus("loading"); setFileName(file.name); setErrorMsg("")
     try {
-      const parsed = await parseCommissionWithAI(file)
+      const parsed = await parseBookOfBusinessWithAI(file)
       const hasData = (parsed.totalWrittenPremium ?? 0) !== 0 || (parsed.totalPolicies ?? 0) > 0
       if (!hasData) {
         setStatus("error")
-        setErrorMsg("Could not extract commission data. Make sure this is an EZLynx Horizon commission statement PDF.")
+        setErrorMsg("Could not extract data from this PDF. Make sure this is an EZLynx Book of Business Detail report.")
         return
       }
       setResult(parsed)
@@ -83,11 +83,18 @@ export function CommissionUpload({ onParsed }: Props) {
 
   return (
     <div className="rounded-lg border border-dashed border-border">
-      <input ref={inputRef} type="file" accept=".pdf" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".pdf"
+        className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
+      />
 
       {status === "idle" && (
         <div
-          onDragOver={e => e.preventDefault()} onDrop={handleDrop}
+          onDragOver={e => e.preventDefault()}
+          onDrop={handleDrop}
           onClick={() => inputRef.current?.click()}
           className="flex cursor-pointer items-center gap-3 rounded-lg p-4 transition-colors hover:bg-secondary/30"
         >
@@ -95,8 +102,10 @@ export function CommissionUpload({ onParsed }: Props) {
             <Upload className="h-4 w-4 text-primary" />
           </div>
           <div>
-            <p className="text-sm font-medium text-foreground">Upload Commission Statement</p>
-            <p className="text-xs text-muted-foreground">EZLynx Horizon PDF — auto-fills new business %, policies/customer, avg premium</p>
+            <p className="text-sm font-medium text-foreground">Upload Book of Business Detail</p>
+            <p className="text-xs text-muted-foreground">
+              EZLynx Book of Business Detail PDF — AI auto-fills new business %, policies/customer, avg premium
+            </p>
           </div>
         </div>
       )}
@@ -104,7 +113,9 @@ export function CommissionUpload({ onParsed }: Props) {
       {status === "loading" && (
         <div className="flex items-center gap-3 p-4">
           <Loader2 className="h-4 w-4 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">AI is reading {fileName}... (10-20 sec)</p>
+          <p className="text-sm text-muted-foreground">
+            AI is reading {fileName}... (10–20 sec)
+          </p>
         </div>
       )}
 
@@ -114,13 +125,14 @@ export function CommissionUpload({ onParsed }: Props) {
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
             <p className="text-xs text-muted-foreground">{errorMsg}</p>
           </div>
-          <Button variant="outline" size="sm" onClick={reset} className="self-start text-xs">Try another file</Button>
+          <Button variant="outline" size="sm" onClick={reset} className="self-start text-xs">
+            Try another file
+          </Button>
         </div>
       )}
 
       {status === "success" && result && (
         <div className="p-4">
-          {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-success" />
@@ -133,12 +145,18 @@ export function CommissionUpload({ onParsed }: Props) {
                   )}
                 </p>
                 <p className="text-xs text-success">
-                  Commission statement parsed · Format {result.format}
+                  <Sparkles className="mr-1 inline h-3 w-3" />
+                  Book of Business parsed · {result.format && `Format ${result.format}`}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setExpanded(v => !v)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => setExpanded(v => !v)}
+              >
                 {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                 Details
               </Button>
@@ -148,7 +166,6 @@ export function CommissionUpload({ onParsed }: Props) {
             </div>
           </div>
 
-          {/* Summary pills */}
           <div className="mt-3 flex flex-wrap gap-2">
             {result.totalWrittenPremium != null && (
               <span className="rounded-md bg-secondary px-2 py-1 text-xs text-foreground">
@@ -182,15 +199,13 @@ export function CommissionUpload({ onParsed }: Props) {
             )}
           </div>
 
-          {/* Carrier breakdown — expandable */}
-          {expanded && result.carrierBreakdown.length > 0 && (
+          {expanded && result.carrierBreakdown && result.carrierBreakdown.length > 0 && (
             <div className="mt-3 overflow-hidden rounded-md border border-border">
               <table className="w-full text-xs">
                 <thead className="bg-secondary/50">
                   <tr>
                     <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Carrier</th>
                     <th className="px-3 py-1.5 text-right font-medium text-muted-foreground">Written Prem</th>
-                    <th className="px-3 py-1.5 text-right font-medium text-muted-foreground">Split Comm</th>
                     <th className="px-3 py-1.5 text-right font-medium text-muted-foreground">Policies</th>
                     <th className="px-3 py-1.5 text-right font-medium text-muted-foreground">NB</th>
                   </tr>
@@ -200,7 +215,6 @@ export function CommissionUpload({ onParsed }: Props) {
                     <tr key={cb.carrier} className="bg-card">
                       <td className="px-3 py-1.5 font-medium text-foreground">{cb.carrier}</td>
                       <td className="px-3 py-1.5 text-right text-foreground">{fmt$(cb.writtenPremium)}</td>
-                      <td className="px-3 py-1.5 text-right text-muted-foreground">{fmt$(cb.splitCommission)}</td>
                       <td className="px-3 py-1.5 text-right text-muted-foreground">{cb.policyCount}</td>
                       <td className="px-3 py-1.5 text-right text-muted-foreground">{cb.newBusinessCount}</td>
                     </tr>
