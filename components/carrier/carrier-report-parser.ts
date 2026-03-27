@@ -568,24 +568,43 @@ function parseSafeco(lines: string[]): Partial<CarrierInputs> {
 function parseLibertyMutual(lines: string[]): Partial<CarrierInputs> {
   const result: Partial<CarrierInputs> = {}
 
-  // Parse a dollar-M value like "$0.11M" → 0.11 (in $M)
-  function parseDollarM(s: string): number | null {
-    const m = s.match(/\$(-?\d+(?:\.\d+)?)M/i)
-    return m ? parseFloat(m[1]) : null
-  }
-
-  // Parse a plain percentage like "65.0%" or "-51.4%" → number
-  function parsePct(s: string): number | null {
-    const m = s.match(/(-?\d+(?:\.\d+)?)%/)
-    return m ? parseFloat(m[1]) : null
-  }
-
-  // Parse large integer like "10,544" → 10544
-  function parseCount(s: string): number | null {
-    const clean = s.replace(/,/g, "")
-    const n = parseFloat(clean)
-    return isNaN(n) ? null : n
-  }
+  // ─────────────────────────────────────────────────────────────────────────
+  // CONFIRMED REAL PDF TEXT (each entry = one line):
+  //
+  //   "Direct Written Premium"
+  //   "YTD"
+  //   " "                              ← blank/space line
+  //   "PYTD% Growth"
+  //   "$0.11M$0.08M33.9%"              ← DATA LINE (YTD $M, PYTD $M, Growth%)
+  //   "Click here for detail"
+  //   ...
+  //   "New Business DWP"
+  //   "YTDPYTDGrowth %"
+  //   "$0.1M$0.0M12.4%"                ← DATA LINE
+  //   ...
+  //   "PIF"
+  //   "YTD"
+  //   " "
+  //   "PYTDGrowth %"
+  //   "10,5448,31426.8%"               ← DATA LINE (PIF concatenated with PYTD and Growth)
+  //   ...
+  //   "Renewal"
+  //   "PLIF Renewal"
+  //   " "
+  //   "Premium Retention"
+  //   "6,49269.6%"                     ← DATA LINE (PLIF count + retention %)
+  //   ...
+  //   "Loss Ratio"
+  //   "YTDPYTD% Growth"
+  //   "65.0%12.5%418.9%"               ← DATA LINE (YTD LR%, PYTD LR%, Growth%)
+  //   ...
+  //   "2 Years + YTD Loss Ratio"
+  //   "YTDPYTD% Growth"
+  //   "99.3%204.2%-51.4%"              ← DATA LINE
+  //
+  // Strategy: track section, then look for the data line pattern in each section.
+  // Data lines are identified by containing $ or % with numeric values.
+  // ─────────────────────────────────────────────────────────────────────────
 
   type LMSection = "dwp" | "nb_dwp" | "pif" | "renewal" | "loss_ratio" | "loss_ratio_2yr" | null
   let section: LMSection = null
@@ -594,80 +613,85 @@ function parseLibertyMutual(lines: string[]): Partial<CarrierInputs> {
     const line = rawLine.trim()
     if (!line) continue
 
-    // Section headers
-    if (/^Direct Written Premium/i.test(line)) { section = "dwp"; continue }
-    if (/^New Business DWP/i.test(line))        { section = "nb_dwp"; continue }
-    if (/^Earned Premium/i.test(line))           { section = null; continue }
+    // ── Section headers (order matters — check 2yr loss BEFORE loss ratio) ──
+    if (/^Direct Written Premium$/i.test(line)) { section = "dwp"; continue }
+    if (/^New Business DWP$/i.test(line))        { section = "nb_dwp"; continue }
+    if (/^Earned Premium$/i.test(line))          { section = null; continue }
     if (/^PIF$/i.test(line))                     { section = "pif"; continue }
     if (/^Renewal$/i.test(line))                 { section = "renewal"; continue }
-    if (/^2 Years? \+ YTD Loss Ratio/i.test(line)) { section = "loss_ratio_2yr"; continue }
+    if (/2 Years? \+ YTD Loss Ratio/i.test(line)) { section = "loss_ratio_2yr"; continue }
     if (/^Loss Ratio$/i.test(line))              { section = "loss_ratio"; continue }
 
-    // Skip header rows like "YTDPYTDGrowth %"
-    if (/^YTD|^PYTD|growth/i.test(line) && !line.includes("$") && !line.includes("%")) continue
-    if (/click here/i.test(line)) continue
+    // Skip non-data lines (headers, labels, navigation)
+    if (/^YTD$|^PYTD|^Growth|^Click here|^Month$|^Year\d|^Jan$|^Feb$|^Mar$|^Apr$|^Jun$|^Jul$|^Aug$|^Sep$|^Oct$|^Nov$|^Dec$/i.test(line)) continue
+    if (/PLIF Renewal|Premium Retention/i.test(line) && !/\d/.test(line)) continue
 
     // ── DWP: "$0.11M$0.08M33.9%" ──
-    if (section === "dwp") {
-      const ytd  = parseDollarM(line.split("$")[1] ? "$" + line.split("$")[1] : "")
-      const pytd = parseDollarM(line.split("$")[2] ? "$" + line.split("$")[2] : "")
-      if (ytd  !== null) result.lm_dwp_ytd  = ytd
-      if (pytd !== null) result.lm_dwp_pytd = pytd
+    if (section === "dwp" && line.includes("$")) {
+      // Extract all $X.XXM values
+      const dollarMatches = [...line.matchAll(/\$(\d+(?:\.\d+)?)M/gi)]
+      if (dollarMatches.length >= 1) result.lm_dwp_ytd  = parseFloat(dollarMatches[0][1])
+      if (dollarMatches.length >= 2) result.lm_dwp_pytd = parseFloat(dollarMatches[1][1])
       section = null
       continue
     }
 
     // ── New Business DWP: "$0.1M$0.0M12.4%" ──
-    if (section === "nb_dwp") {
-      const parts = line.split("$").filter(Boolean)
-      if (parts[0]) {
-        const v = parseDollarM("$" + parts[0])
-        if (v !== null) result.lm_nb_dwp_ytd = v
-      }
+    if (section === "nb_dwp" && line.includes("$")) {
+      const dollarMatches = [...line.matchAll(/\$(\d+(?:\.\d+)?)M/gi)]
+      if (dollarMatches.length >= 1) result.lm_nb_dwp_ytd = parseFloat(dollarMatches[0][1])
       section = null
       continue
     }
 
-    // ── PIF: "10,5448,31426.8%" — two counts concatenated ──
-    if (section === "pif") {
-      // Extract all digit sequences (with commas) — first is current PIF
-      const numParts = line.replace(/%[\d.]+%?/, "").split(/(?<=\d)(?=[A-Z,\d]{4,})/g)
-      // Simpler: extract first large number
-      const m = line.match(/^([\d,]+)/)
-      if (m) {
-        const pif = parseCount(m[1])
-        if (pif !== null) result.lm_pif = pif
+    // ── PIF: "10,5448,31426.8%" ──
+    // The YTD PIF and PYTD PIF are concatenated (no separator). We want the first number.
+    if (section === "pif" && /^\d/.test(line)) {
+      // Split by looking for where digits transition after a comma pattern ends
+      // "10,544" followed by "8,314" — but they're mashed together as "10,5448,314"
+      // Strategy: take all leading digits+commas until we hit an unexpected pattern
+      // Actually the format is: YTD_PIF + PYTD_PIF + Growth%
+      // The comma placement gives us: "10,544" is 10544, "8,314" is 8314
+      // Mashed: "10,5448,31426.8%" — notice "10,544" then "8,314" then "26.8%"
+      // The trick: find the % and strip it, then parse remaining as two numbers
+      const withoutPct = line.replace(/[\d.-]+%/g, "")  // remove "26.8%"
+      // Now: "10,5448,314" — we need to split this. 
+      // Heuristic: typical PIF is 3-6 digits. Let's take first match of \d{1,3}(,\d{3})*
+      const pifMatch = withoutPct.match(/^(\d{1,3}(?:,\d{3})*)/)
+      if (pifMatch) {
+        const pif = parseFloat(pifMatch[1].replace(/,/g, ""))
+        if (!isNaN(pif)) result.lm_pif = pif
       }
       section = null
       continue
     }
 
     // ── Renewal: "6,49269.6%" — PLIF count + premium retention % ──
-    if (section === "renewal") {
-      // Skip sub-header lines
-      if (/PLIF|Premium Retention/i.test(line)) continue
-      const pctM = line.match(/(-?\d{1,3}(?:\.\d+)?)%/)
-      if (pctM) result.lm_premium_retention = parseFloat(pctM[1])
-      const countM = line.match(/^([\d,]+)/)
-      if (countM) {
-        const c = parseCount(countM[1])
-        if (c !== null) result.lm_plif_renewal = c
+    if (section === "renewal" && /\d/.test(line)) {
+      // Extract the percentage (premium retention)
+      const pctMatch = line.match(/(\d+(?:\.\d+)?)%/)
+      if (pctMatch) result.lm_premium_retention = parseFloat(pctMatch[1])
+      // Extract leading count (PLIF renewal)
+      const countMatch = line.match(/^(\d{1,3}(?:,\d{3})*)/)
+      if (countMatch) {
+        const c = parseFloat(countMatch[1].replace(/,/g, ""))
+        if (!isNaN(c)) result.lm_plif_renewal = c
       }
       section = null
       continue
     }
 
-    // ── Loss Ratio: "65.0%12.5%418.9%" — YTD, PYTD, Growth ──
-    if (section === "loss_ratio") {
-      const pcts = [...line.matchAll(/(-?\d{1,3}(?:\.\d+)?)%/g)].map(m => parseFloat(m[1]))
+    // ── Loss Ratio: "65.0%12.5%418.9%" ──
+    if (section === "loss_ratio" && line.includes("%")) {
+      const pcts = [...line.matchAll(/(-?\d+(?:\.\d+)?)%/g)].map(m => parseFloat(m[1]))
       if (pcts[0] !== undefined) result.lm_loss_ratio_ytd = pcts[0]
       section = null
       continue
     }
 
     // ── 2yr + YTD Loss Ratio: "99.3%204.2%-51.4%" ──
-    if (section === "loss_ratio_2yr") {
-      const pcts = [...line.matchAll(/(-?\d{1,3}(?:\.\d+)?)%/g)].map(m => parseFloat(m[1]))
+    if (section === "loss_ratio_2yr" && line.includes("%")) {
+      const pcts = [...line.matchAll(/(-?\d+(?:\.\d+)?)%/g)].map(m => parseFloat(m[1]))
       if (pcts[0] !== undefined) result.lm_loss_ratio_2yr = pcts[0]
       section = null
       continue
