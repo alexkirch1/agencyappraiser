@@ -2,7 +2,7 @@
 // Carrier Valuation Engine — Travelers, Progressive, Hartford
 // =====================================================
 
-export type CarrierName = "progressive" | "travelers" | "hartford" | "safeco" | "berkshire"
+export type CarrierName = "progressive" | "travelers" | "hartford" | "safeco" | "berkshire" | "libertymutual"
 export type BookType = "personal" | "commercial" | "both" | "auto" | "home"
 
 export interface CarrierInputs {
@@ -72,6 +72,17 @@ export interface CarrierInputs {
   bh_loss_ratio_ytd: number | null         // YTD loss ratio (current year partial)
   bh_grand_total_loss_ratio: number | null // Grand Total blended loss ratio % across all years
   bh_annual_goal: number | null            // Current Annual Goal ($) if set
+  // ---- Liberty Mutual Commercial Lines (CL ADP Summary) ----
+  // Source: CL ADP Summary PDF — metrics in $M units, convert to $ in engine
+  lm_dwp_ytd: number | null          // Direct Written Premium YTD ($M)
+  lm_dwp_pytd: number | null         // Prior YTD DWP ($M) — for growth calc
+  lm_nb_dwp_ytd: number | null       // New Business DWP YTD ($M)
+  lm_pif: number | null              // PIF (current)
+  lm_loss_ratio_ytd: number | null   // YTD Loss Ratio %
+  lm_loss_ratio_2yr: number | null   // 2 Years + YTD Loss Ratio %
+  lm_premium_retention: number | null // Premium Retention % (from Renewal section)
+  lm_plif_renewal: number | null      // PLIF Renewal count
+
   // ---- Book Quality (all carriers) — sourced from commission statements / active policy list ----
 
   book_preferred_pct: number | null      // % policies in preferred/standard tier (vs non-standard)
@@ -396,6 +407,56 @@ export function calculateCarrierValuation(inputs: CarrierInputs): CarrierResults
   }
 
   // -------------------------------------------------------
+  // Liberty Mutual Commercial Lines
+  // Source: CL ADP Summary — DWP values in $M (convert × 1,000,000)
+  // -------------------------------------------------------
+  else if (carrier === "libertymutual") {
+    // DWP values come in as $M — multiply by 1,000,000
+    const dwpYTD   = (inputs.lm_dwp_ytd   ?? 0) * 1_000_000
+    const dwpPYTD  = (inputs.lm_dwp_pytd  ?? 0) * 1_000_000
+    const nbDWP    = (inputs.lm_nb_dwp_ytd ?? 0) * 1_000_000
+    const lrYTD    = inputs.lm_loss_ratio_ytd   ?? 100
+    const lr2yr    = inputs.lm_loss_ratio_2yr    ?? 100
+    const retention = inputs.lm_premium_retention ?? 0
+
+    // Use YTD DWP; if PYTD available, annualize YTD by ratio
+    // For simplicity, use YTD directly — buyer will context-adjust
+    basePremium = dwpYTD > 0 ? dwpYTD : nbDWP
+    finalMultiple = 1.5  // CL commercial base
+
+    // ── Loss ratio (2yr blended is primary signal for commercial) ──
+    if (lr2yr > 0) {
+      if (lr2yr < 60)       finalMultiple += 0.25
+      else if (lr2yr < 75)  finalMultiple += 0.12
+      else if (lr2yr < 90)  finalMultiple += 0.02
+      else if (lr2yr < 110) finalMultiple -= 0.12
+      else                  finalMultiple -= 0.22
+    } else if (lrYTD > 0) {
+      if (lrYTD < 60)       finalMultiple += 0.20
+      else if (lrYTD < 75)  finalMultiple += 0.10
+      else if (lrYTD > 100) finalMultiple -= 0.18
+    }
+
+    // ── Premium retention — key stickiness signal ──
+    if (retention >= 80)       finalMultiple += 0.12
+    else if (retention >= 70)  finalMultiple += 0.06
+    else if (retention > 0 && retention < 60) finalMultiple -= 0.08
+
+    // ── Growth signal: YTD vs PYTD ──
+    if (dwpYTD > 0 && dwpPYTD > 0) {
+      const growthPct = ((dwpYTD - dwpPYTD) / dwpPYTD) * 100
+      if (growthPct >= 20)       finalMultiple += 0.08
+      else if (growthPct >= 10)  finalMultiple += 0.04
+      else if (growthPct < -10)  finalMultiple -= 0.06
+    }
+
+    // ── Volume tiers ──
+    if (basePremium >= 5_000_000)      finalMultiple += 0.10
+    else if (basePremium >= 2_000_000) finalMultiple += 0.06
+    else if (basePremium >= 500_000)   finalMultiple += 0.02
+  }
+
+  // -------------------------------------------------------
   // Book Quality adjustments (apply to all carriers when data available)
   // -------------------------------------------------------
   if (basePremium > 0) {
@@ -513,6 +574,14 @@ export const defaultCarrierInputs: CarrierInputs = {
   bh_loss_ratio_ytd: null,
   bh_grand_total_loss_ratio: null,
   bh_annual_goal: null,
+  lm_dwp_ytd: null,
+  lm_dwp_pytd: null,
+  lm_nb_dwp_ytd: null,
+  lm_pif: null,
+  lm_loss_ratio_ytd: null,
+  lm_loss_ratio_2yr: null,
+  lm_premium_retention: null,
+  lm_plif_renewal: null,
   book_preferred_pct: null,
   book_policies_per_customer: null,
   book_avg_premium_per_policy: null,

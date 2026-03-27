@@ -53,11 +53,12 @@ export function parseCarrierReport(
   carrier: CarrierName
 ): Partial<CarrierInputs> {
   const lines = text.split("\n").map(l => l.trim()).filter(Boolean)
-  if (carrier === "travelers")   return parseTravelers(lines)
-  if (carrier === "progressive") return parseProgressive(lines)
-  if (carrier === "hartford")    return parseHartford(lines)
-  if (carrier === "safeco")      return parseSafeco(lines)
-  if (carrier === "berkshire")   return parseBerkshire(lines)
+  if (carrier === "berkshire")     return parseBerkshire(lines)
+  if (carrier === "libertymutual") return parseLibertyMutual(lines)
+  if (carrier === "travelers")     return parseTravelers(lines)
+  if (carrier === "progressive")   return parseProgressive(lines)
+  if (carrier === "hartford")      return parseHartford(lines)
+  if (carrier === "safeco")        return parseSafeco(lines)
   return {}
 }
 
@@ -536,6 +537,147 @@ function parseSafeco(lines: string[]): Partial<CarrierInputs> {
 }
 
 // =====================================================
+// LIBERTY MUTUAL — CL ADP Summary
+// =====================================================
+//
+// Verified real text structure (from CL ADP Summary PDF, 03/2026):
+//
+//   "Direct Written Premium"
+//   "YTD  PYTD% Growth"
+//   "$0.11M$0.08M33.9%"          ← YTD, PYTD, Growth% on one line
+//   "New Business DWP"
+//   "YTDPYTDGrowth %"
+//   "$0.1M$0.0M12.4%"
+//   "PIF"
+//   "YTD  PYTDGrowth %"
+//   "10,5448,31426.8%"           ← current PIF, prior PIF, growth
+//   "Renewal"
+//   "PLIF Renewal  Premium Retention"
+//   "6,49269.6%"                 ← PLIF renewal count, premium retention %
+//   "Loss Ratio"
+//   "YTDPYTD% Growth"
+//   "65.0%12.5%418.9%"           ← YTD LR, PYTD LR, growth
+//   "2 Years + YTD Loss Ratio"
+//   "YTDPYTD% Growth"
+//   "99.3%204.2%-51.4%"          ← 2yr+YTD LR, prior, growth
+//
+// Key: values are concatenated without spaces (e.g. "$0.11M$0.08M33.9%")
+// We split on $ and % boundaries then parse each token.
+// =====================================================
+
+function parseLibertyMutual(lines: string[]): Partial<CarrierInputs> {
+  const result: Partial<CarrierInputs> = {}
+
+  // Parse a dollar-M value like "$0.11M" → 0.11 (in $M)
+  function parseDollarM(s: string): number | null {
+    const m = s.match(/\$(-?\d+(?:\.\d+)?)M/i)
+    return m ? parseFloat(m[1]) : null
+  }
+
+  // Parse a plain percentage like "65.0%" or "-51.4%" → number
+  function parsePct(s: string): number | null {
+    const m = s.match(/(-?\d+(?:\.\d+)?)%/)
+    return m ? parseFloat(m[1]) : null
+  }
+
+  // Parse large integer like "10,544" → 10544
+  function parseCount(s: string): number | null {
+    const clean = s.replace(/,/g, "")
+    const n = parseFloat(clean)
+    return isNaN(n) ? null : n
+  }
+
+  type LMSection = "dwp" | "nb_dwp" | "pif" | "renewal" | "loss_ratio" | "loss_ratio_2yr" | null
+  let section: LMSection = null
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim()
+    if (!line) continue
+
+    // Section headers
+    if (/^Direct Written Premium/i.test(line)) { section = "dwp"; continue }
+    if (/^New Business DWP/i.test(line))        { section = "nb_dwp"; continue }
+    if (/^Earned Premium/i.test(line))           { section = null; continue }
+    if (/^PIF$/i.test(line))                     { section = "pif"; continue }
+    if (/^Renewal$/i.test(line))                 { section = "renewal"; continue }
+    if (/^2 Years? \+ YTD Loss Ratio/i.test(line)) { section = "loss_ratio_2yr"; continue }
+    if (/^Loss Ratio$/i.test(line))              { section = "loss_ratio"; continue }
+
+    // Skip header rows like "YTDPYTDGrowth %"
+    if (/^YTD|^PYTD|growth/i.test(line) && !line.includes("$") && !line.includes("%")) continue
+    if (/click here/i.test(line)) continue
+
+    // ── DWP: "$0.11M$0.08M33.9%" ──
+    if (section === "dwp") {
+      const ytd  = parseDollarM(line.split("$")[1] ? "$" + line.split("$")[1] : "")
+      const pytd = parseDollarM(line.split("$")[2] ? "$" + line.split("$")[2] : "")
+      if (ytd  !== null) result.lm_dwp_ytd  = ytd
+      if (pytd !== null) result.lm_dwp_pytd = pytd
+      section = null
+      continue
+    }
+
+    // ── New Business DWP: "$0.1M$0.0M12.4%" ──
+    if (section === "nb_dwp") {
+      const parts = line.split("$").filter(Boolean)
+      if (parts[0]) {
+        const v = parseDollarM("$" + parts[0])
+        if (v !== null) result.lm_nb_dwp_ytd = v
+      }
+      section = null
+      continue
+    }
+
+    // ── PIF: "10,5448,31426.8%" — two counts concatenated ──
+    if (section === "pif") {
+      // Extract all digit sequences (with commas) — first is current PIF
+      const numParts = line.replace(/%[\d.]+%?/, "").split(/(?<=\d)(?=[A-Z,\d]{4,})/g)
+      // Simpler: extract first large number
+      const m = line.match(/^([\d,]+)/)
+      if (m) {
+        const pif = parseCount(m[1])
+        if (pif !== null) result.lm_pif = pif
+      }
+      section = null
+      continue
+    }
+
+    // ── Renewal: "6,49269.6%" — PLIF count + premium retention % ──
+    if (section === "renewal") {
+      // Skip sub-header lines
+      if (/PLIF|Premium Retention/i.test(line)) continue
+      const pctM = line.match(/(-?\d{1,3}(?:\.\d+)?)%/)
+      if (pctM) result.lm_premium_retention = parseFloat(pctM[1])
+      const countM = line.match(/^([\d,]+)/)
+      if (countM) {
+        const c = parseCount(countM[1])
+        if (c !== null) result.lm_plif_renewal = c
+      }
+      section = null
+      continue
+    }
+
+    // ── Loss Ratio: "65.0%12.5%418.9%" — YTD, PYTD, Growth ──
+    if (section === "loss_ratio") {
+      const pcts = [...line.matchAll(/(-?\d{1,3}(?:\.\d+)?)%/g)].map(m => parseFloat(m[1]))
+      if (pcts[0] !== undefined) result.lm_loss_ratio_ytd = pcts[0]
+      section = null
+      continue
+    }
+
+    // ── 2yr + YTD Loss Ratio: "99.3%204.2%-51.4%" ──
+    if (section === "loss_ratio_2yr") {
+      const pcts = [...line.matchAll(/(-?\d{1,3}(?:\.\d+)?)%/g)].map(m => parseFloat(m[1]))
+      if (pcts[0] !== undefined) result.lm_loss_ratio_2yr = pcts[0]
+      section = null
+      continue
+    }
+  }
+
+  return result
+}
+
+// =====================================================
 // BERKSHIRE HATHAWAY GUARD — Producer Activity Report (PAR)
 // =====================================================
 //
@@ -592,255 +734,277 @@ function parseSafeco(lines: string[]): Partial<CarrierInputs> {
 
 function parseBerkshire(lines: string[]): Partial<CarrierInputs> {
   // ─────────────────────────────────────────────────────────────────────────
-  // STRATEGY: Token-stream parsing.
+  // STRATEGY: work directly on the lines array (not a joined blob).
   //
-  // The BH Guard PAR PDF renders each column cell as a separate text item at a
-  // different X position. After pdfjs Y-groups rows, many numbers that visually
-  // sit on the same row end up as INDIVIDUAL LINES because they are far apart
-  // horizontally (beyond the 3px Y-tolerance). So we cannot rely on a single
-  // line containing "49 121,480 320 745,546..." — instead each of 49, 121480,
-  // 320, 745546 may be separate lines.
+  // The BH Guard PAR PDF renders wide tables where each column is a separate
+  // text item. After Y-grouping with 3px tolerance, columns that are close
+  // vertically but far horizontally may appear on different lines. We handle
+  // both cases: multi-value lines AND single-token lines.
   //
-  // Solution: concatenate ALL extracted text into one flat string, then use
-  // anchor-keyword searches to find anchor positions, and read the next N
-  // numeric tokens after each anchor.
-  //
-  // Verified data from real 03/26/2026 PAR:
-  //   Written Premium Total row (CurrYTD_Pol, CurrYTD_Prem, CurrR12_Pol, CurrR12_Prem, ...):
-  //     49  121,480  320  745,546  56  99,444  559  1,281,094
-  //   Written Premium New row (same 8-col layout):
-  //     14  21,160  112  85,876  23  725  245  353,219
-  //   Written Premium Renewal row:
-  //     35  100,320  208  659,670  33  98,719  314  927,875
-  //   Hit Ratio New row (CurrYTD_Pol%, CurrYTD_Prem%, CurrR12_Pol%, CurrR12_Prem%, ...):
-  //     60.87%  36.48%  59.57%  23.80%  60.53%  14.20%  43.79%  25.40%
-  //   Hit Ratio Renewal row:
-  //     83.33%  93.35%  82.75%  84.42%  82.50%  87.58%  86.03%  83.98%
-  //   Yield Ratio Total row (same layout):
-  //     61.25%  50.39%  46.08%  24.78%  39.72%  16.70%  40.13%  27.23%
-  //   Loss Ratio data (Earned, Incurred, IncurredCalc, LR%):
-  //     SUBTOTAL  38,639.39  10,160.82  10,160.82  26.30%   ← 1983-2020
-  //     622,377.94  ...  155.60%                            ← 2021
-  //     1,159,684.50  ...  73.70%                           ← 2022
-  //     1,759,363.27  ...  123.68%                          ← 2023
-  //     SUBTOTAL  3,541,425.71  ...  112.92%                ← 2024
-  //     1,585,981.16  ...  108.78%                          ← 2025
-  //     954,283.52  ...  56.95%                             ← 2026 YTD row 1
-  //     100,184.14  ...  -38.50%                            ← 2026 YTD row 2
-  //     SUBTOTAL  2,640,448.82  ...  84.46%                 ← recent combined
-  //     GRAND TOTAL  6,220,513.92  ...  100.30%
+  // We make ONE pass through lines, tracking section via keyword anchors, and
+  // accumulate numeric tokens into section-specific collectors.
   // ─────────────────────────────────────────────────────────────────────────
 
   const result: Partial<CarrierInputs> = {}
 
-  // Join all lines into one searchable text blob, preserving word boundaries
-  const blob = lines.join(" ")
-
-  // ── Helper: extract the next N numeric tokens after a regex match in the blob ──
-  function numsAfter(anchorRe: RegExp, count: number, startFrom = 0): number[] {
-    const sub = blob.slice(startFrom)
-    const m = anchorRe.exec(sub)
-    if (!m) return []
-    // From the match end, scan forward collecting numeric tokens
-    const afterAnchor = sub.slice(m.index + m[0].length)
-    const tokens = afterAnchor.split(/[\s,]+/)
-    const out: number[] = []
-    for (const t of tokens) {
-      if (out.length >= count) break
-      // Strip % sign, handle negative
-      const clean = t.replace(/%/g, "").replace(/[()]/g, "")
-      const n = parseFloat(clean)
-      if (!isNaN(n)) out.push(n)
-    }
-    return out
+  // Parse a single token: strip $, commas, %, parens → float or null
+  function parseToken(t: string): number | null {
+    const neg = /^\(.*\)$/.test(t.trim())
+    const clean = t.replace(/[$,%\s()]/g, "")
+    const n = parseFloat(clean)
+    if (isNaN(n)) return null
+    return neg ? -n : n
   }
 
-  // Same but returns position of anchor end (for chaining)
-  function numsAfterPos(anchorRe: RegExp, count: number, startFrom = 0): { values: number[]; pos: number } {
-    const sub = blob.slice(startFrom)
-    const m = anchorRe.exec(sub)
-    if (!m) return { values: [], pos: startFrom }
-    const anchorEnd = startFrom + m.index + m[0].length
-    const afterAnchor = blob.slice(anchorEnd)
-    const tokens = afterAnchor.split(/[\s,]+/)
-    const out: number[] = []
-    let charsConsumed = 0
-    for (const t of tokens) {
-      if (out.length >= count) break
-      charsConsumed += t.length + 1
-      const clean = t.replace(/%/g, "").replace(/[()]/g, "")
-      const n = parseFloat(clean)
-      if (!isNaN(n)) out.push(n)
-    }
-    return { values: out, pos: anchorEnd + charsConsumed }
+  // Extract all numeric tokens from a line
+  function lineNums(line: string): number[] {
+    return line.trim().split(/\s+/).map(parseToken).filter((v): v is number => v !== null)
   }
 
-  // ── WRITTEN PREMIUM ───────────────────────────────────────────────────────
-  // Find "Written Premium:" then look for "New", "Renewal", "Total" row anchors.
-  // After "Total" in the Written Premium section, collect 8 values:
-  //   [CurrYTD_Pol, CurrYTD_Prem, CurrR12_Pol, CurrR12_Prem, PrevYTD_Pol, PrevYTD_Prem, PrevR12_Pol, PrevR12_Prem]
-  const wpStart = blob.search(/Written\s+Premium\s*:/i)
-  if (wpStart >= 0) {
-    // Find the end of Written Premium section (starts at next major section header)
-    const wpSectionEnd = (() => {
-      const sub = blob.slice(wpStart + 1)
-      const nextSection = sub.search(/Submitted\s*:|Quoted\s*:|Issued\s+Premium\s*:|Hit\s+Ratio\s*:|Yield\s+Ratio\s*:/i)
-      return nextSection >= 0 ? wpStart + 1 + nextSection : blob.length
-    })()
-    const wpBlob = blob.slice(wpStart, wpSectionEnd)
+  // ── Accumulator for Written Premium (WP) section ──
+  // We collect ALL numeric tokens seen under "Written Premium" until next section.
+  // Layout confirmed: 8 columns × 3 rows (New, Renewal, Total) = 24 values.
+  // Columns: CurrYTD_Pol, CurrYTD_Prem, CurrR12_Pol, CurrR12_Prem,
+  //          PrevYTD_Pol, PrevYTD_Prem, PrevR12_Pol, PrevR12_Prem
+  // Row order in the PDF: New first, then Renewal, then Total.
+  // We watch for "New", "Renewal", "Total" label tokens to know which row we're on,
+  // then collect the next 8 numbers for that row.
+  type WPRow = "new" | "renewal" | "total" | null
+  let wpActive = false
+  let wpRow: WPRow = null
+  const wpCollect: Record<"new" | "renewal" | "total", number[]> = {
+    new: [], renewal: [], total: []
+  }
 
-    // "New" row — find "New" label then next 8 numbers
-    const newMatch = /\bNew\b/i.exec(wpBlob)
-    if (newMatch) {
-      const afterNew = wpBlob.slice(newMatch.index + newMatch[0].length)
-      const tokens = afterNew.split(/[\s,]+/).filter(Boolean)
-      const newNums: number[] = []
-      for (const t of tokens) {
-        if (newNums.length >= 8) break
-        if (/^renewal$/i.test(t)) break  // stop at "Renewal" label
-        const n = parseFloat(t.replace(/[,$%]/g, ""))
-        if (!isNaN(n)) newNums.push(n)
+  // ── Accumulator for Hit Ratio section ──
+  // 3 rows × 8 percentage values. Row order: New, Renewal, Total.
+  // We collect all % tokens and assign by row index.
+  let hitActive = false
+  let hitRow = 0  // 0=New, 1=Renewal, 2=Total
+  let hitRowCollect: number[] = []
+  const hitRows: number[][] = []  // hitRows[0]=New, [1]=Renewal, [2]=Total
+
+  // ── Accumulator for Yield Ratio section ──
+  let yieldActive = false
+  let yieldRow = 0
+  let yieldRowCollect: number[] = []
+  const yieldRows: number[][] = []
+
+  // ── Accumulator for Loss Ratios section ──
+  let lossActive = false
+  let lossStarted = false  // true after seeing "1983" year header line
+  let subtotalCount = 0
+  let rowsAfterSub: number[] = []   // LR% values for rows between subtotals, by subtotal group
+  // We'll store as: group[subtotalCount] = array of LR% values
+  const lossGroups: number[][] = [[], [], []]
+
+  // Helper: flush a hit/yield row when we know we've moved to the next row label
+  function flushHitRow() {
+    if (hitRowCollect.length > 0) {
+      hitRows.push([...hitRowCollect])
+      hitRowCollect = []
+    }
+  }
+  function flushYieldRow() {
+    if (yieldRowCollect.length > 0) {
+      yieldRows.push([...yieldRowCollect])
+      yieldRowCollect = []
+    }
+  }
+
+  // ── Main pass ──
+  for (const rawLine of lines) {
+    const line = rawLine.trim()
+    if (!line) continue
+    const lower = line.toLowerCase()
+
+    // ── Section transitions ──
+    if (/written premium/i.test(line)) {
+      wpActive = true; hitActive = false; yieldActive = false; lossActive = false
+      wpRow = null
+      continue
+    }
+    if (/\bhit ratio\b/i.test(line)) {
+      wpActive = false; hitActive = true; yieldActive = false; lossActive = false
+      hitRow = 0; hitRowCollect = []
+      continue
+    }
+    if (/\byield ratio\b/i.test(line)) {
+      wpActive = false; hitActive = false; yieldActive = true; lossActive = false
+      yieldRow = 0; yieldRowCollect = []
+      continue
+    }
+    if (/direct loss ratio/i.test(line)) {
+      wpActive = false; hitActive = false; yieldActive = false; lossActive = true
+      lossStarted = false; subtotalCount = 0
+      continue
+    }
+    // Other section headers that end WP/Hit/Yield
+    if (/^submitted\b|^quoted\b|^issued premium\b|^quoted ratio\b/i.test(line)) {
+      wpActive = false; hitActive = false; yieldActive = false
+      continue
+    }
+
+    // Skip pure header/label lines
+    if (/calendar year basis|policy year basis/i.test(line)) continue
+    if (/^=wp\/|^=quoted\//i.test(line)) continue
+    if (/current ytd|prev ytd|current rolling|prev rolling/i.test(line)) continue
+    if (/policies\s+premium/i.test(line)) continue
+    if (/^report parameters|^agency:|^market type|^note:|^prepared:|^page \d/i.test(line)) continue
+    if (/incurred direct accident|earned incurred loss ratio/i.test(line)) continue
+
+    // ── WRITTEN PREMIUM ──
+    if (wpActive) {
+      // Detect row labels
+      if (/^new$/i.test(line)) { wpRow = "new"; continue }
+      if (/^renewal$/i.test(line)) { wpRow = "renewal"; continue }
+      if (/^total$/i.test(line)) { wpRow = "total"; continue }
+      // "New Renewal" on same line — set to "new", renewal follows
+      if (/\bnew\b/i.test(line) && /\brenewal\b/i.test(line)) { wpRow = "new"; continue }
+
+      const ns = lineNums(line)
+      if (ns.length > 0 && wpRow) {
+        // Accumulate into current row; stop collecting once we have 8
+        const col = wpCollect[wpRow]
+        for (const n of ns) {
+          if (col.length < 8) col.push(n)
+        }
+        // Advance row after collecting enough values
+        if (wpRow === "new"     && wpCollect.new.length >= 8) wpRow = "renewal"
+        if (wpRow === "renewal" && wpCollect.renewal.length >= 8) wpRow = "total"
       }
-      if (newNums.length >= 1) result.bh_new_policies_ytd = newNums[0]
+      continue
     }
 
-    // "Renewal" row
-    const renewalMatch = /\bRenewal\b/i.exec(wpBlob)
-    if (renewalMatch) {
-      const afterRenewal = wpBlob.slice(renewalMatch.index + renewalMatch[0].length)
-      const tokens = afterRenewal.split(/[\s,]+/).filter(Boolean)
-      const renewNums: number[] = []
-      for (const t of tokens) {
-        if (renewNums.length >= 8) break
-        if (/^total$/i.test(t)) break
-        const n = parseFloat(t.replace(/[,$%]/g, ""))
-        if (!isNaN(n)) renewNums.push(n)
+    // ── HIT RATIO ──
+    if (hitActive) {
+      if (/^new$/i.test(line))     { flushHitRow(); hitRow = 0; continue }
+      if (/^renewal$/i.test(line)) { flushHitRow(); hitRow = 1; continue }
+      if (/^total$/i.test(line))   { flushHitRow(); hitRow = 2; continue }
+      if (/\(policy year basis\)|=wp\//i.test(line)) continue
+
+      // Collect % tokens — each may be its own line OR multiple on one line
+      const pctRe = /(-?\d{1,3}(?:\.\d{1,2})?)%/g
+      let m: RegExpExecArray | null
+      while ((m = pctRe.exec(line)) !== null) {
+        hitRowCollect.push(parseFloat(m[1]))
+        if (hitRowCollect.length >= 8) {
+          hitRows.push([...hitRowCollect])
+          hitRowCollect = []
+          hitRow++
+        }
       }
-      if (renewNums.length >= 1) result.bh_renewal_policies_ytd = renewNums[0]
+      continue
     }
 
-    // "Total" row — this is what we most care about for premium values
-    const totalMatch = /\bTotal\b/i.exec(wpBlob)
-    if (totalMatch) {
-      const afterTotal = wpBlob.slice(totalMatch.index + totalMatch[0].length)
-      const tokens = afterTotal.split(/[\s,]+/).filter(Boolean)
-      const totalNums: number[] = []
-      for (const t of tokens) {
-        if (totalNums.length >= 8) break
-        const n = parseFloat(t.replace(/[,$%]/g, ""))
-        if (!isNaN(n)) totalNums.push(n)
+    // ── YIELD RATIO ──
+    if (yieldActive) {
+      if (/^new$/i.test(line))     { flushYieldRow(); yieldRow = 0; continue }
+      if (/^renewal$/i.test(line)) { flushYieldRow(); yieldRow = 1; continue }
+      if (/^total$/i.test(line))   { flushYieldRow(); yieldRow = 2; continue }
+      if (/\(policy year basis\)|=wp\//i.test(line)) continue
+
+      const pctRe = /(-?\d{1,3}(?:\.\d{1,2})?)%/g
+      let m: RegExpExecArray | null
+      while ((m = pctRe.exec(line)) !== null) {
+        yieldRowCollect.push(parseFloat(m[1]))
+        if (yieldRowCollect.length >= 8) {
+          yieldRows.push([...yieldRowCollect])
+          yieldRowCollect = []
+          yieldRow++
+        }
       }
-      // [CurrYTD_Pol(0), CurrYTD_Prem(1), CurrR12_Pol(2), CurrR12_Prem(3), ...]
-      if (totalNums.length >= 2) result.bh_written_premium_ytd = totalNums[1]
-      if (totalNums.length >= 4) result.bh_written_premium_r12 = totalNums[3]
+      continue
+    }
+
+    // ── DIRECT LOSS RATIOS ──
+    if (lossActive) {
+      // Year header line (e.g. "1983-2020 2021 2022 ...")
+      if (/1983/i.test(line)) { lossStarted = true; continue }
+      if (!lossStarted) continue
+
+      if (/^grand total\b/i.test(line)) {
+        // Collect the LR% value — it's the last % in this line or next numeric line
+        const pct = line.match(/(-?\d{1,3}(?:\.\d{1,2})?)%/)
+        if (pct) result.bh_grand_total_loss_ratio = parseFloat(pct[1])
+        continue
+      }
+
+      if (/^subtotal\b/i.test(line)) {
+        // Collect LR% from this line if present
+        const pct = line.match(/(-?\d{1,3}(?:\.\d{1,2})?)%/)
+        if (pct) {
+          lossGroups[subtotalCount] = lossGroups[subtotalCount] || []
+          // The subtotal LR is a special value — store separately
+          if (subtotalCount === 0) result.bh_loss_ratio_1983_2020 = parseFloat(pct[1])
+          if (subtotalCount === 1) result.bh_loss_ratio_2024       = parseFloat(pct[1])
+        } else {
+          // LR% might be on the next line — flag it
+          rowsAfterSub = []
+        }
+        subtotalCount++
+        rowsAfterSub = []
+        continue
+      }
+
+      // Pure data line — look for a % value (the loss ratio)
+      const pct = line.match(/(-?\d{1,3}(?:\.\d{1,2})?)%/)
+      if (pct && lossStarted) {
+        const lr = parseFloat(pct[1])
+        // GRAND TOTAL % — catch if line contains "GRAND" too
+        if (/grand/i.test(line)) {
+          result.bh_grand_total_loss_ratio = lr
+          continue
+        }
+        if (subtotalCount === 0) {
+          // Before first subtotal — skip (these are the legacy aggregate numbers)
+        } else if (subtotalCount === 1) {
+          // Between sub1 (1983-2020) and sub2 (2024): year rows 2021, 2022, 2023
+          rowsAfterSub.push(lr)
+          if (rowsAfterSub.length === 2) result.bh_loss_ratio_2022 = lr  // skip 2021 at [0]
+          if (rowsAfterSub.length === 3) result.bh_loss_ratio_2023 = lr
+        } else if (subtotalCount === 2) {
+          // After sub2 (2024): year rows 2025, then YTD
+          rowsAfterSub.push(lr)
+          if (rowsAfterSub.length === 1) result.bh_loss_ratio_2025 = lr
+          if (rowsAfterSub.length === 2) result.bh_loss_ratio_ytd  = lr
+        }
+        continue
+      }
+
+      // Line with no %, but has numbers — might be part of a subtotal spanning lines
+      // The LR% for a subtotal can be on the line after "SUBTOTAL"
+      const ns = lineNums(line)
+      if (ns.length > 0 && subtotalCount > 0) {
+        // Check if this looks like just a loss-ratio value (single number 0-200 range)
+        // These are continuation lines for subtotals whose % was on a separate line
+        // We handle this by checking if the previous SUBTOTAL has no LR% yet
+        // (Already handled above with the pct match — if no %, we skip)
+      }
     }
   }
 
-  // ── HIT RATIO ─────────────────────────────────────────────────────────────
-  // Structure: "Hit Ratio:" ... "New" ... "Renewal" ... "Total"
-  // Then 3 rows of 8 percentage values each (New, Renewal, Total)
-  // CurrYTD policy-basis = 1st value of each row
-  const hitStart = blob.search(/Hit\s+Ratio\s*:/i)
-  if (hitStart >= 0) {
-    const hitSectionEnd = (() => {
-      const sub = blob.slice(hitStart + 1)
-      const next = sub.search(/Yield\s+Ratio\s*:|Direct\s+Loss/i)
-      return next >= 0 ? hitStart + 1 + next : blob.length
-    })()
-    const hitBlob = blob.slice(hitStart, hitSectionEnd)
+  // ── Flush trailing hit/yield rows ──
+  if (hitRowCollect.length > 0) hitRows.push([...hitRowCollect])
+  if (yieldRowCollect.length > 0) yieldRows.push([...yieldRowCollect])
 
-    // Collect all percentage values in order — they appear as "60.87% 36.48% ..."
-    // each potentially on its own line/token
-    const pctTokens: number[] = []
-    const pctRe = /(\d{1,3}\.\d{1,2})%/g
-    let m: RegExpExecArray | null
-    while ((m = pctRe.exec(hitBlob)) !== null) {
-      pctTokens.push(parseFloat(m[1]))
-    }
-    // 8 values per row: New[0..7], Renewal[8..15], Total[16..23]
-    // CurrYTD policy-basis = index 0 of each row
-    if (pctTokens.length >= 1)  result.bh_hit_ratio_new     = pctTokens[0]
-    if (pctTokens.length >= 9)  result.bh_hit_ratio_renewal = pctTokens[8]
-  }
+  // ── Assign WP values ──
+  // wpCollect.total: [CurrYTD_Pol(0), CurrYTD_Prem(1), CurrR12_Pol(2), CurrR12_Prem(3), ...]
+  if (wpCollect.new.length >= 1)     result.bh_new_policies_ytd     = wpCollect.new[0]
+  if (wpCollect.renewal.length >= 1) result.bh_renewal_policies_ytd = wpCollect.renewal[0]
+  if (wpCollect.total.length >= 2)   result.bh_written_premium_ytd  = wpCollect.total[1]
+  if (wpCollect.total.length >= 4)   result.bh_written_premium_r12  = wpCollect.total[3]
 
-  // ── YIELD RATIO ───────────────────────────────────────────────────────────
-  // Same structure as Hit Ratio but =WP/Submitted
-  // Total row CurrYTD premium-basis yield = 17th value (index 16+1=17 for prem basis)
-  const yieldStart = blob.search(/Yield\s+Ratio\s*:/i)
-  if (yieldStart >= 0) {
-    const yieldSectionEnd = (() => {
-      const sub = blob.slice(yieldStart + 1)
-      const next = sub.search(/Hit\s+Ratio\s*:|Direct\s+Loss/i)
-      return next >= 0 ? yieldStart + 1 + next : blob.length
-    })()
-    const yieldBlob = blob.slice(yieldStart, yieldSectionEnd)
+  // ── Assign Hit Ratio values ──
+  // hitRows[0]=New row, hitRows[1]=Renewal row — each has 8 values
+  // Column 0 = CurrYTD policy-basis hit ratio %
+  if (hitRows[0]?.[0] !== undefined) result.bh_hit_ratio_new     = hitRows[0][0]
+  if (hitRows[1]?.[0] !== undefined) result.bh_hit_ratio_renewal = hitRows[1][0]
 
-    const pctTokens: number[] = []
-    const pctRe = /(-?\d{1,3}\.\d{1,2})%/g
-    let m: RegExpExecArray | null
-    while ((m = pctRe.exec(yieldBlob)) !== null) {
-      pctTokens.push(parseFloat(m[1]))
-    }
-    // Row order: New[0..7], Renewal[8..15], Total[16..23]
-    // For Total row CurrYTD premium-basis = index 17
-    if (pctTokens.length >= 18) result.bh_yield_ratio_total = pctTokens[17]
-    else if (pctTokens.length >= 17) result.bh_yield_ratio_total = pctTokens[16]
-  }
-
-  // ── DIRECT LOSS RATIOS ────────────────────────────────────────────────────
-  // Find "Direct Loss Ratios:" then scan for SUBTOTAL and GRAND TOTAL anchors.
-  // The 4-value pattern per row is: Earned  Incurred  IncurredCalc  LR%
-  // We only care about the LR% (last value in each group of 4).
-  const lossStart = blob.search(/Direct\s+Loss\s+Ratio/i)
-  if (lossStart >= 0) {
-    const lossBlob = blob.slice(lossStart)
-
-    // GRAND TOTAL — find it first (easy anchor)
-    const gtMatch = /GRAND\s+TOTAL[\s,]+([\d,]+\.[\d]+)[\s,]+([\d,]+\.[\d]+)[\s,]+([\d,]+\.[\d]+)[\s,]+(-?[\d]+\.[\d]+)%/i.exec(lossBlob)
-    if (gtMatch) result.bh_grand_total_loss_ratio = parseFloat(gtMatch[4])
-
-    // Find all SUBTOTAL occurrences and their 4-value groups
-    const subRe = /SUBTOTAL[\s,]+([\d,]+\.[\d]+)[\s,]+([\d,]+\.[\d]+)[\s,]+([\d,]+\.[\d]+)[\s,]+(-?[\d]+\.[\d]+)%/gi
-    const subtotals: number[] = []
-    let sm: RegExpExecArray | null
-    while ((sm = subRe.exec(lossBlob)) !== null) {
-      subtotals.push(parseFloat(sm[4]))
-    }
-    // subtotals[0] = 1983-2020 (26.30%), subtotals[1] = 2024 (112.92%), subtotals[2] = recent (84.46%)
-    if (subtotals[0] !== undefined) result.bh_loss_ratio_1983_2020 = subtotals[0]
-    if (subtotals[1] !== undefined) result.bh_loss_ratio_2024      = subtotals[1]
-
-    // Individual year rows — extract all 4-value groups between SUBTOTALs
-    // Pattern: three large dollar amounts then a percentage (can be >100% or negative)
-    // We extract all such groups and map by order
-    const rowRe = /(?<!SUBTOTAL\s{0,5})(?<!TOTAL\s{0,5})([\d,]+\.[\d]+)[\s,]+([\d,]+\.[\d]+)[\s,]+([\d,]+\.[\d]+)[\s,]+(-?[\d]+\.[\d]+)%/g
-    const allRows: { pos: number; lr: number }[] = []
-    let rm: RegExpExecArray | null
-    while ((rm = rowRe.exec(lossBlob)) !== null) {
-      allRows.push({ pos: rm.index, lr: parseFloat(rm[4]) })
-    }
-
-    // Find SUBTOTAL positions to split allRows into groups
-    const sub1Re = /SUBTOTAL/gi
-    const subPositions: number[] = []
-    let sp: RegExpExecArray | null
-    while ((sp = sub1Re.exec(lossBlob)) !== null) {
-      subPositions.push(sp.index)
-    }
-
-    // Group allRows by which subPositions they fall between
-    const sub0 = subPositions[0] ?? Infinity
-    const sub1 = subPositions[1] ?? Infinity
-    const sub2 = subPositions[2] ?? Infinity
-
-    const group1 = allRows.filter(r => r.pos > sub0 && r.pos < sub1)  // 2021, 2022, 2023
-    const group2 = allRows.filter(r => r.pos > sub1 && r.pos < sub2)  // 2025, YTD
-
-    if (group1[1]?.lr !== undefined) result.bh_loss_ratio_2022 = group1[1].lr  // skip 2021
-    if (group1[2]?.lr !== undefined) result.bh_loss_ratio_2023 = group1[2].lr
-    if (group2[0]?.lr !== undefined) result.bh_loss_ratio_2025 = group2[0].lr
-    if (group2[1]?.lr !== undefined) result.bh_loss_ratio_ytd  = group2[1].lr
-  }
+  // ── Assign Yield Ratio values ──
+  // yieldRows[2]=Total row, column 1 = CurrYTD premium-basis yield %
+  if (yieldRows[2]?.[1] !== undefined)      result.bh_yield_ratio_total = yieldRows[2][1]
+  else if (yieldRows[2]?.[0] !== undefined) result.bh_yield_ratio_total = yieldRows[2][0]
 
   return result
 }

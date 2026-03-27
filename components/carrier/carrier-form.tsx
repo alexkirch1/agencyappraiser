@@ -42,6 +42,11 @@ const carriers: { value: CarrierName; label: string; description: string }[] = [
     label: "BH Guard",
     description: "WC, BOP, Comm. Auto, Umbrella & Specialty",
   },
+  {
+    value: "libertymutual",
+    label: "Liberty Mutual CL",
+    description: "Commercial Lines — BOP, WC, GL & Auto",
+  },
 ]
 
 const comingSoonCarriers: string[] = [
@@ -72,7 +77,7 @@ const comingSoonCarriers: string[] = [
   "Kemper Personal",
   "Kemper Specialty",
   "Lemonade",
-  "Liberty Mutual Commercial Lines",
+
   "Local Edge",
   "Markel",
   "Mendota",
@@ -213,6 +218,9 @@ export function CarrierForm({ inputs, onChange }: Props) {
               {carrier === "berkshire" && (
                 <BerkshireFields inputs={inputs} update={update} />
               )}
+              {carrier === "libertymutual" && (
+                <LibertyMutualFields inputs={inputs} update={update} />
+              )}
             </CardContent>
           </Card>
 
@@ -309,6 +317,9 @@ const defaultFieldReset: Partial<CarrierInputs> = {
   bh_loss_ratio_1983_2020: null, bh_loss_ratio_2022: null, bh_loss_ratio_2023: null,
   bh_loss_ratio_2024: null, bh_loss_ratio_2025: null, bh_loss_ratio_ytd: null,
   bh_grand_total_loss_ratio: null, bh_annual_goal: null,
+  lm_dwp_ytd: null, lm_dwp_pytd: null, lm_nb_dwp_ytd: null, lm_pif: null,
+  lm_loss_ratio_ytd: null, lm_loss_ratio_2yr: null,
+  lm_premium_retention: null, lm_plif_renewal: null,
   book_preferred_pct: null, book_policies_per_customer: null, book_avg_premium_per_policy: null,
   book_new_business_pct: null, book_monoline_pct: null, book_digital_docs_pct: null,
 }
@@ -336,6 +347,11 @@ function getBookTypeOptions(carrier: string) {
     ]
   }
   if (carrier === "berkshire") {
+    return [
+      { value: "commercial", label: "Commercial Lines" },
+    ]
+  }
+  if (carrier === "libertymutual") {
     return [
       { value: "commercial", label: "Commercial Lines" },
     ]
@@ -655,6 +671,84 @@ function BerkshireFields({
           placeholder="e.g. 88"
           type="percent"
           hint="GRAND TOTAL row — all years combined. This is the primary underwriting quality signal."
+        />
+      </div>
+    </>
+  )
+}
+
+// -----------------------------------------------------------------------
+// Liberty Mutual Commercial Lines Fields
+// -----------------------------------------------------------------------
+function LibertyMutualFields({
+  inputs, update,
+}: { inputs: CarrierInputs; update: (p: Partial<CarrierInputs>) => void }) {
+  return (
+    <>
+      <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+        <p className="text-sm font-semibold text-foreground">Written Premium</p>
+        <p className="text-xs text-muted-foreground">From the Direct Written Premium section of your CL ADP Summary. Values shown in $M (e.g. 0.11 = $110,000).</p>
+        <div className="grid grid-cols-2 gap-3">
+          <NumField
+            label="DWP YTD ($M)"
+            value={inputs.lm_dwp_ytd}
+            onChange={(v) => update({ lm_dwp_ytd: v })}
+            placeholder="e.g. 0.5"
+            type="number"
+            hint="Direct Written Premium YTD — from the DWP tile on your ADP Summary"
+          />
+          <NumField
+            label="DWP Prior YTD ($M)"
+            value={inputs.lm_dwp_pytd}
+            onChange={(v) => update({ lm_dwp_pytd: v })}
+            placeholder="e.g. 0.4"
+            type="number"
+            hint="Prior Year DWP YTD — for growth comparison"
+          />
+        </div>
+        <NumField
+          label="New Business DWP YTD ($M)"
+          value={inputs.lm_nb_dwp_ytd}
+          onChange={(v) => update({ lm_nb_dwp_ytd: v })}
+          placeholder="e.g. 0.1"
+          type="number"
+          hint="New Business DWP YTD — from the New Business DWP tile"
+        />
+        <NumField
+          label="Policies in Force (PIF)"
+          value={inputs.lm_pif}
+          onChange={(v) => update({ lm_pif: v })}
+          placeholder="e.g. 300"
+          type="count"
+          hint="Current PIF — from the PIF tile on your ADP Summary"
+        />
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+        <p className="text-sm font-semibold text-foreground">Retention & Loss Ratios</p>
+        <NumField
+          label="Premium Retention (%)"
+          value={inputs.lm_premium_retention}
+          onChange={(v) => update({ lm_premium_retention: v })}
+          placeholder="e.g. 72"
+          type="percent"
+          hint="Premium Retention % — from the Renewal tile on your ADP Summary"
+        />
+        <NumField
+          label="YTD Loss Ratio (%)"
+          value={inputs.lm_loss_ratio_ytd}
+          onChange={(v) => update({ lm_loss_ratio_ytd: v })}
+          placeholder="e.g. 65"
+          type="percent"
+          hint="YTD Loss Ratio — from the Loss Ratio tile"
+        />
+        <NumField
+          label="2 Years + YTD Loss Ratio (%)"
+          value={inputs.lm_loss_ratio_2yr}
+          onChange={(v) => update({ lm_loss_ratio_2yr: v })}
+          placeholder="e.g. 85"
+          type="percent"
+          hint="2 Years + YTD blended loss ratio — the primary underwriting quality signal for LM CL"
         />
       </div>
     </>
