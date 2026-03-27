@@ -54,11 +54,8 @@ async function extractTextFromPDF(file: File): Promise<string> {
     // Join each row's items with a space, rows separated by newline
     const pageText = rows.map(r => r.join(" ")).join("\n")
     fullText += pageText + "\n"
-
-    console.log("[v0] Page", i, "text:\n", pageText)
   }
 
-  console.log("[v0] Full PDF text:\n", fullText)
   return fullText
 }
 
