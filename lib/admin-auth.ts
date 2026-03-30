@@ -1,5 +1,5 @@
 import { cookies } from "next/headers"
-import { createHmac, timingSafeEqual } from "crypto"
+import { createHmac } from "crypto"
 
 // ---------------------------------------------------------------------------
 // Admin credentials — simple env vars, no JSON required.
@@ -70,22 +70,13 @@ export function verifySession(token: string): string | null {
 }
 
 // ---------------------------------------------------------------------------
-// Validate a login attempt — timing-safe password comparison
+// Validate a login attempt — direct string comparison
 // ---------------------------------------------------------------------------
 export function validateAdminCredentials(username: string, password: string): boolean {
   const users = getAdminUsers()
   const expected = users[username]
   if (!expected) return false
-
-  try {
-    // Timing-safe comparison
-    const expectedBuf = Buffer.from(expected)
-    const providedBuf = Buffer.from(password)
-    if (expectedBuf.length !== providedBuf.length) return false
-    return timingSafeEqual(expectedBuf, providedBuf)
-  } catch {
-    return false
-  }
+  return expected === password
 }
 
 // ---------------------------------------------------------------------------
