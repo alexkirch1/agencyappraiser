@@ -1,5 +1,5 @@
 import { cookies } from "next/headers"
-import { createHmac } from "crypto"
+import { createHmac, timingSafeEqual } from "crypto"
 
 // ---------------------------------------------------------------------------
 // Admin credentials — simple env vars, no JSON required.
