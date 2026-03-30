@@ -1,6 +1,13 @@
 "use client"
 
 import { useEffect, useState } from "react"
+
+const ADMIN_TOKEN_KEY = "admin_session_token"
+
+function getAuthHeaders(): HeadersInit {
+  const token = typeof window !== "undefined" ? localStorage.getItem(ADMIN_TOKEN_KEY) : null
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
 import { Card, CardContent } from "@/components/ui/card"
 import {
   BarChart,
@@ -60,7 +67,7 @@ export function AnalyticsTab() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch("/api/admin/analytics", { credentials: "include" })
+    fetch("/api/admin/analytics", { headers: getAuthHeaders() })
       .then((r) => {
         if (!r.ok) throw new Error("Failed to fetch analytics")
         return r.json()

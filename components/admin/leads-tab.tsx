@@ -1,6 +1,13 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+
+const ADMIN_TOKEN_KEY = "admin_session_token"
+
+function getAuthHeaders(): HeadersInit {
+  const token = typeof window !== "undefined" ? localStorage.getItem(ADMIN_TOKEN_KEY) : null
+  return token ? { "Content-Type": "application/json", Authorization: `Bearer ${token}` } : { "Content-Type": "application/json" }
+}
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { 
@@ -494,9 +501,8 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
     try {
       const res = await fetch("/api/admin/leads", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ id }),
-        credentials: "include",
       })
       if (!res.ok) throw new Error("Failed to delete")
       setLeads((prev) => prev.filter((l) => l.id !== id))
@@ -512,7 +518,7 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch("/api/admin/leads", { credentials: "include" })
+      const res = await fetch("/api/admin/leads", { headers: getAuthHeaders() })
       if (!res.ok) throw new Error("Failed to fetch")
       const data = await res.json()
       setLeads(data.leads ?? [])
@@ -534,9 +540,8 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
     try {
       const res = await fetch("/api/admin/leads", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ id: leadId, stage: newStage }),
-        credentials: "include",
       })
       if (!res.ok) throw new Error("Failed to update")
     } catch {
@@ -551,9 +556,8 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
     try {
       const res = await fetch("/api/admin/leads", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ id: lead.id, archived: true, archive_reason: reason }),
-        credentials: "include",
       })
       if (!res.ok) throw new Error("Failed to archive")
       setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, archived: true, archive_reason: reason } : l))
@@ -570,9 +574,8 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
     try {
       const res = await fetch("/api/admin/leads", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ id, archived: false, archive_reason: null }),
-        credentials: "include",
       })
       if (!res.ok) throw new Error("Failed to unarchive")
       setLeads((prev) => prev.map((l) => l.id === id ? { ...l, archived: false, archive_reason: null } : l))

@@ -1,4 +1,4 @@
-import { cookies } from "next/headers"
+import { headers } from "next/headers"
 import { createHmac, timingSafeEqual } from "crypto"
 
 // ---------------------------------------------------------------------------
@@ -29,8 +29,6 @@ function getAdminUsers(): Record<string, string> {
 // Session signing — HMAC-SHA256 with ADMIN_SESSION_SECRET
 // Token format: base64(username):base64(hmac)
 // ---------------------------------------------------------------------------
-const SESSION_COOKIE = "admin_session"
-
 function getSecret(): string {
   const secret = process.env.ADMIN_SESSION_SECRET
   if (!secret) {
@@ -83,14 +81,15 @@ export function validateAdminCredentials(username: string, password: string): bo
 }
 
 // ---------------------------------------------------------------------------
-// isAdminAuthenticated — reads the session cookie and verifies the HMAC
+// isAdminAuthenticated — reads the Authorization header and verifies the HMAC
 // ---------------------------------------------------------------------------
 export async function isAdminAuthenticated(): Promise<boolean> {
   try {
-    const cookieStore = await cookies()
-    const session = cookieStore.get(SESSION_COOKIE)
-    if (!session?.value) return false
-    return verifySession(session.value) !== null
+    const headerStore = await headers()
+    const authHeader = headerStore.get("Authorization")
+    if (!authHeader?.startsWith("Bearer ")) return false
+    const token = authHeader.slice(7)
+    return verifySession(token) !== null
   } catch {
     return false
   }
