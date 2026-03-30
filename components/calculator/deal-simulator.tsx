@@ -55,17 +55,16 @@ function projectGrowthRate(
 // Formula:
 //   Annual earnout payment  = LTM Revenue × commissionPct
 //   Full Earnout total      = annualPayment × years
-//   Cash + Earnout total    = (highOffer × cashPct) + (annualPayment × blendYears)
 //
 // For Full Earnout to exceed All Cash (highOffer), we need:
 //   LTM Revenue × commissionPct × years > highOffer
+//   commissionPct > highOffer / (LTM Revenue × years)
 //
-// Typical market multiples (highOffer / LTM Revenue) are 1.0–2.0x for insurance books.
-// If multiple = 1.5x and commPct = 40%, years = 3:
-//   40% × 3 = 120% of LTM revenue = 80% of highOffer (still less)
-// Better: commPct = 60%, years = 3 = 180% of LTM revenue = 120% of highOffer ✓
+// Example: highOffer = $480k, LTM = $480k, years = 2
+//   Need commPct > 480k / (480k × 2) = 50%
+//   At 60% × 2 years = 120% of LTM = $576k total (beats $480k cash by 20%)
 //
-// Defaults: target Full Earnout total at ~115–130% of highOffer.
+// Defaults: target Full Earnout total at 110–130% of highOffer.
 function smartEarnoutDefaults(
   highOffer: number,
   revLTM: number,
@@ -75,49 +74,59 @@ function smartEarnoutDefaults(
   const isGrowth = growthRate >= 0.05
   const isDeclining = growthRate < -0.02
 
-  // Calculate revenue multiple so we can back into a commPct that beats cash
-  // Target: commPct × years = (highOffer / revLTM) × 1.20  (20% above cash)
-  const multiple = revLTM > 0 ? highOffer / revLTM : 1.5
+  // Calculate minimum commPct needed to BEAT cash offer
+  // Formula: commPct × years × LTM > highOffer
+  // So: minCommPct = highOffer / (LTM × years) / premium
+  // We want to exceed cash by 10–30%, so we multiply by 1.1–1.3
+  const ltm = revLTM > 0 ? revLTM : highOffer
 
   if (isDeclining) {
-    // Conservative — earnout still competitive but modest upside over cash
-    const targetPct = Math.min(55, Math.max(30, Math.ceil((multiple * 1.1) / 2 / 5) * 5))
+    // 2 years, target 110% of cash
+    const minPct = (highOffer * 1.10) / (ltm * 2) * 100
+    const targetPct = Math.min(80, Math.max(40, Math.round(minPct / 5) * 5))
     return {
       commPct: targetPct,
       years: 2,
-      rationale: `Declining revenue means buyers offer cautious earnout terms. At ${targetPct}%/yr of your LTM revenue over 2 years, you can still exceed the all-cash offer if retention holds above 85%.`,
+      rationale: `Declining revenue means cautious earnout terms. At ${targetPct}% commission over 2 years, your total still exceeds the all-cash offer — rewarding you for retention.`,
     }
   }
   if (isGrowth && isLarge) {
-    const targetPct = Math.min(65, Math.max(40, Math.ceil((multiple * 1.25) / 3 / 5) * 5))
+    // 3 years, target 130% of cash
+    const minPct = (highOffer * 1.30) / (ltm * 3) * 100
+    const targetPct = Math.min(80, Math.max(40, Math.round(minPct / 5) * 5))
     return {
       commPct: targetPct,
       years: 3,
-      rationale: `Strong growth and book size command premium earnout terms. At ${targetPct}%/yr over 3 years, your total payout exceeds the all-cash offer by ~25% — the upside reward for excellent retention.`,
+      rationale: `Strong growth and size command premium terms. At ${targetPct}% commission over 3 years, your total payout exceeds all-cash by ~30%.`,
     }
   }
   if (isGrowth && !isLarge) {
-    const targetPct = Math.min(60, Math.max(35, Math.ceil((multiple * 1.20) / 2 / 5) * 5))
+    // 2 years, target 125% of cash
+    const minPct = (highOffer * 1.25) / (ltm * 2) * 100
+    const targetPct = Math.min(80, Math.max(45, Math.round(minPct / 5) * 5))
     return {
       commPct: targetPct,
       years: 2,
-      rationale: `Growing book with solid retention history. At ${targetPct}%/yr over 2 years, your total payout exceeds all-cash by ~20% — a strong reward for keeping clients post-sale.`,
+      rationale: `Growing book supports solid earnout. At ${targetPct}% commission over 2 years, total payout exceeds all-cash by ~25%.`,
     }
   }
   if (isLarge) {
-    const targetPct = Math.min(60, Math.max(35, Math.ceil((multiple * 1.20) / 3 / 5) * 5))
+    // 3 years, target 120% of cash
+    const minPct = (highOffer * 1.20) / (ltm * 3) * 100
+    const targetPct = Math.min(75, Math.max(40, Math.round(minPct / 5) * 5))
     return {
       commPct: targetPct,
       years: 3,
-      rationale: `Large stable book. At ${targetPct}%/yr over 3 years, total earnout exceeds all-cash by ~20%. Buyers pay the premium for size and predictable renewal income.`,
+      rationale: `Large stable book. At ${targetPct}% commission over 3 years, total exceeds all-cash by ~20%.`,
     }
   }
-  // Default: flat/stable
-  const targetPct = Math.min(55, Math.max(30, Math.ceil((multiple * 1.15) / 2 / 5) * 5))
+  // Default: flat/stable — 2 years, target 115% of cash
+  const minPct = (highOffer * 1.15) / (ltm * 2) * 100
+  const targetPct = Math.min(75, Math.max(45, Math.round(minPct / 5) * 5))
   return {
     commPct: targetPct,
     years: 2,
-    rationale: `Stable book, standard earnout terms. At ${targetPct}%/yr of your LTM revenue over 2 years, total payout exceeds all-cash by ~15% — the earnout premium for proven retention.`,
+    rationale: `Stable book, standard terms. At ${targetPct}% commission over 2 years, total exceeds all-cash by ~15%.`,
   }
 }
 
