@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       const cookieStore = await cookies()
       cookieStore.set(SESSION_COOKIE, token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: false,
         sameSite: "lax",
         maxAge: SESSION_MAX_AGE,
         path: "/",
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       const cookieStore = await cookies()
       cookieStore.set(SESSION_COOKIE, "", {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: false,
         sameSite: "lax",
         maxAge: 0,
         path: "/",
