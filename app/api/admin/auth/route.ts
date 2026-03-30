@@ -21,9 +21,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: "Invalid credentials." }, { status: 401 })
       }
 
-      console.log("[v0] Admin login attempt:", { username: username.trim(), passwordLength: password.trim().length })
       const valid = validateAdminCredentials(username.trim(), password.trim())
-      console.log("[v0] Validation result:", valid)
       if (!valid) {
         // Same error message for both "user not found" and "wrong password" — avoids username enumeration
         return NextResponse.json({ success: false, error: "Invalid credentials." }, { status: 401 })

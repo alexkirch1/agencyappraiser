@@ -117,13 +117,16 @@ export function DealSimulator({
 
   const [activeStrategy, setActiveStrategy] = useState<Strategy>("allcash")
 
-  // Cash+Earnout sliders (10–90 each, must sum to 100)
-  const [blendCashPct, setBlendCashPct] = useState(60)
+  // Cash+Earnout sliders — smart defaults mirror the full-earnout logic
+  // but lean cash-heavy since a blend is a safer structure for the seller.
+  const blendCashDefault = smartDefaults.pct >= 65 ? 70 : smartDefaults.pct >= 55 ? 60 : 50
+  const blendCommDefault = Math.round(smartDefaults.pct * 0.75 / 5) * 5 // ~75% of full-earnout rate
+  const [blendCashPct, setBlendCashPct] = useState(blendCashDefault)
   const blendEarnoutPct = 100 - blendCashPct
 
   // Blend earnout settings
-  const [blendEarnoutCommPct, setBlendEarnoutCommPct] = useState(50)
-  const [blendEarnoutYears, setBlendEarnoutYears] = useState(1)
+  const [blendEarnoutCommPct, setBlendEarnoutCommPct] = useState(Math.max(10, Math.min(75, blendCommDefault)))
+  const [blendEarnoutYears, setBlendEarnoutYears] = useState(smartDefaults.years)
 
   // Full earnout — start from smart defaults
   const [fullEarnoutPct, setFullEarnoutPct] = useState(smartDefaults.pct)
@@ -273,6 +276,15 @@ export function DealSimulator({
       {/* ── CASH + EARNOUT ── */}
       {activeStrategy === "blend" && (
         <div className="rounded-lg border border-border bg-secondary/30 p-4 flex flex-col gap-4">
+          <div className="flex items-start gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2.5">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <div>
+              <p className="text-xs font-semibold text-foreground">Suggested Numbers Applied</p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
+                Starting point: <span className="font-medium text-foreground">{blendCashPct}% cash at close</span>, earnout at <span className="font-medium text-foreground">{blendEarnoutCommPct}% commission</span> over <span className="font-medium text-foreground">{blendEarnoutYears} {blendEarnoutYears === 1 ? "year" : "years"}</span> — based on your agency size and growth. Adjust sliders to explore.
+              </p>
+            </div>
+          </div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Structure Your Split
           </p>

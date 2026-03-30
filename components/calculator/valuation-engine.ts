@@ -474,9 +474,6 @@ export function runRiskAudit(inputs: ValuationInputs): RiskAuditResult {
       const transitionLabel = inputs.sellerTransitionMonths >= 24 ? "12–24 months" : "6–12 months"
       items.push({ level: "Strength", title: `Strong Transition Commitment (${transitionLabel})`, problem: "You're willing to stay on for an extended period to ensure client retention.", psychology: "Buyers pay more when the seller commits to a smooth handoff — it dramatically reduces integration risk.", mitigation: null })
       strengthCount++
-    } else if (inputs.sellerTransitionMonths === 0) {
-      items.push({ level: "High Risk", title: "Immediate Exit Plan", problem: "Planning to walk away at close is a major red flag for buyers.", psychology: "Buyers fear client attrition when the face of the agency disappears overnight.", mitigation: "Consider committing to at least 6 months of transition support — it can increase your multiple by 0.25–0.5x." })
-      highCount++
     }
   }
 
