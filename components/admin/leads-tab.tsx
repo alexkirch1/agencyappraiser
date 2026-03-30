@@ -507,6 +507,25 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
     }
   }
 
+  const fetchLeads = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/admin/leads")
+      if (!res.ok) throw new Error("Failed to fetch")
+      const data = await res.json()
+      setLeads(data.leads ?? [])
+      setStats(data.stats ?? null)
+      setStageStats(data.stageStats ?? [])
+      setSourceStats(data.sourceStats ?? [])
+      setWeeklyTrend(data.weeklyTrend ?? [])
+    } catch {
+      setError("Could not load leads from database.")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   const updateLeadStage = useCallback(async (leadId: number, newStage: string) => {
     // Optimistic update
     setLeads((prev) => prev.map((l) => l.id === leadId ? { ...l, stage: newStage } : l))
@@ -523,7 +542,7 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
       fetchLeads()
       alert("Failed to update lead stage.")
     }
-  }, [])
+  }, [fetchLeads])
 
   const archiveLead = async (lead: LeadRow, reason: string) => {
     setArchiveLoading(true)
@@ -558,26 +577,7 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
     }
   }
 
-  const fetchLeads = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch("/api/admin/leads")
-      if (!res.ok) throw new Error("Failed to fetch")
-      const data = await res.json()
-      setLeads(data.leads ?? [])
-      setStats(data.stats ?? null)
-      setStageStats(data.stageStats ?? [])
-      setSourceStats(data.sourceStats ?? [])
-      setWeeklyTrend(data.weeklyTrend ?? [])
-    } catch {
-      setError("Could not load leads from database.")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => { fetchLeads() }, [])
+  useEffect(() => { fetchLeads() }, [fetchLeads])
 
   const activeDeals = deals.filter((d) => d.status === "active")
   const completedDeals = deals.filter((d) => d.status === "completed")
