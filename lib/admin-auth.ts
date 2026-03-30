@@ -90,9 +90,13 @@ export async function isAdminAuthenticated(): Promise<boolean> {
   try {
     const cookieStore = await cookies()
     const session = cookieStore.get(SESSION_COOKIE)
+    console.log("[v0] isAdminAuthenticated - cookie exists:", !!session?.value)
     if (!session?.value) return false
-    return verifySession(session.value) !== null
-  } catch {
+    const verified = verifySession(session.value)
+    console.log("[v0] isAdminAuthenticated - verified user:", verified)
+    return verified !== null
+  } catch (err) {
+    console.log("[v0] isAdminAuthenticated - error:", err)
     return false
   }
 }
