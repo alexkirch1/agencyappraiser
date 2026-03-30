@@ -22,6 +22,7 @@ function getAdminUsers(): Record<string, string> {
   const p2 = process.env.ADMIN_PASSWORD_2
   if (u2 && p2) users[u2] = p2
 
+  console.log("[v0] getAdminUsers v2 - users:", Object.keys(users))
   return users
 }
 

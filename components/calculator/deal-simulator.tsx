@@ -91,19 +91,19 @@ function smartEarnoutDefaults(
     }
   }
   if (isGrowth && isLarge) {
-    // 3 years, target 130% of cash
-    const minPct = (highOffer * 1.30) / (ltm * 3) * 100
-    const targetPct = Math.min(80, Math.max(40, Math.round(minPct / 5) * 5))
+    // 2 years, target 130% of cash
+    const minPct = (highOffer * 1.30) / (ltm * 2) * 100
+    const targetPct = Math.min(80, Math.max(50, Math.round(minPct / 5) * 5))
     return {
       commPct: targetPct,
-      years: 3,
-      rationale: `Strong growth and size command premium terms. At ${targetPct}% commission over 3 years, your total payout exceeds all-cash by ~30%.`,
+      years: 2,
+      rationale: `Strong growth and size command premium terms. At ${targetPct}% commission over 2 years, your total payout exceeds all-cash by ~30%.`,
     }
   }
   if (isGrowth && !isLarge) {
     // 2 years, target 125% of cash
     const minPct = (highOffer * 1.25) / (ltm * 2) * 100
-    const targetPct = Math.min(80, Math.max(45, Math.round(minPct / 5) * 5))
+    const targetPct = Math.min(80, Math.max(50, Math.round(minPct / 5) * 5))
     return {
       commPct: targetPct,
       years: 2,
@@ -111,13 +111,13 @@ function smartEarnoutDefaults(
     }
   }
   if (isLarge) {
-    // 3 years, target 120% of cash
-    const minPct = (highOffer * 1.20) / (ltm * 3) * 100
-    const targetPct = Math.min(75, Math.max(40, Math.round(minPct / 5) * 5))
+    // 2 years, target 120% of cash
+    const minPct = (highOffer * 1.20) / (ltm * 2) * 100
+    const targetPct = Math.min(80, Math.max(50, Math.round(minPct / 5) * 5))
     return {
       commPct: targetPct,
-      years: 3,
-      rationale: `Large stable book. At ${targetPct}% commission over 3 years, total exceeds all-cash by ~20%.`,
+      years: 2,
+      rationale: `Large stable book. At ${targetPct}% commission over 2 years, total exceeds all-cash by ~20%.`,
     }
   }
   // Default: flat/stable — 2 years, target 115% of cash
@@ -464,7 +464,7 @@ export function DealSimulator({
           {/* Year selector */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Payout period:</span>
-            {[1, 2, 3].map((y) => (
+            {[1, 2].map((y) => (
               <Button
                 key={y}
                 size="sm"
