@@ -45,57 +45,79 @@ function projectGrowthRate(
   return { growthRate: t.rate, growthLabel: t.label }
 }
 
-// ─── Smart Full-Earnout defaults based on agency financials ──────────────────
-// Commission % here means: what % of the book's ANNUAL COMMISSIONS (not revenue)
-// the buyer pays out per year. Typical market range: 15–40% of annual commissions.
-// We express it against highOffer so that:
-//   earnout per year = highOffer × annualPayoutPct
-// This way Full Earnout over N years = highOffer × annualPayoutPct × N
-// At 40%/yr × 2 years = 80% of highOffer, or at 35%/yr × 3 years = 105% of offer.
+// ─── Earnout model ────────────────────────────────────────────────────────────
 //
-// annualPayoutPct ranges: 20–45% of highOffer per year (realistic market)
-// years: 1–3
+// How insurance book earnouts actually work:
+//   - Buyer pays a COMMISSION OVERRIDE on the book's annual premiums/revenue each year
+//   - Seller earns a % of the book's LTM revenue per year for N years
+//   - The total can EXCEED the all-cash offer because the buyer is betting on retention
+//
+// Formula:
+//   Annual earnout payment  = LTM Revenue × commissionPct
+//   Full Earnout total      = annualPayment × years
+//   Cash + Earnout total    = (highOffer × cashPct) + (annualPayment × blendYears)
+//
+// For Full Earnout to exceed All Cash (highOffer), we need:
+//   LTM Revenue × commissionPct × years > highOffer
+//
+// Typical market multiples (highOffer / LTM Revenue) are 1.0–2.0x for insurance books.
+// If multiple = 1.5x and commPct = 40%, years = 3:
+//   40% × 3 = 120% of LTM revenue = 80% of highOffer (still less)
+// Better: commPct = 60%, years = 3 = 180% of LTM revenue = 120% of highOffer ✓
+//
+// Defaults: target Full Earnout total at ~115–130% of highOffer.
 function smartEarnoutDefaults(
   highOffer: number,
   revLTM: number,
   growthRate: number
-): { annualPct: number; years: number; rationale: string } {
+): { commPct: number; years: number; rationale: string } {
   const isLarge = revLTM > 500_000
   const isGrowth = growthRate >= 0.05
   const isDeclining = growthRate < -0.02
 
+  // Calculate revenue multiple so we can back into a commPct that beats cash
+  // Target: commPct × years = (highOffer / revLTM) × 1.20  (20% above cash)
+  const multiple = revLTM > 0 ? highOffer / revLTM : 1.5
+
   if (isDeclining) {
+    // Conservative — earnout still competitive but modest upside over cash
+    const targetPct = Math.min(55, Math.max(30, Math.ceil((multiple * 1.1) / 2 / 5) * 5))
     return {
-      annualPct: 25,
-      years: 1,
-      rationale: "Declining revenue limits earnout offers — buyers typically offer ~25%/yr of agreed value for 1 year to offset retention risk.",
+      commPct: targetPct,
+      years: 2,
+      rationale: `Declining revenue means buyers offer cautious earnout terms. At ${targetPct}%/yr of your LTM revenue over 2 years, you can still exceed the all-cash offer if retention holds above 85%.`,
     }
   }
   if (isGrowth && isLarge) {
+    const targetPct = Math.min(65, Math.max(40, Math.ceil((multiple * 1.25) / 3 / 5) * 5))
     return {
-      annualPct: 40,
-      years: 2,
-      rationale: "Strong growth and book size support a premium earnout. Buyers are comfortable offering ~40%/yr over 2 years, totalling ~80% above the cash value.",
+      commPct: targetPct,
+      years: 3,
+      rationale: `Strong growth and book size command premium earnout terms. At ${targetPct}%/yr over 3 years, your total payout exceeds the all-cash offer by ~25% — the upside reward for excellent retention.`,
     }
   }
   if (isGrowth && !isLarge) {
+    const targetPct = Math.min(60, Math.max(35, Math.ceil((multiple * 1.20) / 2 / 5) * 5))
     return {
-      annualPct: 35,
+      commPct: targetPct,
       years: 2,
-      rationale: "Healthy growth supports a solid earnout. ~35%/yr over 2 years is realistic, rewarding retention and renewal performance.",
+      rationale: `Growing book with solid retention history. At ${targetPct}%/yr over 2 years, your total payout exceeds all-cash by ~20% — a strong reward for keeping clients post-sale.`,
     }
   }
   if (isLarge) {
+    const targetPct = Math.min(60, Math.max(35, Math.ceil((multiple * 1.20) / 3 / 5) * 5))
     return {
-      annualPct: 30,
-      years: 2,
-      rationale: "Larger stable book supports a 2-year earnout at ~30%/yr of agreed value — a moderate, low-risk structure for both sides.",
+      commPct: targetPct,
+      years: 3,
+      rationale: `Large stable book. At ${targetPct}%/yr over 3 years, total earnout exceeds all-cash by ~20%. Buyers pay the premium for size and predictable renewal income.`,
     }
   }
+  // Default: flat/stable
+  const targetPct = Math.min(55, Math.max(30, Math.ceil((multiple * 1.15) / 2 / 5) * 5))
   return {
-    annualPct: 28,
+    commPct: targetPct,
     years: 2,
-    rationale: "Flat/stable book — a 2-year earnout at ~28%/yr is the most common structure, paying out ~56% on top of the base offer if retention holds.",
+    rationale: `Stable book, standard earnout terms. At ${targetPct}%/yr of your LTM revenue over 2 years, total payout exceeds all-cash by ~15% — the earnout premium for proven retention.`,
   }
 }
 
@@ -121,18 +143,16 @@ export function DealSimulator({
 
   const [activeStrategy, setActiveStrategy] = useState<Strategy>("allcash")
 
-  // Cash+Earnout sliders — blend is cash-heavy, earnout portion uses same annual% logic
-  const blendCashDefault = 60
-  const blendAnnualDefault = Math.max(15, Math.round(smartDefaults.annualPct * 0.6 / 5) * 5)
-  const [blendCashPct, setBlendCashPct] = useState(blendCashDefault)
+  // Cash+Earnout sliders
+  const [blendCashPct, setBlendCashPct] = useState(60)
   const blendEarnoutPct = 100 - blendCashPct
+  // Blend earnout comm% starts at ~80% of full earnout rate (less aggressive since seller gets cash too)
+  const blendCommDefault = Math.max(20, Math.round(smartDefaults.commPct * 0.8 / 5) * 5)
+  const [blendCommPct, setBlendCommPct] = useState(blendCommDefault)
+  const [blendEarnoutYears, setBlendEarnoutYears] = useState(Math.max(1, smartDefaults.years - 1))
 
-  // Blend earnout: annual % of (highOffer × earnoutShare) per year
-  const [blendEarnoutAnnualPct, setBlendEarnoutAnnualPct] = useState(blendAnnualDefault)
-  const [blendEarnoutYears, setBlendEarnoutYears] = useState(smartDefaults.years)
-
-  // Full earnout — annual % of highOffer paid per year
-  const [fullEarnoutAnnualPct, setFullEarnoutAnnualPct] = useState(smartDefaults.annualPct)
+  // Full earnout — commission % of LTM revenue paid each year
+  const [fullCommPct, setFullCommPct] = useState(smartDefaults.commPct)
   const [fullEarnoutYears, setFullEarnoutYears] = useState(smartDefaults.years)
 
   // ─── CALCULATIONS ────────────────────────────────────────────────────────
@@ -140,33 +160,23 @@ export function DealSimulator({
   // Baseline: All Cash = highOffer
   const allCashValue = highOffer
 
-  // Growth multiplier per year (for display context only)
-  function projectedRevenue(year: number) {
-    return ltmRevenue > 0 ? ltmRevenue * Math.pow(1 + growthRate, year) : 0
-  }
+  // Annual earnout payment = LTM Revenue × commissionPct
+  // This models real insurance book earnouts: seller earns a commission override
+  // on the book's annual revenue for N years.
+  const annualFullPayment = ltmRevenue > 0 ? ltmRevenue * (fullCommPct / 100) : highOffer * 0.35
+  const annualBlendPayment = ltmRevenue > 0 ? ltmRevenue * (blendCommPct / 100) : highOffer * 0.25
 
   // Cash + Earnout
-  // Cash at close = highOffer × cashPct
-  // Earnout per year = (highOffer × earnoutSharePct) × (annualPct / 100)
-  // i.e., you're paid a % of the deferred value each year
   const blendCashAtClose = highOffer * (blendCashPct / 100)
-  const blendEarnoutBase = highOffer * (blendEarnoutPct / 100)
-  const blendYearlyPayments = Array.from({ length: blendEarnoutYears }, () =>
-    blendEarnoutBase * (blendEarnoutAnnualPct / 100)
-  )
+  const blendYearlyPayments = Array.from({ length: blendEarnoutYears }, () => annualBlendPayment)
   const blendEarnoutTotal = blendYearlyPayments.reduce((a, b) => a + b, 0)
   const blendTotalValue = blendCashAtClose + blendEarnoutTotal
 
-  // Warn if total earnout payout exceeds 2× the deferred base (unrealistic multiple)
-  const blendEarnoutCeiling = blendEarnoutBase * 2
-  const blendEarnoutOverflow = blendEarnoutTotal > blendEarnoutCeiling
+  // Warn if total earnout payout exceeds 2.5× highOffer (unrealistic)
+  const blendEarnoutOverflow = blendTotalValue > highOffer * 2.5
 
-  // Full Earnout
-  // Annual payment = highOffer × (annualPct / 100) per year
-  // e.g. 35%/yr × 2 years = 70% of highOffer total
-  const fullYearlyPayments = Array.from({ length: fullEarnoutYears }, () =>
-    highOffer * (fullEarnoutAnnualPct / 100)
-  )
+  // Full Earnout — no cash at close, pure commission income over N years
+  const fullYearlyPayments = Array.from({ length: fullEarnoutYears }, () => annualFullPayment)
   const fullEarnoutTotal = fullYearlyPayments.reduce((a, b) => a + b, 0)
   const fullTotalValue = fullEarnoutTotal
 
@@ -285,7 +295,7 @@ export function DealSimulator({
             <div>
               <p className="text-xs font-semibold text-foreground">Suggested Numbers Applied</p>
               <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
-                Starting point: <span className="font-medium text-foreground">{blendCashPct}% cash at close</span>, earnout at <span className="font-medium text-foreground">{blendEarnoutAnnualPct}%/yr</span> of deferred value over <span className="font-medium text-foreground">{blendEarnoutYears} {blendEarnoutYears === 1 ? "year" : "years"}</span> — based on your agency profile. Adjust sliders to explore.
+                Starting point: <span className="font-medium text-foreground">{blendCashPct}% cash at close</span>, earnout at <span className="font-medium text-foreground">{blendCommPct}% commission</span> on LTM revenue over <span className="font-medium text-foreground">{blendEarnoutYears} {blendEarnoutYears === 1 ? "year" : "years"}</span> — based on your agency profile. Adjust sliders to explore.
               </p>
             </div>
           </div>
@@ -330,22 +340,22 @@ export function DealSimulator({
             </div>
           </div>
 
-          {/* Earnout annual payout % */}
+          {/* Earnout commission % on LTM revenue */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Earnout — Annual Payout % of Deferred Value</span>
-              <span className="font-bold font-mono text-foreground">{blendEarnoutAnnualPct}%</span>
+              <span className="text-muted-foreground">Commission % on Annual Revenue per Year</span>
+              <span className="font-bold font-mono text-foreground">{blendCommPct}%</span>
             </div>
             <Slider
-              value={[blendEarnoutAnnualPct]}
-              onValueChange={([v]) => setBlendEarnoutAnnualPct(v)}
+              value={[blendCommPct]}
+              onValueChange={([v]) => setBlendCommPct(v)}
               min={10}
-              max={50}
+              max={80}
               step={5}
             />
             <div className="flex justify-between text-[11px] text-muted-foreground">
-              <span>10%/yr (conservative)</span>
-              <span>50%/yr (aggressive)</span>
+              <span>10% (conservative)</span>
+              <span>80% (aggressive)</span>
             </div>
           </div>
 
@@ -381,7 +391,7 @@ export function DealSimulator({
                   <span className="text-sm font-semibold text-foreground">{formatCurrency(payment)}</span>
                 </div>
                 <span className="text-[11px] text-muted-foreground/70">
-                  {formatCurrency(Math.round(blendEarnoutBase))} deferred value × {blendEarnoutAnnualPct}%/yr
+                  {ltmRevenue > 0 ? formatCurrency(Math.round(ltmRevenue)) : "LTM"} revenue × {blendCommPct}% commission
                 </span>
               </div>
             ))}
@@ -423,29 +433,29 @@ export function DealSimulator({
             Earnout Terms
           </p>
 
-          {/* Annual payout % slider */}
+          {/* Commission % on LTM revenue */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Annual Payout — % of Agreed Value per Year</span>
-              <span className="font-bold font-mono text-foreground">{fullEarnoutAnnualPct}%</span>
+              <span className="text-muted-foreground">Commission % on Annual Revenue per Year</span>
+              <span className="font-bold font-mono text-foreground">{fullCommPct}%</span>
             </div>
             <Slider
-              value={[fullEarnoutAnnualPct]}
-              onValueChange={([v]) => setFullEarnoutAnnualPct(v)}
+              value={[fullCommPct]}
+              onValueChange={([v]) => setFullCommPct(v)}
               min={10}
-              max={50}
+              max={100}
               step={5}
             />
             <div className="flex justify-between text-[11px] text-muted-foreground">
-              <span>10%/yr (conservative)</span>
-              <span className="text-muted-foreground/60">50%/yr (aggressive)</span>
+              <span>10% (conservative)</span>
+              <span className="text-muted-foreground/60">100% (max)</span>
             </div>
           </div>
 
           {/* Year selector */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Payout period:</span>
-            {[1, 2].map((y) => (
+            {[1, 2, 3].map((y) => (
               <Button
                 key={y}
                 size="sm"
@@ -474,7 +484,7 @@ export function DealSimulator({
                   <span className="text-sm font-semibold text-foreground">{formatCurrency(payment)}</span>
                 </div>
                 <span className="text-[11px] text-muted-foreground/70">
-                  {formatCurrency(highOffer)} agreed value × {fullEarnoutAnnualPct}%/yr
+                  {ltmRevenue > 0 ? formatCurrency(Math.round(ltmRevenue)) : "LTM"} revenue × {fullCommPct}% commission
                 </span>
               </div>
             ))}
