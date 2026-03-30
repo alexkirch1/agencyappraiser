@@ -10,8 +10,8 @@ function getAdminUsers(): Record<string, string> {
   const users: Record<string, string> = {}
 
   // Primary admin from env vars (plain strings, no JSON needed)
-  const u1 = process.env.ADMIN_USERNAME ?? "Alexkirch"
-  const p1 = process.env.ADMIN_PASSWORD ?? "M0untain99"
+  const u1 = process.env.ADMIN_USERNAME ?? "ADMIN"
+  const p1 = process.env.ADMIN_PASSWORD ?? "Secretpassword123"
   users[u1] = p1
 
   // Optional second admin
@@ -70,22 +70,18 @@ export function verifySession(token: string): string | null {
 }
 
 // ---------------------------------------------------------------------------
-// Validate a login attempt — timing-safe password comparison
+// Validate a login attempt — direct string comparison
 // ---------------------------------------------------------------------------
 export function validateAdminCredentials(username: string, password: string): boolean {
   const users = getAdminUsers()
+  console.log("[v0] Available admin users:", Object.keys(users))
+  console.log("[v0] Looking up username:", JSON.stringify(username))
   const expected = users[username]
+  console.log("[v0] Expected password exists:", !!expected)
   if (!expected) return false
-
-  try {
-    // Timing-safe comparison
-    const expectedBuf = Buffer.from(expected)
-    const providedBuf = Buffer.from(password)
-    if (expectedBuf.length !== providedBuf.length) return false
-    return timingSafeEqual(expectedBuf, providedBuf)
-  } catch {
-    return false
-  }
+  const matches = expected === password
+  console.log("[v0] Password match:", matches)
+  return matches
 }
 
 // ---------------------------------------------------------------------------

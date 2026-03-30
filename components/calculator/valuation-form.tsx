@@ -252,7 +252,7 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
             >
               {[
                 { value: "strong",    label: "Strong Growth",    sub: "10%+ per year" },
-                { value: "moderate",  label: "Moderate Growth",  sub: "3��9% per year" },
+                { value: "moderate",  label: "Moderate Growth",  sub: "3–9% per year" },
                 { value: "flat",      label: "Flat",             sub: "Roughly the same" },
                 { value: "declining", label: "Declining",        sub: "Revenue has decreased" },
               ].map((opt) => (
