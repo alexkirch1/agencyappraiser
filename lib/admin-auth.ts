@@ -74,9 +74,14 @@ export function verifySession(token: string): string | null {
 // ---------------------------------------------------------------------------
 export function validateAdminCredentials(username: string, password: string): boolean {
   const users = getAdminUsers()
+  console.log("[v0] Available admin users:", Object.keys(users))
+  console.log("[v0] Looking up username:", JSON.stringify(username))
   const expected = users[username]
+  console.log("[v0] Expected password exists:", !!expected)
   if (!expected) return false
-  return expected === password
+  const matches = expected === password
+  console.log("[v0] Password match:", matches)
+  return matches
 }
 
 // ---------------------------------------------------------------------------
