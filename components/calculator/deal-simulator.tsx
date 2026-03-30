@@ -46,52 +46,56 @@ function projectGrowthRate(
 }
 
 // ─── Smart Full-Earnout defaults based on agency financials ──────────────────
-// Rules:
-//  - Larger agencies (LTM > $500k) → buyers more likely to offer 2 years
-//  - Strong growth → higher commission rate (up to 75%)
-//  - Declining revenue → cap at 50%, 1 year only
-//  - Mid-range: 60%, 1-2 years depending on size
+// Commission % here means: what % of the book's ANNUAL COMMISSIONS (not revenue)
+// the buyer pays out per year. Typical market range: 15–40% of annual commissions.
+// We express it against highOffer so that:
+//   earnout per year = highOffer × annualPayoutPct
+// This way Full Earnout over N years = highOffer × annualPayoutPct × N
+// At 40%/yr × 2 years = 80% of highOffer, or at 35%/yr × 3 years = 105% of offer.
+//
+// annualPayoutPct ranges: 20–45% of highOffer per year (realistic market)
+// years: 1–3
 function smartEarnoutDefaults(
   highOffer: number,
   revLTM: number,
   growthRate: number
-): { pct: number; years: number; rationale: string } {
+): { annualPct: number; years: number; rationale: string } {
   const isLarge = revLTM > 500_000
   const isGrowth = growthRate >= 0.05
   const isDeclining = growthRate < -0.02
 
   if (isDeclining) {
     return {
-      pct: 50,
+      annualPct: 25,
       years: 1,
-      rationale: "Declining revenue limits earnout offers — buyers protect against continued book erosion.",
+      rationale: "Declining revenue limits earnout offers — buyers typically offer ~25%/yr of agreed value for 1 year to offset retention risk.",
     }
   }
   if (isGrowth && isLarge) {
     return {
-      pct: 75,
+      annualPct: 40,
       years: 2,
-      rationale: "Strong growth and size support a maximum earnout. Buyers are comfortable with 2-year exposure.",
+      rationale: "Strong growth and book size support a premium earnout. Buyers are comfortable offering ~40%/yr over 2 years, totalling ~80% above the cash value.",
     }
   }
   if (isGrowth && !isLarge) {
     return {
-      pct: 65,
-      years: 1,
-      rationale: "Healthy growth but smaller book — buyers typically offer 1 year at a strong commission rate.",
+      annualPct: 35,
+      years: 2,
+      rationale: "Healthy growth supports a solid earnout. ~35%/yr over 2 years is realistic, rewarding retention and renewal performance.",
     }
   }
   if (isLarge) {
     return {
-      pct: 60,
+      annualPct: 30,
       years: 2,
-      rationale: "Larger stable book supports a 2-year earnout at a moderate commission rate.",
+      rationale: "Larger stable book supports a 2-year earnout at ~30%/yr of agreed value — a moderate, low-risk structure for both sides.",
     }
   }
   return {
-    pct: 55,
-    years: 1,
-    rationale: "Flat/stable revenue and moderate size — a conservative 1-year earnout is most realistic.",
+    annualPct: 28,
+    years: 2,
+    rationale: "Flat/stable book — a 2-year earnout at ~28%/yr is the most common structure, paying out ~56% on top of the base offer if retention holds.",
   }
 }
 
@@ -117,51 +121,51 @@ export function DealSimulator({
 
   const [activeStrategy, setActiveStrategy] = useState<Strategy>("allcash")
 
-  // Cash+Earnout sliders — smart defaults mirror the full-earnout logic
-  // but lean cash-heavy since a blend is a safer structure for the seller.
-  const blendCashDefault = smartDefaults.pct >= 65 ? 70 : smartDefaults.pct >= 55 ? 60 : 50
-  const blendCommDefault = Math.round(smartDefaults.pct * 0.75 / 5) * 5 // ~75% of full-earnout rate
+  // Cash+Earnout sliders — blend is cash-heavy, earnout portion uses same annual% logic
+  const blendCashDefault = 60
+  const blendAnnualDefault = Math.max(15, Math.round(smartDefaults.annualPct * 0.6 / 5) * 5)
   const [blendCashPct, setBlendCashPct] = useState(blendCashDefault)
   const blendEarnoutPct = 100 - blendCashPct
 
-  // Blend earnout settings
-  const [blendEarnoutCommPct, setBlendEarnoutCommPct] = useState(Math.max(10, Math.min(75, blendCommDefault)))
+  // Blend earnout: annual % of (highOffer × earnoutShare) per year
+  const [blendEarnoutAnnualPct, setBlendEarnoutAnnualPct] = useState(blendAnnualDefault)
   const [blendEarnoutYears, setBlendEarnoutYears] = useState(smartDefaults.years)
 
-  // Full earnout — start from smart defaults
-  const [fullEarnoutPct, setFullEarnoutPct] = useState(smartDefaults.pct)
+  // Full earnout — annual % of highOffer paid per year
+  const [fullEarnoutAnnualPct, setFullEarnoutAnnualPct] = useState(smartDefaults.annualPct)
   const [fullEarnoutYears, setFullEarnoutYears] = useState(smartDefaults.years)
 
   // ─── CALCULATIONS ────────────────────────────────────────────────────────
 
-  // Baseline: All Cash = highOffer (no discount, this IS the valuation)
+  // Baseline: All Cash = highOffer
   const allCashValue = highOffer
 
-  // Per-year projected revenue
+  // Growth multiplier per year (for display context only)
   function projectedRevenue(year: number) {
     return ltmRevenue > 0 ? ltmRevenue * Math.pow(1 + growthRate, year) : 0
   }
 
   // Cash + Earnout
-  // Cash at close = highOffer × (blendCashPct / 100)   — proportional slice of valuation
-  // Per-year earnout = that year's projected revenue × (blendEarnoutCommPct / 100)
-  // Guard: if earnout total > (highOffer × blendEarnoutPct/100 × 1.5) it's unrealistic
+  // Cash at close = highOffer × cashPct
+  // Earnout per year = (highOffer × earnoutSharePct) × (annualPct / 100)
+  // i.e., you're paid a % of the deferred value each year
   const blendCashAtClose = highOffer * (blendCashPct / 100)
-  const blendYearlyPayments = Array.from({ length: blendEarnoutYears }, (_, i) =>
-    projectedRevenue(i + 1) * (blendEarnoutCommPct / 100)
+  const blendEarnoutBase = highOffer * (blendEarnoutPct / 100)
+  const blendYearlyPayments = Array.from({ length: blendEarnoutYears }, () =>
+    blendEarnoutBase * (blendEarnoutAnnualPct / 100)
   )
   const blendEarnoutTotal = blendYearlyPayments.reduce((a, b) => a + b, 0)
-
-  // Warn if earnout is overly optimistic (>2x the earnout share of valuation)
-  const blendEarnoutCeiling = highOffer * (blendEarnoutPct / 100) * 2
-  const blendEarnoutOverflow = blendEarnoutTotal > blendEarnoutCeiling
-
   const blendTotalValue = blendCashAtClose + blendEarnoutTotal
 
+  // Warn if total earnout payout exceeds 2× the deferred base (unrealistic multiple)
+  const blendEarnoutCeiling = blendEarnoutBase * 2
+  const blendEarnoutOverflow = blendEarnoutTotal > blendEarnoutCeiling
+
   // Full Earnout
-  // No cash at close. Annual payment = projectedRevenue × (fullEarnoutPct / 100)
-  const fullYearlyPayments = Array.from({ length: fullEarnoutYears }, (_, i) =>
-    projectedRevenue(i + 1) * (fullEarnoutPct / 100)
+  // Annual payment = highOffer × (annualPct / 100) per year
+  // e.g. 35%/yr × 2 years = 70% of highOffer total
+  const fullYearlyPayments = Array.from({ length: fullEarnoutYears }, () =>
+    highOffer * (fullEarnoutAnnualPct / 100)
   )
   const fullEarnoutTotal = fullYearlyPayments.reduce((a, b) => a + b, 0)
   const fullTotalValue = fullEarnoutTotal
@@ -281,7 +285,7 @@ export function DealSimulator({
             <div>
               <p className="text-xs font-semibold text-foreground">Suggested Numbers Applied</p>
               <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
-                Starting point: <span className="font-medium text-foreground">{blendCashPct}% cash at close</span>, earnout at <span className="font-medium text-foreground">{blendEarnoutCommPct}% commission</span> over <span className="font-medium text-foreground">{blendEarnoutYears} {blendEarnoutYears === 1 ? "year" : "years"}</span> — based on your agency size and growth. Adjust sliders to explore.
+                Starting point: <span className="font-medium text-foreground">{blendCashPct}% cash at close</span>, earnout at <span className="font-medium text-foreground">{blendEarnoutAnnualPct}%/yr</span> of deferred value over <span className="font-medium text-foreground">{blendEarnoutYears} {blendEarnoutYears === 1 ? "year" : "years"}</span> — based on your agency profile. Adjust sliders to explore.
               </p>
             </div>
           </div>
@@ -326,22 +330,22 @@ export function DealSimulator({
             </div>
           </div>
 
-          {/* Earnout commission rate */}
+          {/* Earnout annual payout % */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Earnout — Commission Rate on Annual Revenue</span>
-              <span className="font-bold font-mono text-foreground">{blendEarnoutCommPct}%</span>
+              <span className="text-muted-foreground">Earnout — Annual Payout % of Deferred Value</span>
+              <span className="font-bold font-mono text-foreground">{blendEarnoutAnnualPct}%</span>
             </div>
             <Slider
-              value={[blendEarnoutCommPct]}
-              onValueChange={([v]) => setBlendEarnoutCommPct(v)}
+              value={[blendEarnoutAnnualPct]}
+              onValueChange={([v]) => setBlendEarnoutAnnualPct(v)}
               min={10}
-              max={75}
+              max={50}
               step={5}
             />
             <div className="flex justify-between text-[11px] text-muted-foreground">
-              <span>10% (min)</span>
-              <span>75% (max)</span>
+              <span>10%/yr (conservative)</span>
+              <span>50%/yr (aggressive)</span>
             </div>
           </div>
 
@@ -377,7 +381,7 @@ export function DealSimulator({
                   <span className="text-sm font-semibold text-foreground">{formatCurrency(payment)}</span>
                 </div>
                 <span className="text-[11px] text-muted-foreground/70">
-                  {formatCurrency(Math.round(projectedRevenue(i + 1)))} est. revenue × {blendEarnoutCommPct}%
+                  {formatCurrency(Math.round(blendEarnoutBase))} deferred value × {blendEarnoutAnnualPct}%/yr
                 </span>
               </div>
             ))}
@@ -398,11 +402,6 @@ export function DealSimulator({
             </div>
           )}
 
-          {growthRate !== 0 && (
-            <p className="text-[10px] text-muted-foreground">
-              Year 2 applies your {growthRate > 0 ? "+" : ""}{(growthRate * 100).toFixed(0)}% revenue trend ({growthLabel}).
-            </p>
-          )}
         </div>
       )}
 
@@ -424,22 +423,22 @@ export function DealSimulator({
             Earnout Terms
           </p>
 
-          {/* Commission % slider */}
+          {/* Annual payout % slider */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Commission Rate on Annual Revenue</span>
-              <span className="font-bold font-mono text-foreground">{fullEarnoutPct}%</span>
+              <span className="text-muted-foreground">Annual Payout — % of Agreed Value per Year</span>
+              <span className="font-bold font-mono text-foreground">{fullEarnoutAnnualPct}%</span>
             </div>
             <Slider
-              value={[fullEarnoutPct]}
-              onValueChange={([v]) => setFullEarnoutPct(v)}
+              value={[fullEarnoutAnnualPct]}
+              onValueChange={([v]) => setFullEarnoutAnnualPct(v)}
               min={10}
-              max={75}
+              max={50}
               step={5}
             />
             <div className="flex justify-between text-[11px] text-muted-foreground">
-              <span>10%</span>
-              <span className="text-muted-foreground/60">75% max (rarely offered)</span>
+              <span>10%/yr (conservative)</span>
+              <span className="text-muted-foreground/60">50%/yr (aggressive)</span>
             </div>
           </div>
 
@@ -475,7 +474,7 @@ export function DealSimulator({
                   <span className="text-sm font-semibold text-foreground">{formatCurrency(payment)}</span>
                 </div>
                 <span className="text-[11px] text-muted-foreground/70">
-                  {formatCurrency(Math.round(projectedRevenue(i + 1)))} est. revenue × {fullEarnoutPct}%
+                  {formatCurrency(highOffer)} agreed value × {fullEarnoutAnnualPct}%/yr
                 </span>
               </div>
             ))}
@@ -503,44 +502,47 @@ export function DealSimulator({
       )}
 
       {/* ── STRATEGY COMPARISON ── */}
-      <div className="rounded-md border border-border bg-card divide-y divide-border">
-        <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Strategy Comparison
-        </p>
-        {(
-          [
-            { key: "allcash" as Strategy,    label: "All Cash",       val: allCashValue,   badge: null },
-            { key: "blend" as Strategy,      label: "Cash + Earnout", val: blendTotalValue, badge: null },
-            { key: "allearnout" as Strategy, label: "Full Earnout",   val: fullTotalValue,  badge: "Best" },
-          ] as { key: Strategy; label: string; val: number; badge: string | null }[]
-        ).map(({ key, label, val, badge }) => (
-          <div
-            key={key}
-            className={`flex items-center justify-between px-3 py-2 cursor-pointer transition-colors ${
-              activeStrategy === key ? "bg-primary/5" : "hover:bg-secondary/50"
-            }`}
-            onClick={() => setActiveStrategy(key)}
-          >
-            <span
-              className={`text-xs ${activeStrategy === key ? "font-semibold text-foreground" : "text-muted-foreground"}`}
-            >
-              {label}
-            </span>
-            <div className="flex items-center gap-2">
-              <span
-                className={`text-sm font-bold ${activeStrategy === key ? "text-success" : "text-muted-foreground"}`}
-              >
-                {formatCurrency(val)}
-              </span>
-              {badge && (
-                <span className="text-[10px] font-medium text-primary bg-primary/10 rounded px-1.5 py-0.5">
-                  {badge}
-                </span>
-              )}
-            </div>
+      {(() => {
+        const maxVal = Math.max(allCashValue, blendTotalValue, fullTotalValue)
+        const rows: { key: Strategy; label: string; val: number }[] = [
+          { key: "allcash",    label: "All Cash",       val: allCashValue    },
+          { key: "blend",      label: "Cash + Earnout", val: blendTotalValue },
+          { key: "allearnout", label: "Full Earnout",   val: fullTotalValue  },
+        ]
+        return (
+          <div className="rounded-md border border-border bg-card divide-y divide-border">
+            <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Strategy Comparison
+            </p>
+            {rows.map(({ key, label, val }) => {
+              const isBest = val === maxVal && val > 0
+              return (
+                <div
+                  key={key}
+                  className={`flex items-center justify-between px-3 py-2 cursor-pointer transition-colors ${
+                    activeStrategy === key ? "bg-primary/5" : "hover:bg-secondary/50"
+                  }`}
+                  onClick={() => setActiveStrategy(key)}
+                >
+                  <span className={`text-xs ${activeStrategy === key ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+                    {label}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-bold ${activeStrategy === key ? "text-success" : "text-muted-foreground"}`}>
+                      {formatCurrency(val)}
+                    </span>
+                    {isBest && (
+                      <span className="text-[10px] font-medium text-primary bg-primary/10 rounded px-1.5 py-0.5">
+                        Best
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
-        ))}
-      </div>
+        )
+      })()}
 
       {/* Disclaimer */}
       <div className="flex items-start gap-2 rounded-md border border-border bg-card px-3 py-2.5">
