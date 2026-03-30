@@ -496,6 +496,7 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
+        credentials: "include",
       })
       if (!res.ok) throw new Error("Failed to delete")
       setLeads((prev) => prev.filter((l) => l.id !== id))
@@ -511,7 +512,7 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch("/api/admin/leads")
+      const res = await fetch("/api/admin/leads", { credentials: "include" })
       if (!res.ok) throw new Error("Failed to fetch")
       const data = await res.json()
       setLeads(data.leads ?? [])
@@ -535,6 +536,7 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: leadId, stage: newStage }),
+        credentials: "include",
       })
       if (!res.ok) throw new Error("Failed to update")
     } catch {
@@ -551,6 +553,7 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: lead.id, archived: true, archive_reason: reason }),
+        credentials: "include",
       })
       if (!res.ok) throw new Error("Failed to archive")
       setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, archived: true, archive_reason: reason } : l))
@@ -569,6 +572,7 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, archived: false, archive_reason: null }),
+        credentials: "include",
       })
       if (!res.ok) throw new Error("Failed to unarchive")
       setLeads((prev) => prev.map((l) => l.id === id ? { ...l, archived: false, archive_reason: null } : l))

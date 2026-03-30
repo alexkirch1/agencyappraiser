@@ -60,7 +60,7 @@ export function AnalyticsTab() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch("/api/admin/analytics")
+    fetch("/api/admin/analytics", { credentials: "include" })
       .then((r) => {
         if (!r.ok) throw new Error("Failed to fetch analytics")
         return r.json()

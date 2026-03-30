@@ -22,7 +22,6 @@ function getAdminUsers(): Record<string, string> {
   const p2 = process.env.ADMIN_PASSWORD_2
   if (u2 && p2) users[u2] = p2
 
-  console.log("[v0] getAdminUsers v2 - users:", Object.keys(users))
   return users
 }
 
@@ -90,13 +89,9 @@ export async function isAdminAuthenticated(): Promise<boolean> {
   try {
     const cookieStore = await cookies()
     const session = cookieStore.get(SESSION_COOKIE)
-    console.log("[v0] isAdminAuthenticated - cookie exists:", !!session?.value)
     if (!session?.value) return false
-    const verified = verifySession(session.value)
-    console.log("[v0] isAdminAuthenticated - verified user:", verified)
-    return verified !== null
-  } catch (err) {
-    console.log("[v0] isAdminAuthenticated - error:", err)
+    return verifySession(session.value) !== null
+  } catch {
     return false
   }
 }

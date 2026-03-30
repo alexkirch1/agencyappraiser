@@ -14,6 +14,7 @@ export default function AdminPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "check" }),
+        credentials: "include",
       })
       const data = await res.json()
       setAuthenticated(data.authenticated)
@@ -33,6 +34,7 @@ export default function AdminPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "login", username, password }),
+      credentials: "include",
     })
     const data = await res.json()
     if (data.success) {
@@ -47,6 +49,7 @@ export default function AdminPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "logout" }),
+      credentials: "include",
     })
     setAuthenticated(false)
   }

@@ -23,7 +23,6 @@ export async function POST(req: NextRequest) {
 
       const valid = validateAdminCredentials(username.trim(), password.trim())
       if (!valid) {
-        // Same error message for both "user not found" and "wrong password" — avoids username enumeration
         return NextResponse.json({ success: false, error: "Invalid credentials." }, { status: 401 })
       }
 
