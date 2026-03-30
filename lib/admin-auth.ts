@@ -10,8 +10,8 @@ function getAdminUsers(): Record<string, string> {
   const users: Record<string, string> = {}
 
   // Primary admin from env vars (plain strings, no JSON needed)
-  const u1 = process.env.ADMIN_USERNAME ?? "Alexkirch"
-  const p1 = process.env.ADMIN_PASSWORD ?? "M0untain99"
+  const u1 = process.env.ADMIN_USERNAME ?? "ADMIN"
+  const p1 = process.env.ADMIN_PASSWORD ?? "Secretpassword123"
   users[u1] = p1
 
   // Optional second admin
