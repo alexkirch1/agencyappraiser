@@ -6,32 +6,53 @@
  * Key columns used:
  *   Account Name            — customer identifier
  *   Policy Number           — unique policy identifier
+ *   Policy Type             — "Personal" | "Commercial"
  *   Master Company          — carrier name
  *   Line Of Business        — LOB label
- *   Total Annualized Premium / TotalWrittenPremium
- *   LOB Origination Date    — date this LOB was first written; equals Policy Effective Date for new business
+ *   TotalWrittenPremium / Total Annualized Premium
+ *   LOB Origination Date    — equals Policy Effective Date for new business
  *   Policy Effective Date   — current term effective date
  *   ExpiringPolicies        — 1 if this policy is expiring/up for renewal
- *   TotalCustomers, Total Policies, Average Policies Per Customer — pre-aggregated per row
  *
  * New business detection:
  *   A policy is "new business" when LOB Origination Date === Policy Effective Date
- *   (meaning it was first written in the current term, not a renewal)
  */
 
+import type { CarrierName, BookType } from "./carrier-engine"
+
+export interface LobBreakdown {
+  auto: number          // Personal Auto premium
+  home: number          // Home / Condo / Renters / Dwelling premium
+  commercial: number    // BOP / GL / Comm Pkg / Comm Prpty / Inland Marine / Crime / CPP premium
+  wc: number            // Workers Comp premium
+  other: number         // Umbrella / Excess / Flood / Other premium
+}
+
 export interface CommissionParseResult {
+  // ── Detected context ──────────────────────────────────────────────────────
+  detectedCarrier:   CarrierName | null
+  detectedBookType:  BookType    | null
+
+  // ── LOB premium breakdown ─────────────────────────────────────────────────
+  lobBreakdown: LobBreakdown
+
+  // ── Book quality (used by Book Quality section) ───────────────────────────
   book_avg_premium_per_policy: number | null
-  book_new_business_pct: number | null
-  book_policies_per_customer: number | null
-  book_monoline_pct: number | null          // % of customers with only 1 policy
-  totalWrittenPremium: number | null
+  book_new_business_pct:       number | null
+  book_policies_per_customer:  number | null
+  book_monoline_pct:           number | null   // % customers with only 1 policy
+
+  // ── Aggregates ────────────────────────────────────────────────────────────
+  totalWrittenPremium:  number | null
+  newBusinessPremium:   number | null          // premium attributable to new biz policies
   totalSplitCommission: number | null
-  totalPolicies: number | null
-  totalCustomers: number | null
-  newBusinessCount: number | null
-  totalTransactions: number | null
-  carrierBreakdown: CarrierBreakdown[]
-  statementMonth: string | null
+  totalPolicies:        number | null          // unique policy count (PIF proxy)
+  totalCustomers:       number | null
+  newBusinessCount:     number | null
+  expiringCount:        number | null          // policies flagged as expiring
+  totalTransactions:    number | null          // raw row count
+  carrierBreakdown:     CarrierBreakdown[]
+  statementMonth:       string | null
   format: "CSV" | "unknown"
 }
 
@@ -45,9 +66,6 @@ export interface CarrierBreakdown {
 
 // ─── CSV helpers ──────────────────────────────────────────────────────────────
 
-/**
- * Parse a single CSV line respecting quoted fields (handles commas inside quotes).
- */
 function parseCSVLine(line: string): string[] {
   const fields: string[] = []
   let current = ""
@@ -55,14 +73,10 @@ function parseCSVLine(line: string): string[] {
   for (let i = 0; i < line.length; i++) {
     const ch = line[i]
     if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"'; i++
-      } else {
-        inQuotes = !inQuotes
-      }
+      if (inQuotes && line[i + 1] === '"') { current += '"'; i++ }
+      else inQuotes = !inQuotes
     } else if (ch === "," && !inQuotes) {
-      fields.push(current.trim())
-      current = ""
+      fields.push(current.trim()); current = ""
     } else {
       current += ch
     }
@@ -79,60 +93,108 @@ function parseDollar(s: string): number {
   return isNaN(n) ? 0 : neg ? -n : n
 }
 
-function normaliseCarrier(raw: string): string {
+// ─── Carrier normalisation ────────────────────────────────────────────────────
+
+function normaliseCarrierDisplay(raw: string): string {
   if (!raw || raw === "Unknown") return "Unknown Carrier"
   const r = raw.toLowerCase()
-  if (r.includes("progressive"))              return "Progressive"
-  if (r.includes("hartford"))                 return "The Hartford"
-  if (r.includes("travelers"))                return "Travelers"
-  if (r.includes("allstate"))                 return "Allstate"
-  if (r.includes("safeco"))                   return "Safeco"
-  if (r.includes("nationwide"))               return "Nationwide"
-  if (r.includes("liberty mutual"))           return "Liberty Mutual"
-  if (r.includes("ohio security"))            return "Liberty Mutual"
-  if (r.includes("ohio cas"))                 return "Liberty Mutual"
-  if (r.includes("american fire"))            return "Liberty Mutual"
-  if (r.includes("west amer"))                return "Liberty Mutual"
-  if (r.includes("general ins co of amer"))   return "Liberty Mutual"
-  if (r.includes("first natl ins co of amer")) return "Liberty Mutual"
-  if (r.includes("safeco ins co of or"))      return "Liberty Mutual"
-  if (r.includes("state auto"))               return "State Auto"
-  if (r.includes("employers"))                return "Employers"
-  if (r.includes("cna"))                      return "CNA"
-  if (r.includes("markel"))                   return "Markel"
-  if (r.includes("applied underwriters"))     return "Applied Underwriters"
+  if (r.includes("progressive"))               return "Progressive"
+  if (r.includes("hartford"))                  return "The Hartford"
+  if (r.includes("travelers"))                 return "Travelers"
+  if (r.includes("allstate"))                  return "Allstate"
+  if (r.includes("safeco"))                    return "Safeco"
+  if (r.includes("nationwide"))                return "Nationwide"
+  if (
+    r.includes("liberty mutual") ||
+    r.includes("ohio security") ||
+    r.includes("ohio cas") ||
+    r.includes("american fire") ||
+    r.includes("west amer") ||
+    r.includes("general ins co of amer") ||
+    r.includes("first natl ins co of amer") ||
+    r.includes("safeco ins co of or")
+  ) return "Liberty Mutual"
+  if (r.includes("state auto"))                return "State Auto"
+  if (r.includes("employers"))                 return "Employers"
+  if (r.includes("cna"))                       return "CNA"
+  if (r.includes("markel"))                    return "Markel"
+  if (r.includes("berkshire") || r.includes("bh guard") || r.includes("guard insurance"))
+    return "Berkshire / BH Guard"
+  if (r.includes("applied underwriters"))      return "Applied Underwriters"
   return raw.trim()
+}
+
+/** Maps display name → CarrierName engine key */
+function toCarrierKey(display: string): CarrierName | null {
+  switch (display) {
+    case "Progressive":             return "progressive"
+    case "The Hartford":            return "hartford"
+    case "Travelers":               return "travelers"
+    case "Safeco":                  return "safeco"
+    case "Liberty Mutual":          return "libertymutual"
+    case "Berkshire / BH Guard":    return "berkshire"
+    default:                        return null
+  }
+}
+
+// ─── LOB grouping ─────────────────────────────────────────────────────────────
+
+type LobGroup = keyof LobBreakdown
+
+function classifyLob(lob: string): LobGroup {
+  const l = lob.toLowerCase()
+  // Personal & commercial auto
+  if (l.includes("auto") || l.includes("private passenger") || l.includes("motorcycle"))
+    return "auto"
+  // Home / personal property
+  if (
+    l.includes("homeowner") || l.includes("home owner") || l.includes("dwelling") ||
+    l.includes("condo") || l.includes("renters") || l.includes("tenant") ||
+    l.includes("landlord") || l.includes("mobile home")
+  ) return "home"
+  // Workers Comp
+  if (l.includes("workers comp") || l.includes("work comp") || l.includes("wc"))
+    return "wc"
+  // Umbrella / Excess — separate bucket
+  if (l.includes("umbrella") || l.includes("excess liability"))
+    return "other"
+  // Commercial lines (BOP, GL, Pkg, Prpty, Inland Marine, Crime, CPP, Flood)
+  if (
+    l.includes("bop") || l.includes("business owner") || l.includes("genl liab") ||
+    l.includes("general liab") || l.includes("commercial") || l.includes("inland marine") ||
+    l.includes("crime") || l.includes("cpp") || l.includes("flood") || l.includes("surety") ||
+    l.includes("professional")
+  ) return "commercial"
+  // Catch-all
+  return "other"
 }
 
 // ─── Main parser ──────────────────────────────────────────────────────────────
 
 export function parseCommissionStatement(csvText: string): CommissionParseResult {
   const lines = csvText.split(/\r?\n/).filter(Boolean)
+  if (lines.length < 2) return emptyResult()
 
-  if (lines.length < 2) {
-    return emptyResult()
-  }
-
-  // Find header row (first row containing "Account Name" or "Policy Number")
+  // Find header row
   let headerIdx = -1
   for (let i = 0; i < Math.min(lines.length, 10); i++) {
     if (/account.?name/i.test(lines[i]) && /policy.?number/i.test(lines[i])) {
-      headerIdx = i
-      break
+      headerIdx = i; break
     }
   }
   if (headerIdx === -1) return emptyResult()
 
-  const headers = parseCSVLine(lines[headerIdx]).map(h => h.toLowerCase().replace(/\s+/g, " ").trim())
-
-  const col = (name: string): number => {
-    const idx = headers.findIndex(h => h.includes(name.toLowerCase()))
-    return idx
-  }
+  const headers = parseCSVLine(lines[headerIdx]).map(h =>
+    h.toLowerCase().replace(/\s+/g, " ").trim()
+  )
+  const col = (name: string) =>
+    headers.findIndex(h => h.includes(name.toLowerCase()))
 
   const iAccountName        = col("account name")
   const iPolicyNumber       = col("policy number")
+  const iPolicyType         = col("policy type")
   const iMasterCompany      = col("master company")
+  const iWritingCompany     = col("writing company")
   const iLineOfBusiness     = col("line of business")
   const iTotalAnnPremium    = col("total annualized premium")
   const iTotalWrittenPrem   = col("totalwrittenpremium")
@@ -141,19 +203,18 @@ export function parseCommissionStatement(csvText: string): CommissionParseResult
   const iExpiringPolicies   = col("expiringpolicies")
   const iPolicyStatus       = col("policy status")
 
-  // Prefer TotalWrittenPremium, fall back to Total Annualized Premium
   const iPremium = iTotalWrittenPrem >= 0 ? iTotalWrittenPrem : iTotalAnnPremium
 
-  if (iAccountName < 0 || iPolicyNumber < 0 || iPremium < 0) {
-    return emptyResult()
-  }
+  if (iAccountName < 0 || iPolicyNumber < 0 || iPremium < 0) return emptyResult()
 
   // ── Parse rows ──────────────────────────────────────────────────────────────
   interface Row {
     customer: string
     policy: string
-    carrier: string
+    carrier: string           // normalised display name
+    policyType: string        // "Personal" | "Commercial"
     lob: string
+    lobGroup: LobGroup
     premium: number
     isNewBusiness: boolean
     isExpiring: boolean
@@ -165,24 +226,28 @@ export function parseCommissionStatement(csvText: string): CommissionParseResult
     const line = lines[i].trim()
     if (!line) continue
     const fields = parseCSVLine(line)
-    if (fields.length < headers.length - 5) continue // allow a few missing cols
+    if (fields.length < headers.length - 8) continue
 
     const status = iPolicyStatus >= 0 ? fields[iPolicyStatus] ?? "" : "Active"
-    // Skip cancelled/lapsed policies
     if (/cancel|lapsed|expired/i.test(status)) continue
 
-    const customer    = fields[iAccountName]   ?? ""
-    const policy      = fields[iPolicyNumber]  ?? ""
-    const carrier     = fields[iMasterCompany] ?? ""
-    const lob         = iLineOfBusiness >= 0 ? (fields[iLineOfBusiness] ?? "") : ""
-    const premium     = parseDollar(fields[iPremium] ?? "0")
+    const customer   = fields[iAccountName]    ?? ""
+    const policy     = fields[iPolicyNumber]   ?? ""
+    const policyType = iPolicyType >= 0 ? (fields[iPolicyType] ?? "") : ""
+    const lob        = iLineOfBusiness >= 0 ? (fields[iLineOfBusiness] ?? "") : ""
+    const premium    = parseDollar(fields[iPremium] ?? "0")
 
-    // New business: origination date == effective date (first-time write)
+    // Prefer Master Company; fall back to Writing Company
+    const masterCo  = iMasterCompany  >= 0 ? (fields[iMasterCompany]  ?? "") : ""
+    const writingCo = iWritingCompany >= 0 ? (fields[iWritingCompany] ?? "") : ""
+    const rawCarrier = masterCo || writingCo
+    const carrier    = normaliseCarrierDisplay(rawCarrier)
+
     let isNewBusiness = false
     if (iLOBOriginationDate >= 0 && iPolicyEffDate >= 0) {
-      const origDate = fields[iLOBOriginationDate]?.trim() ?? ""
-      const effDate  = fields[iPolicyEffDate]?.trim() ?? ""
-      isNewBusiness = origDate.length > 0 && origDate === effDate
+      const orig = fields[iLOBOriginationDate]?.trim() ?? ""
+      const eff  = fields[iPolicyEffDate]?.trim() ?? ""
+      isNewBusiness = orig.length > 0 && orig === eff
     }
 
     const isExpiring = iExpiringPolicies >= 0
@@ -192,57 +257,81 @@ export function parseCommissionStatement(csvText: string): CommissionParseResult
     if (!customer && !policy) continue
     if (Math.abs(premium) < 0.01) continue
 
-    rows.push({ customer, policy, carrier, lob, premium, isNewBusiness, isExpiring })
+    rows.push({
+      customer, policy, carrier, policyType, lob,
+      lobGroup: classifyLob(lob),
+      premium, isNewBusiness, isExpiring,
+    })
   }
 
   if (rows.length === 0) return emptyResult()
 
-  // ── Aggregate ───────────────────────────────────────────────────────────────
-  // Track unique policies (by policy number) to avoid double-counting rows
-  // that share a policy number (e.g. multiple LOBs on same policy)
-  const policyPremium    = new Map<string, number>()  // policyNum → premium
-  const policyIsNewBiz   = new Map<string, boolean>() // policyNum → isNewBusiness
-  const policyCarrier    = new Map<string, string>()  // policyNum → carrier
-  const customerPolicies = new Map<string, Set<string>>() // customer → Set<policyNum>
+  // ── Detect carrier & book type from majority of rows ──────────────────────
+  const carrierVotes = new Map<string, number>()
+  let personalCount = 0, commercialCount = 0
+
+  for (const row of rows) {
+    carrierVotes.set(row.carrier, (carrierVotes.get(row.carrier) ?? 0) + 1)
+    if (/personal/i.test(row.policyType))   personalCount++
+    if (/commercial/i.test(row.policyType)) commercialCount++
+  }
+
+  const topCarrierDisplay = [...carrierVotes.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? ""
+  const detectedCarrier   = toCarrierKey(topCarrierDisplay)
+
+  let detectedBookType: BookType | null = null
+  if (personalCount > 0 && commercialCount > 0)         detectedBookType = "both"
+  else if (personalCount > 0 && commercialCount === 0)  detectedBookType = "personal"
+  else if (commercialCount > 0 && personalCount === 0)  detectedBookType = "commercial"
+
+  // ── Aggregate over unique policy keys ────────────────────────────────────
+  const policyPremium    = new Map<string, number>()
+  const policyIsNewBiz   = new Map<string, boolean>()
+  const policyIsExpiring = new Map<string, boolean>()
+  const policyCarrier    = new Map<string, string>()
+  const policyLobGroup   = new Map<string, LobGroup>()
+  const customerPolicies = new Map<string, Set<string>>()
   const carrierMap       = new Map<string, CarrierBreakdown>()
   const carrierPolicies  = new Map<string, Set<string>>()
 
   for (const row of rows) {
     const key = row.policy || `${row.customer}__${row.lob}`
-
-    // Accumulate premium per unique policy key
     policyPremium.set(key, (policyPremium.get(key) ?? 0) + row.premium)
-
-    // A policy is new business if ANY row for it is flagged as new
     if (row.isNewBusiness) policyIsNewBiz.set(key, true)
     else if (!policyIsNewBiz.has(key)) policyIsNewBiz.set(key, false)
-
-    // Associate carrier with policy (first wins)
-    if (!policyCarrier.has(key)) policyCarrier.set(key, row.carrier)
-
-    // Track policies per customer
+    if (row.isExpiring) policyIsExpiring.set(key, true)
+    else if (!policyIsExpiring.has(key)) policyIsExpiring.set(key, false)
+    if (!policyCarrier.has(key))  policyCarrier.set(key, row.carrier)
+    if (!policyLobGroup.has(key)) policyLobGroup.set(key, row.lobGroup)
     if (row.customer) {
       if (!customerPolicies.has(row.customer)) customerPolicies.set(row.customer, new Set())
       customerPolicies.get(row.customer)!.add(key)
     }
   }
 
-  // Now aggregate over unique policies
   let totalPremium = 0
-  let nbCount      = 0
+  let nbCount = 0
+  let nbPremium = 0
+  let expiringCount = 0
+  const lob: LobBreakdown = { auto: 0, home: 0, commercial: 0, wc: 0, other: 0 }
 
   for (const [key, premium] of policyPremium) {
     totalPremium += premium
-    if (policyIsNewBiz.get(key)) nbCount++
+    const isNB  = policyIsNewBiz.get(key) ?? false
+    const isExp = policyIsExpiring.get(key) ?? false
+    if (isNB) { nbCount++; nbPremium += premium }
+    if (isExp) expiringCount++
 
-    const carrier = normaliseCarrier(policyCarrier.get(key) ?? "")
+    const lobGroup = policyLobGroup.get(key) ?? "other"
+    lob[lobGroup] += premium
+
+    const carrier = normaliseCarrierDisplay(policyCarrier.get(key) ?? "")
     if (!carrierMap.has(carrier)) {
       carrierMap.set(carrier, { carrier, writtenPremium: 0, splitCommission: 0, policyCount: 0, newBusinessCount: 0 })
     }
     const cb = carrierMap.get(carrier)!
     cb.writtenPremium += premium
-    if (policyIsNewBiz.get(key)) cb.newBusinessCount++
-
+    if (isNB) cb.newBusinessCount++
     if (!carrierPolicies.has(carrier)) carrierPolicies.set(carrier, new Set())
     carrierPolicies.get(carrier)!.add(key)
   }
@@ -256,31 +345,18 @@ export function parseCommissionStatement(csvText: string): CommissionParseResult
   const totalPolicies  = policyPremium.size
   const totalCustomers = customerPolicies.size
 
-  // avg premium = total premium ÷ unique policy count
-  const avgPremPerPol = totalPolicies > 0
-    ? Math.round(totalPremium / totalPolicies)
-    : null
+  const avgPremPerPol = totalPolicies > 0 ? Math.round(totalPremium / totalPolicies) : null
+  const newBizPct     = totalPolicies > 0 ? parseFloat(((nbCount / totalPolicies) * 100).toFixed(1)) : null
+  const polsPerCx     = totalCustomers > 0 ? parseFloat((totalPolicies / totalCustomers).toFixed(2)) : null
 
-  // new business % = new business unique policies ÷ total unique policies
-  const newBizPct = totalPolicies > 0
-    ? parseFloat(((nbCount / totalPolicies) * 100).toFixed(1))
-    : null
-
-  // policies per customer = total unique policies ÷ unique customers
-  const polsPerCx = totalCustomers > 0
-    ? parseFloat((totalPolicies / totalCustomers).toFixed(2))
-    : null
-
-  // monoline % = customers with exactly 1 policy ÷ total customers
   let monolineCount = 0
-  for (const pols of customerPolicies.values()) {
-    if (pols.size === 1) monolineCount++
-  }
-  const monolinePct = totalCustomers > 0
-    ? parseFloat(((monolineCount / totalCustomers) * 100).toFixed(1))
-    : null
+  for (const pols of customerPolicies.values()) { if (pols.size === 1) monolineCount++ }
+  const monolinePct = totalCustomers > 0 ? parseFloat(((monolineCount / totalCustomers) * 100).toFixed(1)) : null
 
-  // Extract a month label from any date field in the first data row
+  // Round LOB values to nearest dollar
+  ;(Object.keys(lob) as LobGroup[]).forEach(k => { lob[k] = Math.round(lob[k]) })
+
+  // Statement month from first data row effective date
   let statementMonth: string | null = null
   if (rows.length > 0 && iPolicyEffDate >= 0) {
     const firstFields = parseCSVLine(lines[headerIdx + 1] ?? "")
@@ -293,36 +369,46 @@ export function parseCommissionStatement(csvText: string): CommissionParseResult
   }
 
   return {
-    book_avg_premium_per_policy:  avgPremPerPol,
-    book_new_business_pct:        newBizPct,
-    book_policies_per_customer:   polsPerCx,
-    book_monoline_pct:            monolinePct,
-    totalWrittenPremium:          Math.round(totalPremium),
-    totalSplitCommission:         null, // CSV does not include commission split
+    detectedCarrier,
+    detectedBookType,
+    lobBreakdown:              lob,
+    book_avg_premium_per_policy: avgPremPerPol,
+    book_new_business_pct:       newBizPct,
+    book_policies_per_customer:  polsPerCx,
+    book_monoline_pct:           monolinePct,
+    totalWrittenPremium:         Math.round(totalPremium),
+    newBusinessPremium:          Math.round(nbPremium),
+    totalSplitCommission:        null,
     totalPolicies,
     totalCustomers,
-    newBusinessCount:             nbCount,
-    totalTransactions:            rows.length,
-    carrierBreakdown:             breakdown,
+    newBusinessCount:            nbCount,
+    expiringCount,
+    totalTransactions:           rows.length,
+    carrierBreakdown:            breakdown,
     statementMonth,
-    format:                       "CSV",
+    format:                      "CSV",
   }
 }
 
 function emptyResult(): CommissionParseResult {
   return {
-    book_avg_premium_per_policy:  null,
-    book_new_business_pct:        null,
-    book_policies_per_customer:   null,
-    book_monoline_pct:            null,
-    totalWrittenPremium:          null,
-    totalSplitCommission:         null,
-    totalPolicies:                null,
-    totalCustomers:               null,
-    newBusinessCount:             null,
-    totalTransactions:            null,
-    carrierBreakdown:             [],
-    statementMonth:               null,
-    format:                       "unknown",
+    detectedCarrier:             null,
+    detectedBookType:            null,
+    lobBreakdown:                { auto: 0, home: 0, commercial: 0, wc: 0, other: 0 },
+    book_avg_premium_per_policy: null,
+    book_new_business_pct:       null,
+    book_policies_per_customer:  null,
+    book_monoline_pct:           null,
+    totalWrittenPremium:         null,
+    newBusinessPremium:          null,
+    totalSplitCommission:        null,
+    totalPolicies:               null,
+    totalCustomers:              null,
+    newBusinessCount:            null,
+    expiringCount:               null,
+    totalTransactions:           null,
+    carrierBreakdown:            [],
+    statementMonth:              null,
+    format:                      "unknown",
   }
 }

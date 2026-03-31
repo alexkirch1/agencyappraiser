@@ -1141,50 +1141,76 @@ function parseCommissionStatement(csvText) {
     }
     if (rows.length === 0) return emptyResult();
     // ── Aggregate ───────────────────────────────────────────────────────────────
-    const uniquePolicies = new Set();
-    const uniqueCustomers = new Set();
+    // Track unique policies (by policy number) to avoid double-counting rows
+    // that share a policy number (e.g. multiple LOBs on same policy)
+    const policyPremium = new Map() // policyNum → premium
+    ;
+    const policyIsNewBiz = new Map() // policyNum → isNewBusiness
+    ;
+    const policyCarrier = new Map() // policyNum → carrier
+    ;
+    const customerPolicies = new Map() // customer → Set<policyNum>
+    ;
     const carrierMap = new Map();
     const carrierPolicies = new Map();
-    const customerPolicies = new Map();
+    for (const row of rows){
+        const key = row.policy || "".concat(row.customer, "__").concat(row.lob);
+        var _policyPremium_get;
+        // Accumulate premium per unique policy key
+        policyPremium.set(key, ((_policyPremium_get = policyPremium.get(key)) !== null && _policyPremium_get !== void 0 ? _policyPremium_get : 0) + row.premium);
+        // A policy is new business if ANY row for it is flagged as new
+        if (row.isNewBusiness) policyIsNewBiz.set(key, true);
+        else if (!policyIsNewBiz.has(key)) policyIsNewBiz.set(key, false);
+        // Associate carrier with policy (first wins)
+        if (!policyCarrier.has(key)) policyCarrier.set(key, row.carrier);
+        // Track policies per customer
+        if (row.customer) {
+            if (!customerPolicies.has(row.customer)) customerPolicies.set(row.customer, new Set());
+            customerPolicies.get(row.customer).add(key);
+        }
+    }
+    // Now aggregate over unique policies
     let totalPremium = 0;
     let nbCount = 0;
-    for (const row of rows){
-        totalPremium += row.premium;
-        if (row.isNewBusiness) nbCount++;
-        if (row.policy) uniquePolicies.add(row.policy);
-        if (row.customer) uniqueCustomers.add(row.customer);
-        if (row.customer && row.policy) {
-            if (!customerPolicies.has(row.customer)) customerPolicies.set(row.customer, new Set());
-            customerPolicies.get(row.customer).add(row.policy);
-        }
-        const normCarrier = normaliseCarrier(row.carrier);
-        if (!carrierMap.has(normCarrier)) {
-            carrierMap.set(normCarrier, {
-                carrier: normCarrier,
+    for (const [key, premium] of policyPremium){
+        totalPremium += premium;
+        if (policyIsNewBiz.get(key)) nbCount++;
+        var _policyCarrier_get;
+        const carrier = normaliseCarrier((_policyCarrier_get = policyCarrier.get(key)) !== null && _policyCarrier_get !== void 0 ? _policyCarrier_get : "");
+        if (!carrierMap.has(carrier)) {
+            carrierMap.set(carrier, {
+                carrier,
                 writtenPremium: 0,
                 splitCommission: 0,
                 policyCount: 0,
                 newBusinessCount: 0
             });
         }
-        const cb = carrierMap.get(normCarrier);
-        cb.writtenPremium += row.premium;
-        if (row.isNewBusiness) cb.newBusinessCount++;
-        if (row.policy) {
-            if (!carrierPolicies.has(normCarrier)) carrierPolicies.set(normCarrier, new Set());
-            carrierPolicies.get(normCarrier).add(row.policy);
-        }
+        const cb = carrierMap.get(carrier);
+        cb.writtenPremium += premium;
+        if (policyIsNewBiz.get(key)) cb.newBusinessCount++;
+        if (!carrierPolicies.has(carrier)) carrierPolicies.set(carrier, new Set());
+        carrierPolicies.get(carrier).add(key);
     }
     for (const [carrier, pols] of carrierPolicies){
         const cb = carrierMap.get(carrier);
         if (cb) cb.policyCount = pols.size;
     }
     const breakdown = Array.from(carrierMap.values()).sort((a, b)=>b.writtenPremium - a.writtenPremium);
-    const totalPolicies = uniquePolicies.size;
-    const totalCustomers = uniqueCustomers.size;
+    const totalPolicies = policyPremium.size;
+    const totalCustomers = customerPolicies.size;
+    // avg premium = total premium ÷ unique policy count
     const avgPremPerPol = totalPolicies > 0 ? Math.round(totalPremium / totalPolicies) : null;
-    const newBizPct = rows.length > 0 ? parseFloat((nbCount / rows.length * 100).toFixed(1)) : null;
+    // new business % = new business unique policies ÷ total unique policies
+    const newBizPct = totalPolicies > 0 ? parseFloat((nbCount / totalPolicies * 100).toFixed(1)) : null;
+    // policies per customer = total unique policies ÷ unique customers
     const polsPerCx = totalCustomers > 0 ? parseFloat((totalPolicies / totalCustomers).toFixed(2)) : null;
+    // monoline % = customers with exactly 1 policy ÷ total customers
+    let monolineCount = 0;
+    for (const pols of customerPolicies.values()){
+        if (pols.size === 1) monolineCount++;
+    }
+    const monolinePct = totalCustomers > 0 ? parseFloat((monolineCount / totalCustomers * 100).toFixed(1)) : null;
     // Extract a month label from any date field in the first data row
     let statementMonth = null;
     if (rows.length > 0 && iPolicyEffDate >= 0) {
@@ -1215,6 +1241,7 @@ function parseCommissionStatement(csvText) {
         book_avg_premium_per_policy: avgPremPerPol,
         book_new_business_pct: newBizPct,
         book_policies_per_customer: polsPerCx,
+        book_monoline_pct: monolinePct,
         totalWrittenPremium: Math.round(totalPremium),
         totalSplitCommission: null,
         totalPolicies,
@@ -1231,6 +1258,7 @@ function emptyResult() {
         book_avg_premium_per_policy: null,
         book_new_business_pct: null,
         book_policies_per_customer: null,
+        book_monoline_pct: null,
         totalWrittenPremium: null,
         totalSplitCommission: null,
         totalPolicies: null,
@@ -1309,7 +1337,8 @@ function CommissionUpload(param) {
                 onParsed({
                     book_avg_premium_per_policy: parsed.book_avg_premium_per_policy,
                     book_new_business_pct: parsed.book_new_business_pct,
-                    book_policies_per_customer: parsed.book_policies_per_customer
+                    book_policies_per_customer: parsed.book_policies_per_customer,
+                    book_monoline_pct: parsed.book_monoline_pct
                 }, parsed);
             } catch (e) {
                 setStatus("error");
@@ -1351,7 +1380,7 @@ function CommissionUpload(param) {
                 }
             }, void 0, false, {
                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                lineNumber: 65,
+                lineNumber: 66,
                 columnNumber: 7
             }, this),
             status === "idle" && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1369,12 +1398,12 @@ function CommissionUpload(param) {
                             className: "h-4 w-4 text-primary"
                         }, void 0, false, {
                             fileName: "[project]/components/carrier/commission-upload.tsx",
-                            lineNumber: 74,
+                            lineNumber: 75,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                        lineNumber: 73,
+                        lineNumber: 74,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1384,7 +1413,7 @@ function CommissionUpload(param) {
                                 children: "Upload Book of Business Detail Report"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 77,
+                                lineNumber: 78,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1392,19 +1421,19 @@ function CommissionUpload(param) {
                                 children: "EZLynx EZ Links CSV export — auto-fills new business %, policies/customer, avg premium"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 78,
+                                lineNumber: 79,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                        lineNumber: 76,
+                        lineNumber: 77,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                lineNumber: 68,
+                lineNumber: 69,
                 columnNumber: 9
             }, this),
             status === "loading" && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1414,7 +1443,7 @@ function CommissionUpload(param) {
                         className: "h-4 w-4 animate-spin text-primary"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                        lineNumber: 85,
+                        lineNumber: 86,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1426,13 +1455,13 @@ function CommissionUpload(param) {
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                        lineNumber: 86,
+                        lineNumber: 87,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                lineNumber: 84,
+                lineNumber: 85,
                 columnNumber: 9
             }, this),
             status === "error" && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1445,7 +1474,7 @@ function CommissionUpload(param) {
                                 className: "mt-0.5 h-4 w-4 shrink-0 text-destructive"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 93,
+                                lineNumber: 94,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1453,13 +1482,13 @@ function CommissionUpload(param) {
                                 children: errorMsg
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 94,
+                                lineNumber: 95,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                        lineNumber: 92,
+                        lineNumber: 93,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -1470,13 +1499,13 @@ function CommissionUpload(param) {
                         children: "Try another file"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                        lineNumber: 96,
+                        lineNumber: 97,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                lineNumber: 91,
+                lineNumber: 92,
                 columnNumber: 9
             }, this),
             status === "success" && result && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1492,7 +1521,7 @@ function CommissionUpload(param) {
                                         className: "h-4 w-4 text-success"
                                     }, void 0, false, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 105,
+                                        lineNumber: 106,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1504,7 +1533,7 @@ function CommissionUpload(param) {
                                                         className: "mr-1 inline h-3.5 w-3.5 text-muted-foreground"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                        lineNumber: 108,
+                                                        lineNumber: 109,
                                                         columnNumber: 19
                                                     }, this),
                                                     fileName,
@@ -1517,13 +1546,13 @@ function CommissionUpload(param) {
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                        lineNumber: 111,
+                                                        lineNumber: 112,
                                                         columnNumber: 21
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                lineNumber: 107,
+                                                lineNumber: 108,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1534,19 +1563,19 @@ function CommissionUpload(param) {
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                lineNumber: 114,
+                                                lineNumber: 115,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 106,
+                                        lineNumber: 107,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 104,
+                                lineNumber: 105,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1562,20 +1591,20 @@ function CommissionUpload(param) {
                                                 className: "h-3.5 w-3.5"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                lineNumber: 121,
+                                                lineNumber: 122,
                                                 columnNumber: 29
                                             }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$lucide$2d$react$40$0$2e$469$2e$0_react$40$19$2e$2$2e$4$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chevron$2d$down$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ChevronDown$3e$__["ChevronDown"], {
                                                 className: "h-3.5 w-3.5"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                lineNumber: 121,
+                                                lineNumber: 122,
                                                 columnNumber: 69
                                             }, this),
                                             "Details"
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 120,
+                                        lineNumber: 121,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -1587,24 +1616,24 @@ function CommissionUpload(param) {
                                             className: "h-3.5 w-3.5"
                                         }, void 0, false, {
                                             fileName: "[project]/components/carrier/commission-upload.tsx",
-                                            lineNumber: 125,
+                                            lineNumber: 126,
                                             columnNumber: 17
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 124,
+                                        lineNumber: 125,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 119,
+                                lineNumber: 120,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                        lineNumber: 103,
+                        lineNumber: 104,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1618,13 +1647,13 @@ function CommissionUpload(param) {
                                         children: fmt$(result.totalWrittenPremium)
                                     }, void 0, false, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 134,
+                                        lineNumber: 135,
                                         columnNumber: 34
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 133,
+                                lineNumber: 134,
                                 columnNumber: 15
                             }, this),
                             result.totalPolicies != null && result.totalPolicies > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1635,13 +1664,13 @@ function CommissionUpload(param) {
                                         children: result.totalPolicies
                                     }, void 0, false, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 139,
+                                        lineNumber: 140,
                                         columnNumber: 27
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 138,
+                                lineNumber: 139,
                                 columnNumber: 15
                             }, this),
                             result.totalCustomers != null && result.totalCustomers > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1652,13 +1681,13 @@ function CommissionUpload(param) {
                                         children: result.totalCustomers
                                     }, void 0, false, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 144,
+                                        lineNumber: 145,
                                         columnNumber: 28
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 143,
+                                lineNumber: 144,
                                 columnNumber: 15
                             }, this),
                             result.book_policies_per_customer != null && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1669,13 +1698,13 @@ function CommissionUpload(param) {
                                         children: result.book_policies_per_customer.toFixed(2)
                                     }, void 0, false, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 149,
+                                        lineNumber: 150,
                                         columnNumber: 36
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 148,
+                                lineNumber: 149,
                                 columnNumber: 15
                             }, this),
                             result.book_new_business_pct != null && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1689,13 +1718,13 @@ function CommissionUpload(param) {
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 154,
+                                        lineNumber: 155,
                                         columnNumber: 31
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 153,
+                                lineNumber: 154,
                                 columnNumber: 15
                             }, this),
                             result.book_avg_premium_per_policy != null && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1706,19 +1735,39 @@ function CommissionUpload(param) {
                                         children: fmt$(result.book_avg_premium_per_policy)
                                     }, void 0, false, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 159,
+                                        lineNumber: 160,
                                         columnNumber: 37
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 158,
+                                lineNumber: 159,
+                                columnNumber: 15
+                            }, this),
+                            result.book_monoline_pct != null && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                className: "rounded-md bg-secondary px-2 py-1 text-xs text-foreground",
+                                children: [
+                                    "Monoline Customers: ",
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("strong", {
+                                        children: [
+                                            result.book_monoline_pct.toFixed(1),
+                                            "%"
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "[project]/components/carrier/commission-upload.tsx",
+                                        lineNumber: 165,
+                                        columnNumber: 37
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "[project]/components/carrier/commission-upload.tsx",
+                                lineNumber: 164,
                                 columnNumber: 15
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                        lineNumber: 131,
+                        lineNumber: 132,
                         columnNumber: 11
                     }, this),
                     expanded && result.carrierBreakdown.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1735,7 +1784,7 @@ function CommissionUpload(param) {
                                                 children: "Carrier"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                lineNumber: 170,
+                                                lineNumber: 176,
                                                 columnNumber: 21
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1743,7 +1792,7 @@ function CommissionUpload(param) {
                                                 children: "Written Prem"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                lineNumber: 171,
+                                                lineNumber: 177,
                                                 columnNumber: 21
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1751,7 +1800,7 @@ function CommissionUpload(param) {
                                                 children: "Split Comm"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                lineNumber: 172,
+                                                lineNumber: 178,
                                                 columnNumber: 21
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1759,7 +1808,7 @@ function CommissionUpload(param) {
                                                 children: "Policies"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                lineNumber: 173,
+                                                lineNumber: 179,
                                                 columnNumber: 21
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1767,18 +1816,18 @@ function CommissionUpload(param) {
                                                 children: "NB"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                lineNumber: 174,
+                                                lineNumber: 180,
                                                 columnNumber: 21
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 169,
+                                        lineNumber: 175,
                                         columnNumber: 19
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/components/carrier/commission-upload.tsx",
-                                    lineNumber: 168,
+                                    lineNumber: 174,
                                     columnNumber: 17
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("tbody", {
@@ -1791,7 +1840,7 @@ function CommissionUpload(param) {
                                                     children: cb.carrier
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                    lineNumber: 180,
+                                                    lineNumber: 186,
                                                     columnNumber: 23
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -1799,7 +1848,7 @@ function CommissionUpload(param) {
                                                     children: fmt$(cb.writtenPremium)
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                    lineNumber: 181,
+                                                    lineNumber: 187,
                                                     columnNumber: 23
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -1807,7 +1856,7 @@ function CommissionUpload(param) {
                                                     children: fmt$(cb.splitCommission)
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                    lineNumber: 182,
+                                                    lineNumber: 188,
                                                     columnNumber: 23
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -1815,7 +1864,7 @@ function CommissionUpload(param) {
                                                     children: cb.policyCount
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                    lineNumber: 183,
+                                                    lineNumber: 189,
                                                     columnNumber: 23
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -1823,41 +1872,41 @@ function CommissionUpload(param) {
                                                     children: cb.newBusinessCount
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                    lineNumber: 184,
+                                                    lineNumber: 190,
                                                     columnNumber: 23
                                                 }, this)
                                             ]
                                         }, cb.carrier, true, {
                                             fileName: "[project]/components/carrier/commission-upload.tsx",
-                                            lineNumber: 179,
+                                            lineNumber: 185,
                                             columnNumber: 21
                                         }, this))
                                 }, void 0, false, {
                                     fileName: "[project]/components/carrier/commission-upload.tsx",
-                                    lineNumber: 177,
+                                    lineNumber: 183,
                                     columnNumber: 17
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/carrier/commission-upload.tsx",
-                            lineNumber: 167,
+                            lineNumber: 173,
                             columnNumber: 15
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                        lineNumber: 166,
+                        lineNumber: 172,
                         columnNumber: 13
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                lineNumber: 101,
+                lineNumber: 102,
                 columnNumber: 9
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/components/carrier/commission-upload.tsx",
-        lineNumber: 64,
+        lineNumber: 65,
         columnNumber: 5
     }, this);
 }
