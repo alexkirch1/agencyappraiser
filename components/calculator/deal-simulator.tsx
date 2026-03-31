@@ -45,53 +45,88 @@ function projectGrowthRate(
   return { growthRate: t.rate, growthLabel: t.label }
 }
 
-// ─── Smart Full-Earnout defaults based on agency financials ──────────────────
-// Rules:
-//  - Larger agencies (LTM > $500k) → buyers more likely to offer 2 years
-//  - Strong growth → higher commission rate (up to 75%)
-//  - Declining revenue → cap at 50%, 1 year only
-//  - Mid-range: 60%, 1-2 years depending on size
+// ─── Earnout model ────────────────────────────────────────────────────────────
+//
+// How insurance book earnouts actually work:
+//   - Buyer pays a COMMISSION OVERRIDE on the book's annual premiums/revenue each year
+//   - Seller earns a % of the book's LTM revenue per year for N years
+//   - The total can EXCEED the all-cash offer because the buyer is betting on retention
+//
+// Formula:
+//   Annual earnout payment  = LTM Revenue × commissionPct
+//   Full Earnout total      = annualPayment × years
+//
+// For Full Earnout to exceed All Cash (highOffer), we need:
+//   LTM Revenue × commissionPct × years > highOffer
+//   commissionPct > highOffer / (LTM Revenue × years)
+//
+// Example: highOffer = $480k, LTM = $480k, years = 2
+//   Need commPct > 480k / (480k × 2) = 50%
+//   At 60% × 2 years = 120% of LTM = $576k total (beats $480k cash by 20%)
+//
+// Defaults: target Full Earnout total at 110–130% of highOffer.
 function smartEarnoutDefaults(
   highOffer: number,
   revLTM: number,
   growthRate: number
-): { pct: number; years: number; rationale: string } {
+): { commPct: number; years: number; rationale: string } {
   const isLarge = revLTM > 500_000
   const isGrowth = growthRate >= 0.05
   const isDeclining = growthRate < -0.02
 
+  // Calculate minimum commPct needed to BEAT cash offer
+  // Formula: commPct × years × LTM > highOffer
+  // So: minCommPct = highOffer / (LTM × years) / premium
+  // We want to exceed cash by 10–30%, so we multiply by 1.1–1.3
+  const ltm = revLTM > 0 ? revLTM : highOffer
+
   if (isDeclining) {
+    // 2 years, target 110% of cash
+    const minPct = (highOffer * 1.10) / (ltm * 2) * 100
+    const targetPct = Math.min(80, Math.max(40, Math.round(minPct / 5) * 5))
     return {
-      pct: 50,
-      years: 1,
-      rationale: "Declining revenue limits earnout offers — buyers protect against continued book erosion.",
+      commPct: targetPct,
+      years: 2,
+      rationale: `Declining revenue means cautious earnout terms. At ${targetPct}% commission over 2 years, your total still exceeds the all-cash offer — rewarding you for retention.`,
     }
   }
   if (isGrowth && isLarge) {
+    // 2 years, target 130% of cash
+    const minPct = (highOffer * 1.30) / (ltm * 2) * 100
+    const targetPct = Math.min(80, Math.max(50, Math.round(minPct / 5) * 5))
     return {
-      pct: 75,
+      commPct: targetPct,
       years: 2,
-      rationale: "Strong growth and size support a maximum earnout. Buyers are comfortable with 2-year exposure.",
+      rationale: `Strong growth and size command premium terms. At ${targetPct}% commission over 2 years, your total payout exceeds all-cash by ~30%.`,
     }
   }
   if (isGrowth && !isLarge) {
+    // 2 years, target 125% of cash
+    const minPct = (highOffer * 1.25) / (ltm * 2) * 100
+    const targetPct = Math.min(80, Math.max(50, Math.round(minPct / 5) * 5))
     return {
-      pct: 65,
-      years: 1,
-      rationale: "Healthy growth but smaller book — buyers typically offer 1 year at a strong commission rate.",
+      commPct: targetPct,
+      years: 2,
+      rationale: `Growing book supports solid earnout. At ${targetPct}% commission over 2 years, total payout exceeds all-cash by ~25%.`,
     }
   }
   if (isLarge) {
+    // 2 years, target 120% of cash
+    const minPct = (highOffer * 1.20) / (ltm * 2) * 100
+    const targetPct = Math.min(80, Math.max(50, Math.round(minPct / 5) * 5))
     return {
-      pct: 60,
+      commPct: targetPct,
       years: 2,
-      rationale: "Larger stable book supports a 2-year earnout at a moderate commission rate.",
+      rationale: `Large stable book. At ${targetPct}% commission over 2 years, total exceeds all-cash by ~20%.`,
     }
   }
+  // Default: flat/stable — 2 years, target 115% of cash
+  const minPct = (highOffer * 1.15) / (ltm * 2) * 100
+  const targetPct = Math.min(75, Math.max(45, Math.round(minPct / 5) * 5))
   return {
-    pct: 55,
-    years: 1,
-    rationale: "Flat/stable revenue and moderate size — a conservative 1-year earnout is most realistic.",
+    commPct: targetPct,
+    years: 2,
+    rationale: `Stable book, standard terms. At ${targetPct}% commission over 2 years, total exceeds all-cash by ~15%.`,
   }
 }
 
@@ -117,49 +152,40 @@ export function DealSimulator({
 
   const [activeStrategy, setActiveStrategy] = useState<Strategy>("allcash")
 
-  // Cash+Earnout sliders (10–90 each, must sum to 100)
+  // Cash+Earnout sliders
   const [blendCashPct, setBlendCashPct] = useState(60)
   const blendEarnoutPct = 100 - blendCashPct
+  // Blend earnout comm% starts at ~80% of full earnout rate (less aggressive since seller gets cash too)
+  const blendCommDefault = Math.max(20, Math.round(smartDefaults.commPct * 0.8 / 5) * 5)
+  const [blendCommPct, setBlendCommPct] = useState(blendCommDefault)
+  const [blendEarnoutYears, setBlendEarnoutYears] = useState(Math.max(1, smartDefaults.years - 1))
 
-  // Blend earnout settings
-  const [blendEarnoutCommPct, setBlendEarnoutCommPct] = useState(50)
-  const [blendEarnoutYears, setBlendEarnoutYears] = useState(1)
-
-  // Full earnout — start from smart defaults
-  const [fullEarnoutPct, setFullEarnoutPct] = useState(smartDefaults.pct)
+  // Full earnout — commission % of LTM revenue paid each year
+  const [fullCommPct, setFullCommPct] = useState(smartDefaults.commPct)
   const [fullEarnoutYears, setFullEarnoutYears] = useState(smartDefaults.years)
 
   // ─── CALCULATIONS ────────────────────────────────────────────────────────
 
-  // Baseline: All Cash = highOffer (no discount, this IS the valuation)
+  // Baseline: All Cash = highOffer
   const allCashValue = highOffer
 
-  // Per-year projected revenue
-  function projectedRevenue(year: number) {
-    return ltmRevenue > 0 ? ltmRevenue * Math.pow(1 + growthRate, year) : 0
-  }
+  // Annual earnout payment = LTM Revenue × commissionPct
+  // This models real insurance book earnouts: seller earns a commission override
+  // on the book's annual revenue for N years.
+  const annualFullPayment = ltmRevenue > 0 ? ltmRevenue * (fullCommPct / 100) : highOffer * 0.35
+  const annualBlendPayment = ltmRevenue > 0 ? ltmRevenue * (blendCommPct / 100) : highOffer * 0.25
 
   // Cash + Earnout
-  // Cash at close = highOffer × (blendCashPct / 100)   — proportional slice of valuation
-  // Per-year earnout = that year's projected revenue × (blendEarnoutCommPct / 100)
-  // Guard: if earnout total > (highOffer × blendEarnoutPct/100 × 1.5) it's unrealistic
   const blendCashAtClose = highOffer * (blendCashPct / 100)
-  const blendYearlyPayments = Array.from({ length: blendEarnoutYears }, (_, i) =>
-    projectedRevenue(i + 1) * (blendEarnoutCommPct / 100)
-  )
+  const blendYearlyPayments = Array.from({ length: blendEarnoutYears }, () => annualBlendPayment)
   const blendEarnoutTotal = blendYearlyPayments.reduce((a, b) => a + b, 0)
-
-  // Warn if earnout is overly optimistic (>2x the earnout share of valuation)
-  const blendEarnoutCeiling = highOffer * (blendEarnoutPct / 100) * 2
-  const blendEarnoutOverflow = blendEarnoutTotal > blendEarnoutCeiling
-
   const blendTotalValue = blendCashAtClose + blendEarnoutTotal
 
-  // Full Earnout
-  // No cash at close. Annual payment = projectedRevenue × (fullEarnoutPct / 100)
-  const fullYearlyPayments = Array.from({ length: fullEarnoutYears }, (_, i) =>
-    projectedRevenue(i + 1) * (fullEarnoutPct / 100)
-  )
+  // Warn if total earnout payout exceeds 2.5× highOffer (unrealistic)
+  const blendEarnoutOverflow = blendTotalValue > highOffer * 2.5
+
+  // Full Earnout — no cash at close, pure commission income over N years
+  const fullYearlyPayments = Array.from({ length: fullEarnoutYears }, () => annualFullPayment)
   const fullEarnoutTotal = fullYearlyPayments.reduce((a, b) => a + b, 0)
   const fullTotalValue = fullEarnoutTotal
 
@@ -273,6 +299,15 @@ export function DealSimulator({
       {/* ── CASH + EARNOUT ── */}
       {activeStrategy === "blend" && (
         <div className="rounded-lg border border-border bg-secondary/30 p-4 flex flex-col gap-4">
+          <div className="flex items-start gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2.5">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <div>
+              <p className="text-xs font-semibold text-foreground">Suggested Numbers Applied</p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
+                Starting point: <span className="font-medium text-foreground">{blendCashPct}% cash at close</span>, earnout at <span className="font-medium text-foreground">{blendCommPct}% commission</span> on LTM revenue over <span className="font-medium text-foreground">{blendEarnoutYears} {blendEarnoutYears === 1 ? "year" : "years"}</span> — based on your agency profile. Adjust sliders to explore.
+              </p>
+            </div>
+          </div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Structure Your Split
           </p>
@@ -314,22 +349,22 @@ export function DealSimulator({
             </div>
           </div>
 
-          {/* Earnout commission rate */}
+          {/* Earnout commission % on LTM revenue */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Earnout — Commission Rate on Annual Revenue</span>
-              <span className="font-bold font-mono text-foreground">{blendEarnoutCommPct}%</span>
+              <span className="text-muted-foreground">Commission % on Annual Revenue per Year</span>
+              <span className="font-bold font-mono text-foreground">{blendCommPct}%</span>
             </div>
             <Slider
-              value={[blendEarnoutCommPct]}
-              onValueChange={([v]) => setBlendEarnoutCommPct(v)}
+              value={[blendCommPct]}
+              onValueChange={([v]) => setBlendCommPct(v)}
               min={10}
-              max={75}
+              max={80}
               step={5}
             />
             <div className="flex justify-between text-[11px] text-muted-foreground">
-              <span>10% (min)</span>
-              <span>75% (max)</span>
+              <span>10% (conservative)</span>
+              <span>80% (aggressive)</span>
             </div>
           </div>
 
@@ -365,7 +400,7 @@ export function DealSimulator({
                   <span className="text-sm font-semibold text-foreground">{formatCurrency(payment)}</span>
                 </div>
                 <span className="text-[11px] text-muted-foreground/70">
-                  {formatCurrency(Math.round(projectedRevenue(i + 1)))} est. revenue × {blendEarnoutCommPct}%
+                  {ltmRevenue > 0 ? formatCurrency(Math.round(ltmRevenue)) : "LTM"} revenue × {blendCommPct}% commission
                 </span>
               </div>
             ))}
@@ -386,11 +421,6 @@ export function DealSimulator({
             </div>
           )}
 
-          {growthRate !== 0 && (
-            <p className="text-[10px] text-muted-foreground">
-              Year 2 applies your {growthRate > 0 ? "+" : ""}{(growthRate * 100).toFixed(0)}% revenue trend ({growthLabel}).
-            </p>
-          )}
         </div>
       )}
 
@@ -412,22 +442,22 @@ export function DealSimulator({
             Earnout Terms
           </p>
 
-          {/* Commission % slider */}
+          {/* Commission % on LTM revenue */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Commission Rate on Annual Revenue</span>
-              <span className="font-bold font-mono text-foreground">{fullEarnoutPct}%</span>
+              <span className="text-muted-foreground">Commission % on Annual Revenue per Year</span>
+              <span className="font-bold font-mono text-foreground">{fullCommPct}%</span>
             </div>
             <Slider
-              value={[fullEarnoutPct]}
-              onValueChange={([v]) => setFullEarnoutPct(v)}
+              value={[fullCommPct]}
+              onValueChange={([v]) => setFullCommPct(v)}
               min={10}
-              max={75}
+              max={100}
               step={5}
             />
             <div className="flex justify-between text-[11px] text-muted-foreground">
-              <span>10%</span>
-              <span className="text-muted-foreground/60">75% max (rarely offered)</span>
+              <span>10% (conservative)</span>
+              <span className="text-muted-foreground/60">100% (max)</span>
             </div>
           </div>
 
@@ -463,7 +493,7 @@ export function DealSimulator({
                   <span className="text-sm font-semibold text-foreground">{formatCurrency(payment)}</span>
                 </div>
                 <span className="text-[11px] text-muted-foreground/70">
-                  {formatCurrency(Math.round(projectedRevenue(i + 1)))} est. revenue × {fullEarnoutPct}%
+                  {ltmRevenue > 0 ? formatCurrency(Math.round(ltmRevenue)) : "LTM"} revenue × {fullCommPct}% commission
                 </span>
               </div>
             ))}
@@ -491,44 +521,47 @@ export function DealSimulator({
       )}
 
       {/* ── STRATEGY COMPARISON ── */}
-      <div className="rounded-md border border-border bg-card divide-y divide-border">
-        <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Strategy Comparison
-        </p>
-        {(
-          [
-            { key: "allcash" as Strategy,    label: "All Cash",       val: allCashValue,   badge: null },
-            { key: "blend" as Strategy,      label: "Cash + Earnout", val: blendTotalValue, badge: null },
-            { key: "allearnout" as Strategy, label: "Full Earnout",   val: fullTotalValue,  badge: "Best" },
-          ] as { key: Strategy; label: string; val: number; badge: string | null }[]
-        ).map(({ key, label, val, badge }) => (
-          <div
-            key={key}
-            className={`flex items-center justify-between px-3 py-2 cursor-pointer transition-colors ${
-              activeStrategy === key ? "bg-primary/5" : "hover:bg-secondary/50"
-            }`}
-            onClick={() => setActiveStrategy(key)}
-          >
-            <span
-              className={`text-xs ${activeStrategy === key ? "font-semibold text-foreground" : "text-muted-foreground"}`}
-            >
-              {label}
-            </span>
-            <div className="flex items-center gap-2">
-              <span
-                className={`text-sm font-bold ${activeStrategy === key ? "text-success" : "text-muted-foreground"}`}
-              >
-                {formatCurrency(val)}
-              </span>
-              {badge && (
-                <span className="text-[10px] font-medium text-primary bg-primary/10 rounded px-1.5 py-0.5">
-                  {badge}
-                </span>
-              )}
-            </div>
+      {(() => {
+        const maxVal = Math.max(allCashValue, blendTotalValue, fullTotalValue)
+        const rows: { key: Strategy; label: string; val: number }[] = [
+          { key: "allcash",    label: "All Cash",       val: allCashValue    },
+          { key: "blend",      label: "Cash + Earnout", val: blendTotalValue },
+          { key: "allearnout", label: "Full Earnout",   val: fullTotalValue  },
+        ]
+        return (
+          <div className="rounded-md border border-border bg-card divide-y divide-border">
+            <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Strategy Comparison
+            </p>
+            {rows.map(({ key, label, val }) => {
+              const isBest = val === maxVal && val > 0
+              return (
+                <div
+                  key={key}
+                  className={`flex items-center justify-between px-3 py-2 cursor-pointer transition-colors ${
+                    activeStrategy === key ? "bg-primary/5" : "hover:bg-secondary/50"
+                  }`}
+                  onClick={() => setActiveStrategy(key)}
+                >
+                  <span className={`text-xs ${activeStrategy === key ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+                    {label}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-bold ${activeStrategy === key ? "text-success" : "text-muted-foreground"}`}>
+                      {formatCurrency(val)}
+                    </span>
+                    {isBest && (
+                      <span className="text-[10px] font-medium text-primary bg-primary/10 rounded px-1.5 py-0.5">
+                        Best
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
-        ))}
-      </div>
+        )
+      })()}
 
       {/* Disclaimer */}
       <div className="flex items-start gap-2 rounded-md border border-border bg-card px-3 py-2.5">

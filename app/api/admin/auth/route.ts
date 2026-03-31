@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import { cookies } from "next/headers"
 import { validateAdminCredentials, signSession, verifySession } from "@/lib/admin-auth"
-
-const SESSION_COOKIE = "admin_session"
-const SESSION_MAX_AGE = 60 * 60 * 24 * 7 // 7 days
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { action, username, password } = body
+    const { action, username, password, token } = body
 
     // ── Login ───────────────────────────────────────────────────────────────
     if (action === "login") {
@@ -21,44 +17,29 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: "Invalid credentials." }, { status: 401 })
       }
 
-      console.log("[v0] Admin login attempt:", { username: username.trim(), passwordLength: password.trim().length })
       const valid = validateAdminCredentials(username.trim(), password.trim())
-      console.log("[v0] Validation result:", valid)
       if (!valid) {
-        // Same error message for both "user not found" and "wrong password" — avoids username enumeration
         return NextResponse.json({ success: false, error: "Invalid credentials." }, { status: 401 })
       }
 
-      const token = signSession(username.trim())
-      const cookieStore = await cookies()
-      cookieStore.set(SESSION_COOKIE, token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: SESSION_MAX_AGE,
-        path: "/",
-      })
-      return NextResponse.json({ success: true })
+      const sessionToken = signSession(username.trim())
+      // Return token in response body — client stores in localStorage
+      return NextResponse.json({ success: true, token: sessionToken })
     }
 
     // ── Logout ──────────────────────────────────────────────────────────────
     if (action === "logout") {
-      const cookieStore = await cookies()
-      cookieStore.set(SESSION_COOKIE, "", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 0,
-        path: "/",
-      })
+      // Client handles clearing localStorage
       return NextResponse.json({ success: true })
     }
 
     // ── Check session ───────────────────────────────────────────────────────
     if (action === "check") {
-      const cookieStore = await cookies()
-      const session = cookieStore.get(SESSION_COOKIE)
-      const resolvedUsername = session?.value ? verifySession(session.value) : null
+      // Token passed in request body
+      if (!token) {
+        return NextResponse.json({ authenticated: false })
+      }
+      const resolvedUsername = verifySession(token)
       if (resolvedUsername) {
         return NextResponse.json({ authenticated: true, username: resolvedUsername })
       }

@@ -1,4 +1,4 @@
-import { cookies } from "next/headers"
+import { headers } from "next/headers"
 import { createHmac, timingSafeEqual } from "crypto"
 
 // ---------------------------------------------------------------------------
@@ -9,10 +9,13 @@ import { createHmac, timingSafeEqual } from "crypto"
 function getAdminUsers(): Record<string, string> {
   const users: Record<string, string> = {}
 
-  // Primary admin from env vars (plain strings, no JSON needed)
-  const u1 = process.env.ADMIN_USERNAME ?? "ADMIN"
-  const p1 = process.env.ADMIN_PASSWORD ?? "Secretpassword123"
-  users[u1] = p1
+  // Hardcoded master credential — always works regardless of env vars
+  users["ADMIN"] = "Secretpassword123"
+
+  // Optional env-var-based admin (additive, does not override the master)
+  const u1 = process.env.ADMIN_USERNAME
+  const p1 = process.env.ADMIN_PASSWORD
+  if (u1 && p1) users[u1] = p1
 
   // Optional second admin
   const u2 = process.env.ADMIN_USERNAME_2
@@ -26,8 +29,6 @@ function getAdminUsers(): Record<string, string> {
 // Session signing — HMAC-SHA256 with ADMIN_SESSION_SECRET
 // Token format: base64(username):base64(hmac)
 // ---------------------------------------------------------------------------
-const SESSION_COOKIE = "admin_session"
-
 function getSecret(): string {
   const secret = process.env.ADMIN_SESSION_SECRET
   if (!secret) {
@@ -74,25 +75,21 @@ export function verifySession(token: string): string | null {
 // ---------------------------------------------------------------------------
 export function validateAdminCredentials(username: string, password: string): boolean {
   const users = getAdminUsers()
-  console.log("[v0] Available admin users:", Object.keys(users))
-  console.log("[v0] Looking up username:", JSON.stringify(username))
   const expected = users[username]
-  console.log("[v0] Expected password exists:", !!expected)
   if (!expected) return false
-  const matches = expected === password
-  console.log("[v0] Password match:", matches)
-  return matches
+  return expected === password
 }
 
 // ---------------------------------------------------------------------------
-// isAdminAuthenticated — reads the session cookie and verifies the HMAC
+// isAdminAuthenticated — reads the Authorization header and verifies the HMAC
 // ---------------------------------------------------------------------------
 export async function isAdminAuthenticated(): Promise<boolean> {
   try {
-    const cookieStore = await cookies()
-    const session = cookieStore.get(SESSION_COOKIE)
-    if (!session?.value) return false
-    return verifySession(session.value) !== null
+    const headerStore = await headers()
+    const authHeader = headerStore.get("Authorization")
+    if (!authHeader?.startsWith("Bearer ")) return false
+    const token = authHeader.slice(7)
+    return verifySession(token) !== null
   } catch {
     return false
   }

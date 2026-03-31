@@ -1,0 +1,3 @@
+{
+  "/api/parse-carrier-report/route": "app/api/parse-carrier-report/route.js"
+}

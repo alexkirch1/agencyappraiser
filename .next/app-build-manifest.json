@@ -1,0 +1,43 @@
+{
+  "pages": {
+    "/carrier/page": [
+      "static/chunks/[root-of-the-server]__6199ff49._.css",
+      "static/chunks/node_modules__pnpm_219e40d8._.js",
+      "static/chunks/_79ea778a._.js",
+      "static/chunks/app_layout_tsx_9cf343d1._.js",
+      "static/chunks/app_global-error_tsx_29b32c6b._.js",
+      "static/chunks/app_global-error_tsx_6f183b07._.js",
+      "static/chunks/_97dc3cb2._.js",
+      "static/chunks/node_modules__pnpm_34c8ebfa._.js",
+      "static/chunks/app_carrier_page_tsx_6f183b07._.js",
+      "static/chunks/[turbopack]_browser_dev_hmr-client_hmr-client_ts_d9e0f47f._.js",
+      "static/chunks/7a989_next_dist_compiled_react-dom_9f4063ef._.js",
+      "static/chunks/7a989_next_dist_compiled_next-devtools_index_9be98623.js",
+      "static/chunks/7a989_next_dist_compiled_80014531._.js",
+      "static/chunks/7a989_next_dist_client_73037f6b._.js",
+      "static/chunks/7a989_next_dist_7159baa2._.js",
+      "static/chunks/69652_@swc_helpers_cjs_77b72907._.js",
+      "static/chunks/_a0ff3932._.js",
+      "static/chunks/turbopack-_76a8973f._.js"
+    ],
+    "/page": [
+      "static/chunks/[root-of-the-server]__6199ff49._.css",
+      "static/chunks/node_modules__pnpm_219e40d8._.js",
+      "static/chunks/_79ea778a._.js",
+      "static/chunks/app_layout_tsx_9cf343d1._.js",
+      "static/chunks/app_global-error_tsx_29b32c6b._.js",
+      "static/chunks/app_global-error_tsx_6f183b07._.js",
+      "static/chunks/_4243cc00._.js",
+      "static/chunks/app_page_tsx_6f183b07._.js",
+      "static/chunks/[turbopack]_browser_dev_hmr-client_hmr-client_ts_d9e0f47f._.js",
+      "static/chunks/7a989_next_dist_compiled_react-dom_9f4063ef._.js",
+      "static/chunks/7a989_next_dist_compiled_next-devtools_index_9be98623.js",
+      "static/chunks/7a989_next_dist_compiled_80014531._.js",
+      "static/chunks/7a989_next_dist_client_73037f6b._.js",
+      "static/chunks/7a989_next_dist_7159baa2._.js",
+      "static/chunks/69652_@swc_helpers_cjs_77b72907._.js",
+      "static/chunks/_a0ff3932._.js",
+      "static/chunks/turbopack-_76a8973f._.js"
+    ]
+  }
+}
