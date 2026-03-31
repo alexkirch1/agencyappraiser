@@ -6,41 +6,6 @@ import { Upload, FileText, CheckCircle2, AlertCircle, X, Loader2, ChevronDown, C
 import type { CarrierInputs } from "./carrier-engine"
 import { parseCommissionStatement, type CommissionParseResult } from "./commission-statement-parser"
 
-// Re-use the same PDF extractor logic (row-aware)
-async function extractTextFromPDF(file: File): Promise<string> {
-  const pdfjsLib = await import("pdfjs-dist")
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
-  const arrayBuffer = await file.arrayBuffer()
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-  let fullText = ""
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i)
-    const content = await page.getTextContent()
-    const items = content.items.filter(
-      (item): item is typeof item & { str: string; transform: number[] } =>
-        "str" in item && item.str.trim() !== ""
-    )
-    items.sort((a, b) => {
-      const yDiff = b.transform[5] - a.transform[5]
-      if (Math.abs(yDiff) > 3) return yDiff
-      return a.transform[4] - b.transform[4]
-    })
-    const rows: string[][] = []
-    let currentRow: { y: number; strs: string[] } | null = null
-    for (const item of items) {
-      const y = item.transform[5]
-      if (!currentRow || Math.abs(currentRow.y - y) > 3) {
-        currentRow = { y, strs: [item.str] }
-        rows.push(currentRow.strs)
-      } else {
-        currentRow.strs.push(item.str)
-      }
-    }
-    fullText += rows.map(r => r.join("  ")).join("\n") + "\n"
-  }
-  return fullText
-}
-
 function fmt$(n: number): string {
   return "$" + Math.abs(Math.round(n)).toLocaleString()
 }
@@ -58,22 +23,21 @@ export function CommissionUpload({ onParsed }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const handleFile = useCallback(async (file: File) => {
-    if (!file.name.toLowerCase().endsWith(".pdf")) {
-      setStatus("error"); setErrorMsg("Please upload a PDF file."); return
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      setStatus("error"); setErrorMsg("Please upload a CSV file exported from EZLynx."); return
     }
     setStatus("loading"); setFileName(file.name); setErrorMsg("")
     try {
-      const text = await extractTextFromPDF(file)
+      const text = await file.text()
       const parsed = parseCommissionStatement(text)
       const hasData = (parsed.totalWrittenPremium ?? 0) > 0 || (parsed.totalPolicies ?? 0) > 0
       if (!hasData) {
         setStatus("error")
-        setErrorMsg("Could not extract data. Make sure this is an EZLynx Book of Business Detail Report PDF.")
+        setErrorMsg("Could not extract data. Make sure this is an EZLynx Book of Business Detail Report CSV.")
         return
       }
       setResult(parsed)
       setStatus("success")
-      // Map to CarrierInputs book quality fields
       onParsed({
         book_avg_premium_per_policy:  parsed.book_avg_premium_per_policy,
         book_new_business_pct:        parsed.book_new_business_pct,
@@ -81,7 +45,7 @@ export function CommissionUpload({ onParsed }: Props) {
       }, parsed)
     } catch {
       setStatus("error")
-      setErrorMsg("Failed to parse the PDF. The file may be encrypted or in an unsupported format.")
+      setErrorMsg("Failed to parse the file. Make sure it is an EZLynx Book of Business Detail Report CSV.")
     }
   }, [onParsed])
 
@@ -98,7 +62,7 @@ export function CommissionUpload({ onParsed }: Props) {
 
   return (
     <div className="rounded-lg border border-dashed border-border">
-      <input ref={inputRef} type="file" accept=".pdf" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
+      <input ref={inputRef} type="file" accept=".csv" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
 
       {status === "idle" && (
         <div
@@ -111,7 +75,7 @@ export function CommissionUpload({ onParsed }: Props) {
           </div>
           <div>
             <p className="text-sm font-medium text-foreground">Upload Book of Business Detail Report</p>
-            <p className="text-xs text-muted-foreground">EZLynx EZ Links PDF — auto-fills new business %, policies/customer, avg premium</p>
+            <p className="text-xs text-muted-foreground">EZLynx EZ Links CSV export — auto-fills new business %, policies/customer, avg premium</p>
           </div>
         </div>
       )}
