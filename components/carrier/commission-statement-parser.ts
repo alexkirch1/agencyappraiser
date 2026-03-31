@@ -23,6 +23,7 @@ export interface CommissionParseResult {
   book_avg_premium_per_policy: number | null
   book_new_business_pct: number | null
   book_policies_per_customer: number | null
+  book_monoline_pct: number | null          // % of customers with only 1 policy
   totalWrittenPremium: number | null
   totalSplitCommission: number | null
   totalPolicies: number | null
@@ -197,45 +198,53 @@ export function parseCommissionStatement(csvText: string): CommissionParseResult
   if (rows.length === 0) return emptyResult()
 
   // ── Aggregate ───────────────────────────────────────────────────────────────
-  const uniquePolicies   = new Set<string>()
-  const uniqueCustomers  = new Set<string>()
+  // Track unique policies (by policy number) to avoid double-counting rows
+  // that share a policy number (e.g. multiple LOBs on same policy)
+  const policyPremium    = new Map<string, number>()  // policyNum → premium
+  const policyIsNewBiz   = new Map<string, boolean>() // policyNum → isNewBusiness
+  const policyCarrier    = new Map<string, string>()  // policyNum → carrier
+  const customerPolicies = new Map<string, Set<string>>() // customer → Set<policyNum>
   const carrierMap       = new Map<string, CarrierBreakdown>()
   const carrierPolicies  = new Map<string, Set<string>>()
-  const customerPolicies = new Map<string, Set<string>>()
 
+  for (const row of rows) {
+    const key = row.policy || `${row.customer}__${row.lob}`
+
+    // Accumulate premium per unique policy key
+    policyPremium.set(key, (policyPremium.get(key) ?? 0) + row.premium)
+
+    // A policy is new business if ANY row for it is flagged as new
+    if (row.isNewBusiness) policyIsNewBiz.set(key, true)
+    else if (!policyIsNewBiz.has(key)) policyIsNewBiz.set(key, false)
+
+    // Associate carrier with policy (first wins)
+    if (!policyCarrier.has(key)) policyCarrier.set(key, row.carrier)
+
+    // Track policies per customer
+    if (row.customer) {
+      if (!customerPolicies.has(row.customer)) customerPolicies.set(row.customer, new Set())
+      customerPolicies.get(row.customer)!.add(key)
+    }
+  }
+
+  // Now aggregate over unique policies
   let totalPremium = 0
   let nbCount      = 0
 
-  for (const row of rows) {
-    totalPremium += row.premium
-    if (row.isNewBusiness) nbCount++
+  for (const [key, premium] of policyPremium) {
+    totalPremium += premium
+    if (policyIsNewBiz.get(key)) nbCount++
 
-    if (row.policy)   uniquePolicies.add(row.policy)
-    if (row.customer) uniqueCustomers.add(row.customer)
-
-    if (row.customer && row.policy) {
-      if (!customerPolicies.has(row.customer)) customerPolicies.set(row.customer, new Set())
-      customerPolicies.get(row.customer)!.add(row.policy)
+    const carrier = normaliseCarrier(policyCarrier.get(key) ?? "")
+    if (!carrierMap.has(carrier)) {
+      carrierMap.set(carrier, { carrier, writtenPremium: 0, splitCommission: 0, policyCount: 0, newBusinessCount: 0 })
     }
+    const cb = carrierMap.get(carrier)!
+    cb.writtenPremium += premium
+    if (policyIsNewBiz.get(key)) cb.newBusinessCount++
 
-    const normCarrier = normaliseCarrier(row.carrier)
-    if (!carrierMap.has(normCarrier)) {
-      carrierMap.set(normCarrier, {
-        carrier: normCarrier,
-        writtenPremium: 0,
-        splitCommission: 0,
-        policyCount: 0,
-        newBusinessCount: 0,
-      })
-    }
-    const cb = carrierMap.get(normCarrier)!
-    cb.writtenPremium += row.premium
-    if (row.isNewBusiness) cb.newBusinessCount++
-
-    if (row.policy) {
-      if (!carrierPolicies.has(normCarrier)) carrierPolicies.set(normCarrier, new Set())
-      carrierPolicies.get(normCarrier)!.add(row.policy)
-    }
+    if (!carrierPolicies.has(carrier)) carrierPolicies.set(carrier, new Set())
+    carrierPolicies.get(carrier)!.add(key)
   }
 
   for (const [carrier, pols] of carrierPolicies) {
@@ -244,19 +253,31 @@ export function parseCommissionStatement(csvText: string): CommissionParseResult
   }
 
   const breakdown      = Array.from(carrierMap.values()).sort((a, b) => b.writtenPremium - a.writtenPremium)
-  const totalPolicies  = uniquePolicies.size
-  const totalCustomers = uniqueCustomers.size
+  const totalPolicies  = policyPremium.size
+  const totalCustomers = customerPolicies.size
 
+  // avg premium = total premium ÷ unique policy count
   const avgPremPerPol = totalPolicies > 0
     ? Math.round(totalPremium / totalPolicies)
     : null
 
-  const newBizPct = rows.length > 0
-    ? parseFloat(((nbCount / rows.length) * 100).toFixed(1))
+  // new business % = new business unique policies ÷ total unique policies
+  const newBizPct = totalPolicies > 0
+    ? parseFloat(((nbCount / totalPolicies) * 100).toFixed(1))
     : null
 
+  // policies per customer = total unique policies ÷ unique customers
   const polsPerCx = totalCustomers > 0
     ? parseFloat((totalPolicies / totalCustomers).toFixed(2))
+    : null
+
+  // monoline % = customers with exactly 1 policy ÷ total customers
+  let monolineCount = 0
+  for (const pols of customerPolicies.values()) {
+    if (pols.size === 1) monolineCount++
+  }
+  const monolinePct = totalCustomers > 0
+    ? parseFloat(((monolineCount / totalCustomers) * 100).toFixed(1))
     : null
 
   // Extract a month label from any date field in the first data row
@@ -275,6 +296,7 @@ export function parseCommissionStatement(csvText: string): CommissionParseResult
     book_avg_premium_per_policy:  avgPremPerPol,
     book_new_business_pct:        newBizPct,
     book_policies_per_customer:   polsPerCx,
+    book_monoline_pct:            monolinePct,
     totalWrittenPremium:          Math.round(totalPremium),
     totalSplitCommission:         null, // CSV does not include commission split
     totalPolicies,
@@ -292,6 +314,7 @@ function emptyResult(): CommissionParseResult {
     book_avg_premium_per_policy:  null,
     book_new_business_pct:        null,
     book_policies_per_customer:   null,
+    book_monoline_pct:            null,
     totalWrittenPremium:          null,
     totalSplitCommission:         null,
     totalPolicies:                null,

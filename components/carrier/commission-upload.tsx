@@ -42,6 +42,7 @@ export function CommissionUpload({ onParsed }: Props) {
         book_avg_premium_per_policy:  parsed.book_avg_premium_per_policy,
         book_new_business_pct:        parsed.book_new_business_pct,
         book_policies_per_customer:   parsed.book_policies_per_customer,
+        book_monoline_pct:            parsed.book_monoline_pct,
       }, parsed)
     } catch {
       setStatus("error")
@@ -157,6 +158,11 @@ export function CommissionUpload({ onParsed }: Props) {
             {result.book_avg_premium_per_policy != null && (
               <span className="rounded-md bg-secondary px-2 py-1 text-xs text-foreground">
                 Avg Premium/Policy: <strong>{fmt$(result.book_avg_premium_per_policy)}</strong>
+              </span>
+            )}
+            {result.book_monoline_pct != null && (
+              <span className="rounded-md bg-secondary px-2 py-1 text-xs text-foreground">
+                Monoline Customers: <strong>{result.book_monoline_pct.toFixed(1)}%</strong>
               </span>
             )}
           </div>
