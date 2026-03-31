@@ -229,7 +229,7 @@ export function CarrierForm({ inputs, onChange }: Props) {
             <CardHeader className="pb-3">
               <div>
                 <CardTitle className="text-base font-semibold text-foreground">
-                  {stepOffset + 2}. Book Quality <span className="text-xs font-normal text-muted-foreground ml-1">(optional — from commission statements / active policy list)</span>
+                  {stepOffset + 2}. Book Quality <span className="text-xs font-normal text-muted-foreground ml-1">(optional — Book of Business Detail Report / EZ Links)</span>
                 </CardTitle>
               </div>
             </CardHeader>
@@ -268,7 +268,7 @@ export function CarrierForm({ inputs, onChange }: Props) {
                   onChange={(v) => update({ book_new_business_pct: v })}
                   placeholder="e.g. 15"
                   type="percent"
-                  hint="New policies written in past 12 months ÷ total PIF — from commission statement"
+                  hint="New policies written in past 12 months ÷ total PIF — from Book of Business Detail Report"
                 />
                 <NumField
                   label="Monoline Customers (%)"

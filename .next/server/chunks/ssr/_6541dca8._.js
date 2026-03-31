@@ -1310,11 +1310,7 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$components$2f$carrier$2f$com
 ;
 // Re-use the same PDF extractor logic (row-aware)
 async function extractTextFromPDF(file) {
-    const pdfjsLib = await (()=>{
-        const e = new Error("Cannot find module 'pdfjs-dist'");
-        e.code = 'MODULE_NOT_FOUND';
-        throw e;
-    })();
+    const pdfjsLib = await __turbopack_context__.A("[project]/node_modules/.pnpm/pdfjs-dist@4.10.38/node_modules/pdfjs-dist/build/pdf.mjs [app-ssr] (ecmascript, async loader)");
     pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({
@@ -1375,7 +1371,7 @@ function CommissionUpload({ onParsed }) {
             const hasData = (parsed.totalWrittenPremium ?? 0) > 0 || (parsed.totalPolicies ?? 0) > 0;
             if (!hasData) {
                 setStatus("error");
-                setErrorMsg("Could not extract commission data. Make sure this is an EZLynx Horizon commission statement PDF.");
+                setErrorMsg("Could not extract data. Make sure this is an EZLynx Book of Business Detail Report PDF.");
                 return;
             }
             setResult(parsed);
@@ -1449,7 +1445,7 @@ function CommissionUpload({ onParsed }) {
                         children: [
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                 className: "text-sm font-medium text-foreground",
-                                children: "Upload Commission Statement"
+                                children: "Upload Book of Business Detail Report"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
                                 lineNumber: 113,
@@ -1457,7 +1453,7 @@ function CommissionUpload({ onParsed }) {
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                 className: "text-xs text-muted-foreground",
-                                children: "EZLynx Horizon PDF — auto-fills new business %, policies/customer, avg premium"
+                                children: "EZLynx EZ Links PDF — auto-fills new business %, policies/customer, avg premium"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
                                 lineNumber: 114,
@@ -1597,7 +1593,7 @@ function CommissionUpload({ onParsed }) {
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                                 className: "text-xs text-success",
                                                 children: [
-                                                    "Commission statement parsed · Format ",
+                                                    "Book of Business Detail Report parsed · Format ",
                                                     result.format
                                                 ]
                                             }, void 0, true, {
@@ -2773,7 +2769,7 @@ function CarrierForm({ inputs, onChange }) {
                                             ". Book Quality ",
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                 className: "text-xs font-normal text-muted-foreground ml-1",
-                                                children: "(optional — from commission statements / active policy list)"
+                                                children: "(optional — Book of Business Detail Report / EZ Links)"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/carrier/carrier-form.tsx",
                                                 lineNumber: 232,
@@ -2858,7 +2854,7 @@ function CarrierForm({ inputs, onChange }) {
                                                     }),
                                                 placeholder: "e.g. 15",
                                                 type: "percent",
-                                                hint: "New policies written in past 12 months ÷ total PIF — from commission statement"
+                                                hint: "New policies written in past 12 months ÷ total PIF — from Book of Business Detail Report"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/carrier/carrier-form.tsx",
                                                 lineNumber: 265,

@@ -68,7 +68,7 @@ export function CommissionUpload({ onParsed }: Props) {
       const hasData = (parsed.totalWrittenPremium ?? 0) > 0 || (parsed.totalPolicies ?? 0) > 0
       if (!hasData) {
         setStatus("error")
-        setErrorMsg("Could not extract commission data. Make sure this is an EZLynx Horizon commission statement PDF.")
+        setErrorMsg("Could not extract data. Make sure this is an EZLynx Book of Business Detail Report PDF.")
         return
       }
       setResult(parsed)
@@ -110,8 +110,8 @@ export function CommissionUpload({ onParsed }: Props) {
             <Upload className="h-4 w-4 text-primary" />
           </div>
           <div>
-            <p className="text-sm font-medium text-foreground">Upload Commission Statement</p>
-            <p className="text-xs text-muted-foreground">EZLynx Horizon PDF — auto-fills new business %, policies/customer, avg premium</p>
+            <p className="text-sm font-medium text-foreground">Upload Book of Business Detail Report</p>
+            <p className="text-xs text-muted-foreground">EZLynx EZ Links PDF — auto-fills new business %, policies/customer, avg premium</p>
           </div>
         </div>
       )}
@@ -148,7 +148,7 @@ export function CommissionUpload({ onParsed }: Props) {
                   )}
                 </p>
                 <p className="text-xs text-success">
-                  Commission statement parsed · Format {result.format}
+                  Book of Business Detail Report parsed · Format {result.format}
                 </p>
               </div>
             </div>
