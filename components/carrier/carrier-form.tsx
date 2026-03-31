@@ -483,21 +483,81 @@ function ProgressiveFields({
       {showPL && (
         <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
           <p className="text-sm font-semibold text-foreground">Personal Lines</p>
-          <NumField label="T12 Written Premium ($)" value={inputs.prog_pl_premium} onChange={(v) => update({ prog_pl_premium: v })} placeholder="e.g. 2,500,000" type="currency" />
-          <NumField label="Policies in Force (PIF)" value={inputs.prog_pl_pif} onChange={(v) => update({ prog_pl_pif: v })} placeholder="e.g. 1,200" type="count" />
-          <NumField label="T12 Loss Ratio (%)" value={inputs.prog_pl_loss_ratio} onChange={(v) => update({ prog_pl_loss_ratio: v })} placeholder="e.g. 42.5" type="percent" benchmark={{ good: 40, poor: 58, direction: "lower-better", goodLabel: "Good", poorLabel: "High" }} />
+          <NumField
+            label="Current Book Written Premium ($)"
+            value={inputs.prog_pl_premium}
+            onChange={(v) => update({ prog_pl_premium: v })}
+            placeholder="e.g. 719,476"
+            type="currency"
+            hint="Total PL Written Premium from the Account Production Report (ADP) — Current Book column"
+          />
+          <NumField
+            label="Policies in Force (PIF)"
+            value={inputs.prog_pl_pif}
+            onChange={(v) => update({ prog_pl_pif: v })}
+            placeholder="e.g. 391"
+            type="count"
+            hint="Total PL PIF — sum of Auto + Property + Special Lines + Umbrella rows"
+          />
+          <NumField
+            label="Loss Ratio (Trailing 12, %)"
+            value={inputs.prog_pl_loss_ratio}
+            onChange={(v) => update({ prog_pl_loss_ratio: v })}
+            placeholder="e.g. 57"
+            type="percent"
+            hint="Most recent trailing 12-month PL Loss Ratio from the Loss Ratio section of the ADP"
+            benchmark={{ good: 40, poor: 62, direction: "lower-better", goodLabel: "Good", poorLabel: "High" }}
+          />
         </div>
       )}
       {showCL && (
         <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
           <p className="text-sm font-semibold text-foreground">Commercial Lines</p>
-          <NumField label="T12 Written Premium ($)" value={inputs.prog_cl_premium} onChange={(v) => update({ prog_cl_premium: v })} placeholder="e.g. 800,000" type="currency" />
-          <NumField label="Policies in Force (PIF)" value={inputs.prog_cl_pif} onChange={(v) => update({ prog_cl_pif: v })} placeholder="e.g. 500" type="count" />
-          <NumField label="T12 Loss Ratio (%)" value={inputs.prog_cl_loss_ratio} onChange={(v) => update({ prog_cl_loss_ratio: v })} placeholder="e.g. 8.0" type="percent" benchmark={{ good: 35, poor: 58, direction: "lower-better", goodLabel: "Good", poorLabel: "High" }} />
+          <NumField
+            label="Current Book Written Premium ($)"
+            value={inputs.prog_cl_premium}
+            onChange={(v) => update({ prog_cl_premium: v })}
+            placeholder="e.g. 359,854"
+            type="currency"
+            hint="Total CL Written Premium from the ADP — Current Book column"
+          />
+          <NumField
+            label="Policies in Force (PIF)"
+            value={inputs.prog_cl_pif}
+            onChange={(v) => update({ prog_cl_pif: v })}
+            placeholder="e.g. 53"
+            type="count"
+            hint="Total CL PIF from the ADP — Commercial Lines row"
+          />
+          <NumField
+            label="Loss Ratio (Trailing 12, %)"
+            value={inputs.prog_cl_loss_ratio}
+            onChange={(v) => update({ prog_cl_loss_ratio: v })}
+            placeholder="e.g. 7"
+            type="percent"
+            hint="Most recent trailing 12-month CL Loss Ratio from the Loss Ratio section of the ADP"
+            benchmark={{ good: 35, poor: 58, direction: "lower-better", goodLabel: "Good", poorLabel: "High" }}
+          />
         </div>
       )}
-      <NumField label="Bundle Rate (%)" value={inputs.prog_bundle_rate} onChange={(v) => update({ prog_bundle_rate: v })} placeholder="e.g. 68" type="percent" />
-      <NumField label="YTD New Applications" value={inputs.prog_ytd_apps} onChange={(v) => update({ prog_ytd_apps: v })} placeholder="e.g. 55" type="count" />
+      <NumField
+        label="PIF Bundle Rate (%)"
+        value={inputs.prog_bundle_rate}
+        onChange={(v) => update({ prog_bundle_rate: v })}
+        placeholder="e.g. 65"
+        type="percent"
+        hint="PIF Bundle Rate from the Property Quality section — Auto + Home/Condo/MH customers ÷ total HO/CO/MH PIFs"
+        benchmark={{ good: 65, poor: 45, direction: "higher-better", goodLabel: "Strong", poorLabel: "Low" }}
+      />
+      <NumField
+        label="YTD New Applications (Total)"
+        value={inputs.prog_ytd_apps}
+        onChange={(v) => update({ prog_ytd_apps: v })}
+        placeholder="e.g. 124"
+        type="count"
+        hint="YTD Apps column — Total Personal Lines + Commercial Lines new applications from the New Business section"
+        benchmark={{ good: 50, poor: 20, direction: "higher-better", goodLabel: "Active", poorLabel: "Low" }}
+      />
       <div className="flex items-center justify-between rounded-md border border-border px-4 py-3">
         <div>
           <p className="text-sm font-medium text-foreground">Diamond / Preferred Program Status</p>

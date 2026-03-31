@@ -141,30 +141,47 @@ function toCarrierKey(display: string): CarrierName | null {
 
 type LobGroup = keyof LobBreakdown
 
-function classifyLob(lob: string): LobGroup {
+function classifyLob(lob: string, policyType?: string): LobGroup {
   const l = lob.toLowerCase()
-  // Personal & commercial auto
-  if (l.includes("auto") || l.includes("private passenger") || l.includes("motorcycle"))
-    return "auto"
+  const isPersonal = /personal/i.test(policyType ?? "")
+  const isCommercial = /commercial/i.test(policyType ?? "")
+
+  // Workers Comp — always its own bucket
+  if (l.includes("workers comp") || l.includes("work comp") || l.includes("wc"))
+    return "wc"
+
+  // Auto — personal or commercial
+  if (
+    l.includes("auto (personal)") || l.includes("private passenger") ||
+    (l.includes("auto") && isPersonal)
+  ) return "auto"
+
+  if (l.includes("auto (commercial)") || (l.includes("auto") && isCommercial))
+    return "commercial"
+
+  // Catch motorcycle/watercraft — personal = "other" bucket (Special Lines)
+  if (l.includes("motorcycle") || l.includes("watercraft") || l.includes("boat"))
+    return "other"
+
   // Home / personal property
   if (
     l.includes("homeowner") || l.includes("home owner") || l.includes("dwelling") ||
     l.includes("condo") || l.includes("renters") || l.includes("tenant") ||
     l.includes("landlord") || l.includes("mobile home")
   ) return "home"
-  // Workers Comp
-  if (l.includes("workers comp") || l.includes("work comp") || l.includes("wc"))
-    return "wc"
-  // Umbrella / Excess — separate bucket
+
+  // Umbrella / Excess — keep in "other" (PL umbrella not CL)
   if (l.includes("umbrella") || l.includes("excess liability"))
     return "other"
-  // Commercial lines (BOP, GL, Pkg, Prpty, Inland Marine, Crime, CPP, Flood)
+
+  // Commercial lines (BOP, GL, Pkg, Prpty, Inland Marine, Crime, CPP, Flood, Artisan)
   if (
     l.includes("bop") || l.includes("business owner") || l.includes("genl liab") ||
     l.includes("general liab") || l.includes("commercial") || l.includes("inland marine") ||
     l.includes("crime") || l.includes("cpp") || l.includes("flood") || l.includes("surety") ||
-    l.includes("professional")
+    l.includes("professional") || l.includes("artisan") || l.includes("truckers")
   ) return "commercial"
+
   // Catch-all
   return "other"
 }
@@ -203,7 +220,10 @@ export function parseCommissionStatement(csvText: string): CommissionParseResult
   const iExpiringPolicies   = col("expiringpolicies")
   const iPolicyStatus       = col("policy status")
 
-  const iPremium = iTotalWrittenPrem >= 0 ? iTotalWrittenPrem : iTotalAnnPremium
+  // Use annualized premium — this normalises 6-month policies to annual,
+  // matching what carriers show in their production reports (e.g. Progressive ADP).
+  // Fall back to written premium if annualized not present.
+  const iPremium = iTotalAnnPremium >= 0 ? iTotalAnnPremium : iTotalWrittenPrem
 
   if (iAccountName < 0 || iPolicyNumber < 0 || iPremium < 0) return emptyResult()
 
@@ -259,7 +279,7 @@ export function parseCommissionStatement(csvText: string): CommissionParseResult
 
     rows.push({
       customer, policy, carrier, policyType, lob,
-      lobGroup: classifyLob(lob),
+      lobGroup: classifyLob(lob, policyType),
       premium, isNewBusiness, isExpiring,
     })
   }

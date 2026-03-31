@@ -85,15 +85,29 @@ function mapToCarrierInputs(parsed: CommissionParseResult): Partial<CarrierInput
     }
 
     // ── Progressive ────────────────────────────────────────────────────────
+    // The CSV uses Total Annualized Premium (parser now defaults to this), so
+    // premium figures match what Progressive's Account Production Report shows.
+    // PL = auto + home + other (Special Lines: watercraft, umbrella, etc.)
+    // CL = commercial + wc
     case "progressive": {
-      const plTotal = lob.auto + lob.home
-      const clTotal = lob.commercial + lob.wc
-      if (plTotal > 0) fields.prog_pl_premium = plTotal
-      if (clTotal > 0) fields.prog_cl_premium = clTotal
+      const plTotal = lob.auto + lob.home + lob.other  // PL: auto + property + special lines
+      const clTotal = lob.commercial + lob.wc           // CL: commercial auto + BOP + WC etc.
+      if (plTotal > 0) fields.prog_pl_premium = Math.round(plTotal)
+      if (clTotal > 0) fields.prog_cl_premium = Math.round(clTotal)
+
+      // Split PIF proportionally by annualized premium weight
       if (pif > 0 && total > 0) {
         if (plTotal > 0) fields.prog_pl_pif = Math.round(pif * plTotal / total)
         if (clTotal > 0) fields.prog_cl_pif = Math.round(pif * clTotal / total)
       }
+
+      // YTD apps = new business policy count (best proxy from CSV)
+      if (nbCount > 0) fields.prog_ytd_apps = nbCount
+
+      // Bundle rate: % of PL PIF that are bundled (auto + home customer)
+      // We can approximate: home policies ÷ auto policies * 100
+      // A customer with both auto & home counts as bundled.
+      // We don't have exact bundle data from CSV, so leave this for manual entry.
       break
     }
 
