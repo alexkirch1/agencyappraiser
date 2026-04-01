@@ -9,9 +9,10 @@ import { Slider } from "@/components/ui/slider"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Button } from "@/components/ui/button"
 import { ValuationDisclaimerModal } from "@/components/valuation-disclaimer-modal"
-import { ArrowRight, Calculator, Zap, DollarSign, AlertTriangle, TrendingUp, ShieldAlert } from "lucide-react"
+import { ArrowRight, Calculator, Zap, DollarSign, AlertTriangle, TrendingUp, ShieldAlert, Download } from "lucide-react"
 import { FeedbackWidget } from "@/components/feedback-widget"
 import { InfoTip } from "@/components/ui/info-tip"
+import { downloadQuickValuePDF } from "@/lib/generate-pdf"
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -103,6 +104,7 @@ export default function QuickValuePage() {
   const [multiplier, setMultiplier] = useState(1.95)
   const [showDisclaimer, setShowDisclaimer] = useState(false)
   const [resultsVisible, setResultsVisible] = useState(false)
+  const [pdfLoading, setPdfLoading] = useState(false)
 
   const estimate = useMemo(() => {
     if (!revenue || revenue <= 0) return null
@@ -462,6 +464,44 @@ export default function QuickValuePage() {
                         </Link>
                       </Button>
                     </div>
+
+                    {/* PDF Download */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full gap-2 text-xs text-muted-foreground hover:text-foreground mt-1"
+                      disabled={pdfLoading}
+                      onClick={async () => {
+                        if (!revenue || !estimate) return
+                        setPdfLoading(true)
+                        try {
+                          await downloadQuickValuePDF(
+                            {
+                              revenue,
+                              multiplier,
+                              suggestedMultiplier: estimate.suggested,
+                              retention,
+                              bookType,
+                              growth,
+                              customers,
+                              policies,
+                              ratio: estimate.ratio ?? null,
+                            },
+                            {
+                              value: estimate.value,
+                              lowValue: estimate.lowValue,
+                              highValue: estimate.highValue,
+                              tier: estimate.tier,
+                            }
+                          )
+                        } finally {
+                          setPdfLoading(false)
+                        }
+                      }}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      {pdfLoading ? "Generating PDF..." : "Download Summary PDF"}
+                    </Button>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center text-center">

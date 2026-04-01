@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server"
 import sql from "@/lib/db"
+import { rateLimit, getClientIp } from "@/lib/rate-limit"
 
 export async function POST(req: Request) {
+  // Rate limit: 10 quiz saves per IP per 10 minutes
+  const { allowed } = rateLimit(`save-quiz:${getClientIp(req)}`, 10, 10 * 60 * 1000)
+  if (!allowed) {
+    return NextResponse.json({ error: "Too many requests." }, { status: 429 })
+  }
+
   try {
     const body = await req.json()
     const { leadId, totalScore, maxScore, percentage, grade, answers } = body

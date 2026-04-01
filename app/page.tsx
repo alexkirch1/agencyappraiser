@@ -93,9 +93,9 @@ export default function HomePage() {
           Everything you need to value, evaluate, and prepare your agency for a successful transaction.
         </p>
 
-        {/* Top 2 featured cards */}
-        <div className="grid gap-4 md:grid-cols-2">
-          {tools.slice(0, 2).map((tool) => (
+        {/* Even 3-column grid for all tools */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {tools.map((tool) => (
             <Link key={tool.href} href={tool.href} className="group">
               <Card className="h-full border border-border bg-card transition-colors hover:border-primary/50">
                 <CardContent className="flex flex-col gap-3 p-6">
@@ -109,30 +109,7 @@ export default function HomePage() {
                       </span>
                     )}
                   </div>
-                  <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
-                    {tool.title}
-                  </h3>
-                  <p className="text-sm leading-relaxed text-muted-foreground">{tool.description}</p>
-                  <div className="mt-auto flex items-center gap-1 pt-1 text-sm font-medium text-primary">
-                    <span>Get started</span>
-                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
-
-        {/* Bottom card */}
-        <div className="mt-4">
-          {tools.slice(2).map((tool) => (
-            <Link key={tool.href} href={tool.href} className="group">
-              <Card className="h-full border border-border bg-card transition-colors hover:border-primary/50">
-                <CardContent className="flex flex-col gap-3 p-5">
-                  <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${tool.accentBg}`}>
-                    <tool.icon className={`h-4 w-4 ${tool.accent}`} />
-                  </div>
-                  <h3 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
+                  <h3 className="text-base font-semibold text-foreground transition-colors group-hover:text-primary">
                     {tool.title}
                   </h3>
                   <p className="text-sm leading-relaxed text-muted-foreground">{tool.description}</p>
@@ -154,7 +131,7 @@ export default function HomePage() {
           <div className="grid gap-8 md:grid-cols-3">
             {[
               { n: "1", title: "Quick Estimate", desc: "Start with our 60-second Quick Valuation to see a ballpark range." },
-              { n: "2", title: "Go Deeper", desc: "Run the full 7-category calculator with risk audit and deal simulator." },
+              { n: "2", title: "Go Deeper", desc: "Run the full 7-category calculator with risk audit, deal simulator, and downloadable PDF report." },
               { n: "3", title: "Drill Into Carriers", desc: "Use the Carrier Report to value individual books of business by carrier with upload-and-parse reporting." },
             ].map((step) => (
               <div key={step.n} className="flex flex-col items-center text-center">

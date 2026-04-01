@@ -1,13 +1,25 @@
 import { NextResponse } from "next/server"
+import { rateLimit, getClientIp } from "@/lib/rate-limit"
 
 const RESEND_API_KEY: string | undefined = process.env.RESEND_API_KEY
 const NOTIFY_EMAIL = "mergers@rockyquote.com"
 
 export async function POST(req: Request) {
+  // Rate limit: 3 feedback messages per IP per 10 minutes
+  const { allowed } = rateLimit(`feedback:${getClientIp(req)}`, 3, 10 * 60 * 1000)
+  if (!allowed) {
+    return NextResponse.json({ error: "Too many requests. Please wait before sending more feedback." }, { status: 429 })
+  }
+
   try {
     const { message, category } = await req.json()
     if (!message?.trim()) {
       return NextResponse.json({ error: "No message" }, { status: 400 })
+    }
+
+    // Cap message length
+    if (typeof message !== "string" || message.length > 2000) {
+      return NextResponse.json({ error: "Message too long (max 2000 characters)." }, { status: 400 })
     }
 
     // Send email notification if Resend is configured

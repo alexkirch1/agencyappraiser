@@ -342,7 +342,7 @@ export function CarrierForm({ inputs, onChange }: Props) {
                   label="Preferred / Standard Book (%)"
                   value={inputs.book_preferred_pct}
                   onChange={(v) => update({ book_preferred_pct: v })}
-                  placeholder="e.g. 78"
+                  placeholder="e.g. 75"
                   type="percent"
                   hint="% of policies in preferred or standard tier (vs non-standard/high-risk)"
                   benchmark={{ good: 80, poor: 45, direction: "higher-better", goodLabel: "Strong", poorLabel: "Weak" }}
@@ -351,7 +351,7 @@ export function CarrierForm({ inputs, onChange }: Props) {
                   label="Policies per Customer"
                   value={inputs.book_policies_per_customer}
                   onChange={(v) => update({ book_policies_per_customer: v })}
-                  placeholder="e.g. 1.9"
+                  placeholder="e.g. 1.8"
                   type="number"
                   hint="Total policies ÷ total customers — higher means stronger multi-line"
                   benchmark={{ good: 2.2, poor: 1.3, direction: "higher-better", goodLabel: "Multi-line", poorLabel: "Thin" }}
@@ -360,7 +360,7 @@ export function CarrierForm({ inputs, onChange }: Props) {
                   label="Avg Premium per Policy ($)"
                   value={inputs.book_avg_premium_per_policy}
                   onChange={(v) => update({ book_avg_premium_per_policy: v })}
-                  placeholder="e.g. 1,200"
+                  placeholder="e.g. 1,100"
                   type="currency"
                   hint="Total written premium ÷ total policies in force"
                   benchmark={{ good: 1500, poor: 500, direction: "higher-better", goodLabel: "High Value", poorLabel: "Low" }}
@@ -369,7 +369,7 @@ export function CarrierForm({ inputs, onChange }: Props) {
                   label="New Business % (last 12 mo)"
                   value={inputs.book_new_business_pct}
                   onChange={(v) => update({ book_new_business_pct: v })}
-                  placeholder="e.g. 15"
+                  placeholder="e.g. 18"
                   type="percent"
                   hint="New policies written in past 12 months ÷ total PIF — from Book of Business Detail Report"
                   benchmark={{ good: 10, poor: 30, direction: "lower-better", goodLabel: "Stable", poorLabel: "High Churn" }}
@@ -378,7 +378,7 @@ export function CarrierForm({ inputs, onChange }: Props) {
                   label="Monoline Customers (%)"
                   value={inputs.book_monoline_pct}
                   onChange={(v) => update({ book_monoline_pct: v })}
-                  placeholder="e.g. 42"
+                  placeholder="e.g. 45"
                   type="percent"
                   hint="% of customers with only one policy — lower is better (multi-line = stickier)"
                   benchmark={{ good: 30, poor: 65, direction: "lower-better", goodLabel: "Multi-line", poorLabel: "High Risk" }}
@@ -387,7 +387,7 @@ export function CarrierForm({ inputs, onChange }: Props) {
                   label="Paperless / e-Docs (%)"
                   value={inputs.book_digital_docs_pct}
                   onChange={(v) => update({ book_digital_docs_pct: v })}
-                  placeholder="e.g. 65"
+                  placeholder="e.g. 60"
                   type="percent"
                   hint="% of customers enrolled in paperless — higher engagement = lower lapse rate"
                   benchmark={{ good: 70, poor: 35, direction: "higher-better", goodLabel: "Strong", poorLabel: "Low" }}
@@ -487,7 +487,7 @@ function ProgressiveFields({
             label="Current Book Written Premium ($)"
             value={inputs.prog_pl_premium}
             onChange={(v) => update({ prog_pl_premium: v })}
-            placeholder="e.g. 719,476"
+            placeholder="e.g. 750,000"
             type="currency"
             hint="Total PL Written Premium from the Account Production Report (ADP) — Current Book column"
           />
@@ -495,7 +495,7 @@ function ProgressiveFields({
             label="Policies in Force (PIF)"
             value={inputs.prog_pl_pif}
             onChange={(v) => update({ prog_pl_pif: v })}
-            placeholder="e.g. 391"
+            placeholder="e.g. 350"
             type="count"
             hint="Total PL PIF — sum of Auto + Property + Special Lines + Umbrella rows"
           />
@@ -503,7 +503,7 @@ function ProgressiveFields({
             label="Loss Ratio (Trailing 12, %)"
             value={inputs.prog_pl_loss_ratio}
             onChange={(v) => update({ prog_pl_loss_ratio: v })}
-            placeholder="e.g. 57"
+            placeholder="e.g. 52"
             type="percent"
             hint="Most recent trailing 12-month PL Loss Ratio from the Loss Ratio section of the ADP"
             benchmark={{ good: 40, poor: 62, direction: "lower-better", goodLabel: "Good", poorLabel: "High" }}
@@ -517,7 +517,7 @@ function ProgressiveFields({
             label="Current Book Written Premium ($)"
             value={inputs.prog_cl_premium}
             onChange={(v) => update({ prog_cl_premium: v })}
-            placeholder="e.g. 359,854"
+            placeholder="e.g. 300,000"
             type="currency"
             hint="Total CL Written Premium from the ADP — Current Book column"
           />
@@ -525,7 +525,7 @@ function ProgressiveFields({
             label="Policies in Force (PIF)"
             value={inputs.prog_cl_pif}
             onChange={(v) => update({ prog_cl_pif: v })}
-            placeholder="e.g. 53"
+            placeholder="e.g. 45"
             type="count"
             hint="Total CL PIF from the ADP — Commercial Lines row"
           />
@@ -533,7 +533,7 @@ function ProgressiveFields({
             label="Loss Ratio (Trailing 12, %)"
             value={inputs.prog_cl_loss_ratio}
             onChange={(v) => update({ prog_cl_loss_ratio: v })}
-            placeholder="e.g. 7"
+            placeholder="e.g. 38"
             type="percent"
             hint="Most recent trailing 12-month CL Loss Ratio from the Loss Ratio section of the ADP"
             benchmark={{ good: 35, poor: 58, direction: "lower-better", goodLabel: "Good", poorLabel: "High" }}
@@ -544,7 +544,7 @@ function ProgressiveFields({
         label="PIF Bundle Rate (%)"
         value={inputs.prog_bundle_rate}
         onChange={(v) => update({ prog_bundle_rate: v })}
-        placeholder="e.g. 65"
+        placeholder="e.g. 58"
         type="percent"
         hint="PIF Bundle Rate from the Property Quality section — Auto + Home/Condo/MH customers ÷ total HO/CO/MH PIFs"
         benchmark={{ good: 65, poor: 45, direction: "higher-better", goodLabel: "Strong", poorLabel: "Low" }}
@@ -553,7 +553,7 @@ function ProgressiveFields({
         label="YTD New Applications (Total)"
         value={inputs.prog_ytd_apps}
         onChange={(v) => update({ prog_ytd_apps: v })}
-        placeholder="e.g. 124"
+        placeholder="e.g. 85"
         type="count"
         hint="YTD Apps column — Total Personal Lines + Commercial Lines new applications from the New Business section"
         benchmark={{ good: 50, poor: 20, direction: "higher-better", goodLabel: "Active", poorLabel: "Low" }}
@@ -582,19 +582,19 @@ function TravelersFields({
       {showAuto && (
         <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
           <p className="text-sm font-semibold text-foreground">Auto</p>
-          <NumField label="Annual Written Premium ($k)" value={inputs.travelers_auto_wp} onChange={(v) => update({ travelers_auto_wp: v })} placeholder="e.g. 3,500" type="currency" hint="From WP (,000) YE column — e.g. 206 = $206k" />
-          <NumField label="Policies in Force (PIF)" value={inputs.travelers_auto_pif} onChange={(v) => update({ travelers_auto_pif: v })} placeholder="e.g. 75" type="count" />
-          <NumField label="Calendar Year Loss Ratio (%)" value={inputs.travelers_auto_lr} onChange={(v) => update({ travelers_auto_lr: v })} placeholder="e.g. 77.2" type="percent" benchmark={{ good: 65, poor: 85, direction: "lower-better", goodLabel: "Good", poorLabel: "High" }} />
-          <NumField label="Retention (%)" value={inputs.travelers_auto_retention} onChange={(v) => update({ travelers_auto_retention: v })} placeholder="e.g. 76.2" type="percent" benchmark={{ good: 75, poor: 60, direction: "higher-better", goodLabel: "Good", poorLabel: "Low" }} />
+          <NumField label="Annual Written Premium ($k)" value={inputs.travelers_auto_wp} onChange={(v) => update({ travelers_auto_wp: v })} placeholder="e.g. 400" type="currency" hint="From WP (,000) YE column — e.g. 400 = $400k" />
+          <NumField label="Policies in Force (PIF)" value={inputs.travelers_auto_pif} onChange={(v) => update({ travelers_auto_pif: v })} placeholder="e.g. 120" type="count" />
+          <NumField label="Calendar Year Loss Ratio (%)" value={inputs.travelers_auto_lr} onChange={(v) => update({ travelers_auto_lr: v })} placeholder="e.g. 72.0" type="percent" benchmark={{ good: 65, poor: 85, direction: "lower-better", goodLabel: "Good", poorLabel: "High" }} />
+          <NumField label="Retention (%)" value={inputs.travelers_auto_retention} onChange={(v) => update({ travelers_auto_retention: v })} placeholder="e.g. 76.0" type="percent" benchmark={{ good: 75, poor: 60, direction: "higher-better", goodLabel: "Good", poorLabel: "Low" }} />
         </div>
       )}
       {showHome && (
         <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
           <p className="text-sm font-semibold text-foreground">Homeowners</p>
-          <NumField label="Annual Written Premium ($k)" value={inputs.travelers_home_wp} onChange={(v) => update({ travelers_home_wp: v })} placeholder="e.g. 4,500" type="currency" hint="From WP (,000) YE column — e.g. 221 = $221k" />
-          <NumField label="Policies in Force (PIF)" value={inputs.travelers_home_pif} onChange={(v) => update({ travelers_home_pif: v })} placeholder="e.g. 122" type="count" />
-          <NumField label="Calendar Year Loss Ratio (%)" value={inputs.travelers_home_lr} onChange={(v) => update({ travelers_home_lr: v })} placeholder="e.g. 40.0" type="percent" benchmark={{ good: 75, poor: 105, direction: "lower-better", goodLabel: "Good", poorLabel: "High" }} />
-          <NumField label="Retention (%)" value={inputs.travelers_home_retention} onChange={(v) => update({ travelers_home_retention: v })} placeholder="e.g. 88.0" type="percent" benchmark={{ good: 80, poor: 65, direction: "higher-better", goodLabel: "Good", poorLabel: "Low" }} />
+          <NumField label="Annual Written Premium ($k)" value={inputs.travelers_home_wp} onChange={(v) => update({ travelers_home_wp: v })} placeholder="e.g. 500" type="currency" hint="From WP (,000) YE column — e.g. 500 = $500k" />
+          <NumField label="Policies in Force (PIF)" value={inputs.travelers_home_pif} onChange={(v) => update({ travelers_home_pif: v })} placeholder="e.g. 150" type="count" />
+          <NumField label="Calendar Year Loss Ratio (%)" value={inputs.travelers_home_lr} onChange={(v) => update({ travelers_home_lr: v })} placeholder="e.g. 68.0" type="percent" benchmark={{ good: 75, poor: 105, direction: "lower-better", goodLabel: "Good", poorLabel: "High" }} />
+          <NumField label="Retention (%)" value={inputs.travelers_home_retention} onChange={(v) => update({ travelers_home_retention: v })} placeholder="e.g. 82.0" type="percent" benchmark={{ good: 80, poor: 65, direction: "higher-better", goodLabel: "Good", poorLabel: "Low" }} />
         </div>
       )}
     </>
@@ -615,26 +615,26 @@ function HartfordFields({
         <>
           <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
             <p className="text-sm font-semibold text-foreground">Personal Lines — Auto</p>
-            <NumField label="Total Written Premium ($k)" value={inputs.hartford_pl_auto_twp} onChange={(v) => update({ hartford_pl_auto_twp: v })} placeholder="e.g. 1,991" type="currency" hint="All Auto TWP — most recent full year column in Production & Growth" />
-            <NumField label="Policies in Force (Year-End)" value={inputs.hartford_pl_auto_pif} onChange={(v) => update({ hartford_pl_auto_pif: v })} placeholder="e.g. 2,569" type="count" hint="Total Policy Inforce — All Auto YE Total from Flow section" />
-            <NumField label="Calendar Year Loss Ratio (%)" value={inputs.hartford_pl_auto_lr} onChange={(v) => update({ hartford_pl_auto_lr: v })} placeholder="e.g. 32.9" type="percent" hint="CYLR most recent year — All Auto row in Profitability" benchmark={{ good: 75, poor: 95, direction: "lower-better", goodLabel: "Good", poorLabel: "High" }} />
-            <NumField label="Premium Retention (%)" value={inputs.hartford_pl_auto_retention} onChange={(v) => update({ hartford_pl_auto_retention: v })} placeholder="e.g. 77.0" type="percent" hint="Premium Retention % most recent year — All Auto row" benchmark={{ good: 72, poor: 55, direction: "higher-better", goodLabel: "Good", poorLabel: "Low" }} />
+            <NumField label="Total Written Premium ($k)" value={inputs.hartford_pl_auto_twp} onChange={(v) => update({ hartford_pl_auto_twp: v })} placeholder="e.g. 1,500" type="currency" hint="All Auto TWP — most recent full year column in Production & Growth" />
+            <NumField label="Policies in Force (Year-End)" value={inputs.hartford_pl_auto_pif} onChange={(v) => update({ hartford_pl_auto_pif: v })} placeholder="e.g. 1,800" type="count" hint="Total Policy Inforce — All Auto YE Total from Flow section" />
+            <NumField label="Calendar Year Loss Ratio (%)" value={inputs.hartford_pl_auto_lr} onChange={(v) => update({ hartford_pl_auto_lr: v })} placeholder="e.g. 72.0" type="percent" hint="CYLR most recent year — All Auto row in Profitability" benchmark={{ good: 75, poor: 95, direction: "lower-better", goodLabel: "Good", poorLabel: "High" }} />
+            <NumField label="Premium Retention (%)" value={inputs.hartford_pl_auto_retention} onChange={(v) => update({ hartford_pl_auto_retention: v })} placeholder="e.g. 76.0" type="percent" hint="Premium Retention % most recent year — All Auto row" benchmark={{ good: 72, poor: 55, direction: "higher-better", goodLabel: "Good", poorLabel: "Low" }} />
           </div>
           <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
             <p className="text-sm font-semibold text-foreground">Personal Lines — Home</p>
-            <NumField label="Total Written Premium ($k)" value={inputs.hartford_pl_home_twp} onChange={(v) => update({ hartford_pl_home_twp: v })} placeholder="e.g. 3,989" type="currency" hint="All Home TWP — most recent full year column in Production & Growth" />
-            <NumField label="Policies in Force (Year-End)" value={inputs.hartford_pl_home_pif} onChange={(v) => update({ hartford_pl_home_pif: v })} placeholder="e.g. 1,442" type="count" hint="Total Policy Inforce — All Home YE Total from Flow section" />
-            <NumField label="Calendar Year Loss Ratio (%)" value={inputs.hartford_pl_home_lr} onChange={(v) => update({ hartford_pl_home_lr: v })} placeholder="e.g. 20.4" type="percent" hint="CYLR most recent year — All Home row in Profitability" benchmark={{ good: 65, poor: 90, direction: "lower-better", goodLabel: "Good", poorLabel: "High" }} />
-            <NumField label="Premium Retention (%)" value={inputs.hartford_pl_home_retention} onChange={(v) => update({ hartford_pl_home_retention: v })} placeholder="e.g. 68.0" type="percent" hint="Premium Retention % most recent year — All Home row" benchmark={{ good: 72, poor: 55, direction: "higher-better", goodLabel: "Good", poorLabel: "Low" }} />
+            <NumField label="Total Written Premium ($k)" value={inputs.hartford_pl_home_twp} onChange={(v) => update({ hartford_pl_home_twp: v })} placeholder="e.g. 2,800" type="currency" hint="All Home TWP — most recent full year column in Production & Growth" />
+            <NumField label="Policies in Force (Year-End)" value={inputs.hartford_pl_home_pif} onChange={(v) => update({ hartford_pl_home_pif: v })} placeholder="e.g. 1,200" type="count" hint="Total Policy Inforce — All Home YE Total from Flow section" />
+            <NumField label="Calendar Year Loss Ratio (%)" value={inputs.hartford_pl_home_lr} onChange={(v) => update({ hartford_pl_home_lr: v })} placeholder="e.g. 65.0" type="percent" hint="CYLR most recent year — All Home row in Profitability" benchmark={{ good: 65, poor: 90, direction: "lower-better", goodLabel: "Good", poorLabel: "High" }} />
+            <NumField label="Premium Retention (%)" value={inputs.hartford_pl_home_retention} onChange={(v) => update({ hartford_pl_home_retention: v })} placeholder="e.g. 74.0" type="percent" hint="Premium Retention % most recent year — All Home row" benchmark={{ good: 72, poor: 55, direction: "higher-better", goodLabel: "Good", poorLabel: "Low" }} />
           </div>
         </>
       )}
       {showCL && (
         <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
           <p className="text-sm font-semibold text-foreground">Small Commercial</p>
-          <NumField label="Total Written Premium ($k)" value={inputs.hartford_cl_twp} onChange={(v) => update({ hartford_cl_twp: v })} placeholder="e.g. 2,043" type="currency" hint="Small Commercial Total TWP — most recent full year, Production & Growth" />
-          <NumField label="Calendar Year Loss Ratio (%)" value={inputs.hartford_cl_lr} onChange={(v) => update({ hartford_cl_lr: v })} placeholder="e.g. 24.7" type="percent" hint="CYLR most recent year — Small Commercial Total row (negative = profitable)" benchmark={{ good: 50, poor: 78, direction: "lower-better", goodLabel: "Good", poorLabel: "High" }} />
-          <NumField label="Retention (%)" value={inputs.hartford_cl_retention} onChange={(v) => update({ hartford_cl_retention: v })} placeholder="e.g. 73.9" type="percent" hint="Premium Retention Rate (PRR) most recent year — Total row in Retention table" benchmark={{ good: 75, poor: 58, direction: "higher-better", goodLabel: "Good", poorLabel: "Low" }} />
+          <NumField label="Total Written Premium ($k)" value={inputs.hartford_cl_twp} onChange={(v) => update({ hartford_cl_twp: v })} placeholder="e.g. 1,500" type="currency" hint="Small Commercial Total TWP — most recent full year, Production & Growth" />
+          <NumField label="Calendar Year Loss Ratio (%)" value={inputs.hartford_cl_lr} onChange={(v) => update({ hartford_cl_lr: v })} placeholder="e.g. 48.0" type="percent" hint="CYLR most recent year — Small Commercial Total row (negative = profitable)" benchmark={{ good: 50, poor: 78, direction: "lower-better", goodLabel: "Good", poorLabel: "High" }} />
+          <NumField label="Retention (%)" value={inputs.hartford_cl_retention} onChange={(v) => update({ hartford_cl_retention: v })} placeholder="e.g. 76.0" type="percent" hint="Premium Retention Rate (PRR) most recent year — Total row in Retention table" benchmark={{ good: 75, poor: 58, direction: "higher-better", goodLabel: "Good", poorLabel: "Low" }} />
         </div>
       )}
     </>
@@ -655,35 +655,35 @@ function SafecoFields({
       {showAuto && (
         <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
           <p className="text-sm font-semibold text-foreground">Auto</p>
-          <NumField label="R12 Auto DWP ($)" value={inputs.safeco_auto_dwp} onChange={(v) => update({ safeco_auto_dwp: v })} placeholder="e.g. 6,645,555" type="currency" hint="Rolling 12 Direct Written Premium — Auto row in the DWP table on your ADP" />
-          <NumField label="Current Auto PIF" value={inputs.safeco_auto_pif} onChange={(v) => update({ safeco_auto_pif: v })} placeholder="e.g. 2,485" type="count" hint="Current Policy Inforce — Auto row, Current PIF column" />
-          <NumField label="Auto YTD Loss Ratio (%)" value={inputs.safeco_auto_lr} onChange={(v) => update({ safeco_auto_lr: v })} placeholder="e.g. 74.0" type="percent" hint="YTD Loss Ratio — Auto row in Profitability section of ADP" benchmark={{ good: 65, poor: 82, direction: "lower-better", goodLabel: "Good", poorLabel: "High" }} />
-          <NumField label="Auto PIF Retention (%)" value={inputs.safeco_auto_retention} onChange={(v) => update({ safeco_auto_retention: v })} placeholder="e.g. 69.3" type="percent" hint="PIF Retention — Auto row, YTD column in DWP table" benchmark={{ good: 75, poor: 60, direction: "higher-better", goodLabel: "Good", poorLabel: "Low" }} />
+          <NumField label="R12 Auto DWP ($)" value={inputs.safeco_auto_dwp} onChange={(v) => update({ safeco_auto_dwp: v })} placeholder="e.g. 2,500,000" type="currency" hint="Rolling 12 Direct Written Premium — Auto row in the DWP table on your ADP" />
+          <NumField label="Current Auto PIF" value={inputs.safeco_auto_pif} onChange={(v) => update({ safeco_auto_pif: v })} placeholder="e.g. 900" type="count" hint="Current Policy Inforce — Auto row, Current PIF column" />
+          <NumField label="Auto YTD Loss Ratio (%)" value={inputs.safeco_auto_lr} onChange={(v) => update({ safeco_auto_lr: v })} placeholder="e.g. 68.0" type="percent" hint="YTD Loss Ratio — Auto row in Profitability section of ADP" benchmark={{ good: 65, poor: 82, direction: "lower-better", goodLabel: "Good", poorLabel: "High" }} />
+          <NumField label="Auto PIF Retention (%)" value={inputs.safeco_auto_retention} onChange={(v) => update({ safeco_auto_retention: v })} placeholder="e.g. 72.0" type="percent" hint="PIF Retention — Auto row, YTD column in DWP table" benchmark={{ good: 75, poor: 60, direction: "higher-better", goodLabel: "Good", poorLabel: "Low" }} />
         </div>
       )}
       {showHome && (
         <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
           <p className="text-sm font-semibold text-foreground">Homeowners</p>
-          <NumField label="R12 Home DWP ($)" value={inputs.safeco_home_dwp} onChange={(v) => update({ safeco_home_dwp: v })} placeholder="e.g. 5,931,825" type="currency" hint="Rolling 12 Direct Written Premium — Home row in the DWP table" />
-          <NumField label="Current Home PIF" value={inputs.safeco_home_pif} onChange={(v) => update({ safeco_home_pif: v })} placeholder="e.g. 2,375" type="count" hint="Current Policy Inforce — Home row, Current PIF column" />
-          <NumField label="Home YTD Loss Ratio (%)" value={inputs.safeco_home_lr} onChange={(v) => update({ safeco_home_lr: v })} placeholder="e.g. -4.4" type="percent" hint="YTD Loss Ratio — Home row in Profitability section (can be negative = very profitable)" benchmark={{ good: 60, poor: 85, direction: "lower-better", goodLabel: "Good", poorLabel: "High" }} />
-          <NumField label="Home PIF Retention (%)" value={inputs.safeco_home_retention} onChange={(v) => update({ safeco_home_retention: v })} placeholder="e.g. 73.2" type="percent" hint="PIF Retention — Home row, YTD column in DWP table" benchmark={{ good: 75, poor: 60, direction: "higher-better", goodLabel: "Good", poorLabel: "Low" }} />
+          <NumField label="R12 Home DWP ($)" value={inputs.safeco_home_dwp} onChange={(v) => update({ safeco_home_dwp: v })} placeholder="e.g. 2,000,000" type="currency" hint="Rolling 12 Direct Written Premium — Home row in the DWP table" />
+          <NumField label="Current Home PIF" value={inputs.safeco_home_pif} onChange={(v) => update({ safeco_home_pif: v })} placeholder="e.g. 750" type="count" hint="Current Policy Inforce — Home row, Current PIF column" />
+          <NumField label="Home YTD Loss Ratio (%)" value={inputs.safeco_home_lr} onChange={(v) => update({ safeco_home_lr: v })} placeholder="e.g. 58.0" type="percent" hint="YTD Loss Ratio — Home row in Profitability section (can be negative = very profitable)" benchmark={{ good: 60, poor: 85, direction: "lower-better", goodLabel: "Good", poorLabel: "High" }} />
+          <NumField label="Home PIF Retention (%)" value={inputs.safeco_home_retention} onChange={(v) => update({ safeco_home_retention: v })} placeholder="e.g. 74.0" type="percent" hint="PIF Retention — Home row, YTD column in DWP table" benchmark={{ good: 75, poor: 60, direction: "higher-better", goodLabel: "Good", poorLabel: "Low" }} />
         </div>
       )}
       {showOther && (
         <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
           <p className="text-sm font-semibold text-foreground">Other Lines (Condo + Renters + Umbrella + Landlord)</p>
-          <NumField label="Combined Other DWP ($)" value={inputs.safeco_other_dwp} onChange={(v) => update({ safeco_other_dwp: v })} placeholder="e.g. 1,986,255" type="currency" hint="Sum of R12 DWP for Condo, Renters, Umbrella, and Landlord rows" />
-          <NumField label="Blended Other Loss Ratio (%)" value={inputs.safeco_other_lr} onChange={(v) => update({ safeco_other_lr: v })} placeholder="e.g. 31.0" type="percent" hint="Blended YTD Loss Ratio across the other product lines" />
-          <NumField label="Blended Other Retention (%)" value={inputs.safeco_other_retention} onChange={(v) => update({ safeco_other_retention: v })} placeholder="e.g. 71.0" type="percent" hint="Average PIF Retention across other lines" />
+          <NumField label="Combined Other DWP ($)" value={inputs.safeco_other_dwp} onChange={(v) => update({ safeco_other_dwp: v })} placeholder="e.g. 500,000" type="currency" hint="Sum of R12 DWP for Condo, Renters, Umbrella, and Landlord rows" />
+          <NumField label="Blended Other Loss Ratio (%)" value={inputs.safeco_other_lr} onChange={(v) => update({ safeco_other_lr: v })} placeholder="e.g. 42.0" type="percent" hint="Blended YTD Loss Ratio across the other product lines" />
+          <NumField label="Blended Other Retention (%)" value={inputs.safeco_other_retention} onChange={(v) => update({ safeco_other_retention: v })} placeholder="e.g. 72.0" type="percent" hint="Average PIF Retention across other lines" />
         </div>
       )}
       {/* Cross-sell & engagement metrics */}
       <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
         <p className="text-sm font-semibold text-foreground">Engagement & Program</p>
-        <NumField label="Valid Cross-Sell % (Home/Condo/Rent)" value={inputs.safeco_cross_sell_pct} onChange={(v) => update({ safeco_cross_sell_pct: v })} placeholder="e.g. 39.8" type="percent" hint="Valid Cross Sell % for Home/Condo/Rent — from Cross Sell section of ADP" />
-        <NumField label="Right Track Participation (%)" value={inputs.safeco_right_track_pct} onChange={(v) => update({ safeco_right_track_pct: v })} placeholder="e.g. 26.9" type="percent" hint="RT % of Auto — YTD RT Issues ÷ YTD Auto Issues from Auto Term Length section" />
-        <NumField label="YTD New Business DWP ($)" value={inputs.safeco_nb_dwp} onChange={(v) => update({ safeco_nb_dwp: v })} placeholder="e.g. 722,941" type="currency" hint="YTD Total New Business DWP — Total row, YTD NB DWP column in ADP" />
+        <NumField label="Valid Cross-Sell % (Home/Condo/Rent)" value={inputs.safeco_cross_sell_pct} onChange={(v) => update({ safeco_cross_sell_pct: v })} placeholder="e.g. 42.0" type="percent" hint="Valid Cross Sell % for Home/Condo/Rent — from Cross Sell section of ADP" />
+        <NumField label="Right Track Participation (%)" value={inputs.safeco_right_track_pct} onChange={(v) => update({ safeco_right_track_pct: v })} placeholder="e.g. 25.0" type="percent" hint="RT % of Auto — YTD RT Issues ÷ YTD Auto Issues from Auto Term Length section" />
+        <NumField label="YTD New Business DWP ($)" value={inputs.safeco_nb_dwp} onChange={(v) => update({ safeco_nb_dwp: v })} placeholder="e.g. 400,000" type="currency" hint="YTD Total New Business DWP — Total row, YTD NB DWP column in ADP" />
         <div className="flex items-center justify-between rounded-md border border-border px-4 py-3">
           <div>
             <p className="text-sm font-medium text-foreground">Gold Service Designation</p>
@@ -712,7 +712,7 @@ function BerkshireFields({
           label="Rolling 12-Month Written Premium ($)"
           value={inputs.bh_written_premium_r12}
           onChange={(v) => update({ bh_written_premium_r12: v })}
-          placeholder="e.g. 600,000"
+          placeholder="e.g. 800,000"
           type="currency"
           hint="Current Rolling 12 Months — Total row, Premium column. Most accurate for valuation."
         />
@@ -720,7 +720,7 @@ function BerkshireFields({
           label="Current YTD Written Premium ($)"
           value={inputs.bh_written_premium_ytd}
           onChange={(v) => update({ bh_written_premium_ytd: v })}
-          placeholder="e.g. 100,000"
+          placeholder="e.g. 450,000"
           type="currency"
           hint="Current YTD (01/01/xxxx–xx/xx/xxxx) — Total row, Premium column"
         />
@@ -729,7 +729,7 @@ function BerkshireFields({
             label="YTD New Policies"
             value={inputs.bh_new_policies_ytd}
             onChange={(v) => update({ bh_new_policies_ytd: v })}
-            placeholder="e.g. 20"
+            placeholder="e.g. 30"
             type="count"
             hint="New row — Current YTD Policies column"
           />
@@ -737,7 +737,7 @@ function BerkshireFields({
             label="YTD Renewal Policies"
             value={inputs.bh_renewal_policies_ytd}
             onChange={(v) => update({ bh_renewal_policies_ytd: v })}
-            placeholder="e.g. 80"
+            placeholder="e.g. 95"
             type="count"
             hint="Renewal row — Current YTD Policies column"
           />
@@ -861,7 +861,7 @@ function LibertyMutualFields({
           label="Rolling 12 DWP ($)"
           value={inputs.lm_dwp_r12}
           onChange={(v) => update({ lm_dwp_r12: v })}
-          placeholder="e.g. 500,000"
+          placeholder="e.g. 600,000"
           type="currency"
           hint="Rolling 12 months Direct Written Premium — most accurate for valuation"
         />
@@ -870,7 +870,7 @@ function LibertyMutualFields({
             label="YTD DWP ($)"
             value={inputs.lm_dwp_ytd}
             onChange={(v) => update({ lm_dwp_ytd: v })}
-            placeholder="e.g. 100,000"
+            placeholder="e.g. 320,000"
             type="currency"
             hint="Year-to-date Direct Written Premium"
           />
@@ -878,7 +878,7 @@ function LibertyMutualFields({
             label="Prior YTD DWP ($)"
             value={inputs.lm_dwp_pytd}
             onChange={(v) => update({ lm_dwp_pytd: v })}
-            placeholder="e.g. 80,000"
+            placeholder="e.g. 290,000"
             type="currency"
             hint="Prior year-to-date DWP — for growth comparison"
           />
@@ -887,7 +887,7 @@ function LibertyMutualFields({
           label="New Business DWP YTD ($)"
           value={inputs.lm_nb_dwp_ytd}
           onChange={(v) => update({ lm_nb_dwp_ytd: v })}
-          placeholder="e.g. 50,000"
+          placeholder="e.g. 80,000"
           type="currency"
           hint="New Business DWP YTD"
         />
@@ -895,7 +895,7 @@ function LibertyMutualFields({
           label="Policies in Force (PIF)"
           value={inputs.lm_pif}
           onChange={(v) => update({ lm_pif: v })}
-          placeholder="e.g. 200"
+          placeholder="e.g. 175"
           type="count"
           hint="Current PIF count"
         />
