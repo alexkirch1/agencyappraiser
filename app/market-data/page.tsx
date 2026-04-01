@@ -1,9 +1,13 @@
 "use client"
 
+import { useState, useEffect, useCallback } from "react"
 import { BarChart2, TrendingUp, DollarSign, Percent, Building2, Info } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { MarketIntelPanel } from "@/components/market-intel-panel"
 import { FeedbackWidget } from "@/components/feedback-widget"
+import { AdminLogin } from "@/components/admin/admin-login"
+
+const ADMIN_TOKEN_KEY = "admin_session_token"
 
 // ─── Static industry benchmark data ─────────────────────────────────────────
 
@@ -133,9 +137,81 @@ function RiskBadge({ risk }: { risk: string }) {
   )
 }
 
+// ─── Auth gate ───────────────────────────────────────────────────────────────
+
+function useAdminAuth() {
+  const [authenticated, setAuthenticated] = useState(false)
+  const [checking, setChecking] = useState(true)
+
+  const checkAuth = useCallback(async () => {
+    try {
+      const token = localStorage.getItem(ADMIN_TOKEN_KEY)
+      if (!token) { setAuthenticated(false); setChecking(false); return }
+      const res = await fetch("/api/admin/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "check", token }),
+      })
+      const data = await res.json()
+      setAuthenticated(data.authenticated)
+      if (!data.authenticated) localStorage.removeItem(ADMIN_TOKEN_KEY)
+    } catch {
+      setAuthenticated(false)
+    } finally {
+      setChecking(false)
+    }
+  }, [])
+
+  useEffect(() => { checkAuth() }, [checkAuth])
+
+  const login = async (username: string, password: string) => {
+    const res = await fetch("/api/admin/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "login", username, password }),
+    })
+    const data = await res.json()
+    if (data.success && data.token) {
+      localStorage.setItem(ADMIN_TOKEN_KEY, data.token)
+      setAuthenticated(true)
+      return { success: true }
+    }
+    return { success: false, error: data.error || "Login failed" }
+  }
+
+  return { authenticated, checking, login }
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function MarketDataPage() {
+  const { authenticated, checking, login } = useAdminAuth()
+
+  if (checking) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
+      </div>
+    )
+  }
+
+  if (!authenticated) {
+    return (
+      <div className="flex min-h-[80vh] flex-col items-center justify-center px-4">
+        <div className="mb-6 flex flex-col items-center gap-2 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
+            <BarChart2 className="h-6 w-6 text-primary-foreground" />
+          </div>
+          <h1 className="text-xl font-bold text-foreground">Market Data &amp; Deal Comps</h1>
+          <p className="max-w-xs text-sm text-muted-foreground">
+            This section is restricted to admin users. Sign in with your admin credentials to access deal benchmarks.
+          </p>
+        </div>
+        <AdminLogin onLogin={login} />
+      </div>
+    )
+  }
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 lg:px-8">
       {/* Header */}

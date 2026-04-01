@@ -1,7 +1,6 @@
 import Link from "next/link"
 import {
   ArrowRight,
-  BarChart2,
   Calculator,
   CheckCircle2,
   Shield,
@@ -39,15 +38,6 @@ const tools = [
     accent: "text-chart-4",
     accentBg: "bg-chart-4/10",
     tag: null,
-  },
-  {
-    href: "/market-data",
-    icon: BarChart2,
-    title: "Market Data",
-    description: "Browse deal comps: typical multiples by agency size, book type, retention rate, and deal structure. See how your agency stacks up.",
-    accent: "text-chart-5",
-    accentBg: "bg-chart-5/10",
-    tag: "New",
   },
 ]
 
@@ -172,7 +162,7 @@ export default function HomePage() {
             {[
               { n: "1", title: "Quick Estimate", desc: "Start with our 60-second Quick Valuation to see a ballpark range." },
               { n: "2", title: "Go Deeper", desc: "Run the full 7-category calculator with risk audit, deal simulator, and downloadable PDF report." },
-              { n: "3", title: "Benchmark the Market", desc: "Browse Market Data to see closed deal multiples by size, book type, and deal structure — so you know what buyers are actually paying." },
+              { n: "3", title: "Drill Into Carriers", desc: "Use the Carrier Report to value individual books of business by carrier with upload-and-parse reporting." },
             ].map((step) => (
               <div key={step.n} className="flex flex-col items-center text-center">
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-primary/30 bg-primary/5 text-xl font-bold text-primary">

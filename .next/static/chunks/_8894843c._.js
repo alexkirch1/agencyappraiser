@@ -6702,9 +6702,140 @@ if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelper
 "use strict";
 
 __turbopack_context__.s([
+    "downloadQuickValuePDF",
+    ()=>downloadQuickValuePDF,
     "downloadValuationPDF",
     ()=>downloadValuationPDF
 ]);
+async function downloadQuickValuePDF(inputs, estimate) {
+    const { default: jsPDF } = await __turbopack_context__.A("[project]/node_modules/.pnpm/jspdf@2.5.2/node_modules/jspdf/dist/jspdf.es.min.js [app-client] (ecmascript, async loader)");
+    const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "pt",
+        format: "letter"
+    });
+    const W = doc.internal.pageSize.getWidth();
+    const margin = 48;
+    const col = W - margin * 2;
+    let y = margin;
+    const checkPage = (needed)=>{
+        if (y + needed > doc.internal.pageSize.getHeight() - margin) {
+            doc.addPage();
+            y = margin;
+        }
+    };
+    const drawHRule = function() {
+        let color = arguments.length > 0 && arguments[0] !== void 0 ? arguments[0] : "#e2e8f0";
+        doc.setDrawColor(color);
+        doc.setLineWidth(0.5);
+        doc.line(margin, y, W - margin, y);
+        y += 12;
+    };
+    const heading = function(text) {
+        let size = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : 14;
+        checkPage(size + 20);
+        doc.setFontSize(size);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor("#0f172a");
+        doc.text(text, margin, y);
+        y += size + 6;
+    };
+    const body = function(text) {
+        let size = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : 10, color = arguments.length > 2 && arguments[2] !== void 0 ? arguments[2] : "#334155";
+        checkPage(size + 8);
+        doc.setFontSize(size);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(color);
+        const lines = doc.splitTextToSize(text, col);
+        doc.text(lines, margin, y);
+        y += lines.length * (size + 4) + 4;
+    };
+    const row = (label, value)=>{
+        checkPage(18);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor("#64748b");
+        doc.text(label, margin, y);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor("#0f172a");
+        doc.text(value, W - margin, y, {
+            align: "right"
+        });
+        y += 18;
+    };
+    const retentionLabel = {
+        high: "Excellent (90%+)",
+        average: "Average (80–89%)",
+        low: "Below Average (< 80%)"
+    };
+    const bookLabel = {
+        commercial: "Mostly Commercial",
+        mixed: "Mixed (PL + CL)",
+        personal: "Mostly Personal"
+    };
+    const growthLabel = {
+        strong: "Strong Growth (10%+ / yr)",
+        moderate: "Moderate Growth (3–9% / yr)",
+        flat: "Flat",
+        declining: "Declining"
+    };
+    // Cover header
+    doc.setFillColor("#0ea5e9");
+    doc.rect(0, 0, W, 80, "F");
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor("#ffffff");
+    doc.text("Quick Agency Valuation", margin, 38);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Prepared by Agency Appraiser  •  " + new Date().toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+    }), margin, 58);
+    y = 104;
+    // Estimated range
+    heading("Estimated Value Range", 16);
+    doc.setFontSize(26);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor("#16a34a");
+    doc.text("".concat(fmt(estimate.lowValue), "  –  ").concat(fmt(estimate.highValue)), margin, y);
+    y += 36;
+    row("Midpoint Estimate", fmt(estimate.value));
+    row("Multiplier Used", "".concat(inputs.multiplier.toFixed(2), "x"));
+    row("Suggested Multiplier", "".concat(inputs.suggestedMultiplier.toFixed(2), "x"));
+    row("Annual Revenue", fmt(inputs.revenue));
+    y += 8;
+    drawHRule();
+    // Inputs summary
+    heading("Your Inputs");
+    var _retentionLabel_inputs_retention;
+    if (inputs.retention) row("Client Retention", (_retentionLabel_inputs_retention = retentionLabel[inputs.retention]) !== null && _retentionLabel_inputs_retention !== void 0 ? _retentionLabel_inputs_retention : inputs.retention);
+    var _bookLabel_inputs_bookType;
+    if (inputs.bookType) row("Book Composition", (_bookLabel_inputs_bookType = bookLabel[inputs.bookType]) !== null && _bookLabel_inputs_bookType !== void 0 ? _bookLabel_inputs_bookType : inputs.bookType);
+    var _growthLabel_inputs_growth;
+    if (inputs.growth) row("Revenue Trend", (_growthLabel_inputs_growth = growthLabel[inputs.growth]) !== null && _growthLabel_inputs_growth !== void 0 ? _growthLabel_inputs_growth : inputs.growth);
+    if (inputs.customers) row("Active Customers", inputs.customers.toLocaleString());
+    if (inputs.policies) row("Active Policies", inputs.policies.toLocaleString());
+    if (inputs.ratio !== null) row("Policies per Customer", inputs.ratio.toFixed(2));
+    y += 8;
+    drawHRule();
+    // What comes next
+    heading("What to Do Next");
+    body("This Quick Valuation is a starting point — not a final number. The full 7-category calculator " + "analyzes your retention, risk profile, client concentration, operational health, and more " + "to produce a precise valuation range with a risk audit and deal simulator.");
+    y += 8;
+    body("Visit AgencyAppraiser.com to run the Full Valuation Calculator and unlock your complete report.");
+    y += 8;
+    drawHRule("#cbd5e1");
+    // Disclaimer
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor("#94a3b8");
+    doc.text("This report is a preliminary estimate for educational purposes only. It is not a binding offer or formal appraisal. Agency Appraiser.", margin, y, {
+        maxWidth: col
+    });
+    doc.save("quick-valuation-".concat(Date.now(), ".pdf"));
+}
 function fmt(n) {
     return "$" + n.toLocaleString("en-US", {
         minimumFractionDigits: 0,
