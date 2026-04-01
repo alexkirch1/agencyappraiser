@@ -74,7 +74,18 @@ const FALLBACK_RETENTION: { bucket: string; label: string; medianAdjustment: str
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json())
+const ADMIN_TOKEN_KEY = "admin_session_token"
+
+const fetcher = (url: string) => {
+  const token = typeof window !== "undefined" ? localStorage.getItem(ADMIN_TOKEN_KEY) : null
+  return fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  }).then((r) => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    return r.json()
+  })
+}
+
 const fmt = (n: number | null | undefined) =>
   n != null ? `$${n >= 1_000_000 ? (n / 1_000_000).toFixed(1) + "M" : (n / 1_000).toFixed(0) + "k"}` : "—"
 
@@ -177,7 +188,7 @@ export function MarketDataTab() {
 
   // For size tiers, prefer live data row-by-row but fall back to benchmark for tiers with 0 deals
   const sizeRows: Array<{ label: string; count: number; median: number; p25: number; p75: number; live: boolean }> = FALLBACK_SIZE.map((fb) => {
-    const live = data?.bySize.find((r) => r.tier === fb.tier)
+    const live = (data?.bySize ?? []).find((r) => r.tier === fb.tier)
     if (live && live.count >= 3 && live.median != null && live.p25 != null && live.p75 != null) {
       return { label: fb.label, count: live.count, median: live.median, p25: live.p25, p75: live.p75, live: true }
     }
@@ -185,8 +196,8 @@ export function MarketDataTab() {
   })
 
   const retentionRows = (() => {
-    if (!data || data.byRetention.length === 0) return null
-    const map = Object.fromEntries(data.byRetention.map((r) => [r.bucket, r]))
+    if (!data || (data.byRetention ?? []).length === 0) return null
+    const map = Object.fromEntries((data.byRetention ?? []).map((r) => [r.bucket, r]))
     return FALLBACK_RETENTION.map((fb) => {
       const live = map[fb.bucket]
       return { ...fb, liveMedian: live?.medianMultiple ?? null, count: live?.count ?? 0 }
@@ -334,21 +345,21 @@ export function MarketDataTab() {
           <CardTitle className="flex flex-wrap items-center gap-2 text-base font-semibold text-foreground">
             <Percent className="h-5 w-5 text-primary" />
             Deal Structures
-            <DataBadge count={data?.totalDeals ?? 0} fallback={!hasData || (data?.byStructure.length ?? 0) === 0} />
+            <DataBadge count={data?.totalDeals ?? 0} fallback={!hasData || ((data?.byStructure ?? []).length) === 0} />
           </CardTitle>
           <p className="text-sm text-muted-foreground">
             How closed agency acquisitions are structured, with median multiple for each structure type.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {(hasData && data.byStructure.length > 0 ? data.byStructure : [
+          {(hasData && (data.byStructure ?? []).length > 0 ? (data.byStructure ?? []) : [
             { structure: "All Cash at Close",          count: 0, medianMultiple: 1.30, avgEarnoutPct: 0 },
             { structure: "Cash + Short Earnout (1–2 yr)", count: 0, medianMultiple: 1.60, avgEarnoutPct: 25 },
             { structure: "Cash + Extended Earnout (3–5 yr)", count: 0, medianMultiple: 1.75, avgEarnoutPct: 35 },
             { structure: "Equity Roll / Partnership",  count: 0, medianMultiple: 2.10, avgEarnoutPct: 0 },
           ]).map((row) => {
-            const total = hasData && data.byStructure.length > 0
-              ? data.byStructure.reduce((s, r) => s + r.count, 0)
+            const total = hasData && (data.byStructure ?? []).length > 0
+              ? (data.byStructure ?? []).reduce((s, r) => s + r.count, 0)
               : 100
             const pct = total > 0 ? Math.round((row.count / total) * 100) : 0
             return (
@@ -362,11 +373,10 @@ export function MarketDataTab() {
                       </span>
                     )}
                     <span className="w-10 text-right font-mono font-bold text-primary">
-                      {hasData && data.byStructure.length > 0 ? `${pct}%` : "—"}
-                    </span>
+                    {hasData && (data.byStructure ?? []).length > 0 ? `${pct}%` : "—"}
                   </div>
                 </div>
-                {hasData && data.byStructure.length > 0 && (
+                {hasData && (data.byStructure ?? []).length > 0 && (
                   <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
                     <div className="absolute left-0 top-0 h-full rounded-full bg-primary/70" style={{ width: `${pct}%` }} />
                   </div>
@@ -387,8 +397,8 @@ export function MarketDataTab() {
             <TrendingUp className="h-5 w-5 text-primary" />
             Retention Rate Impact on Multiple
             <DataBadge
-              count={data?.byRetention.reduce((s, r) => s + r.count, 0) ?? 0}
-              fallback={!hasData || (data?.byRetention.length ?? 0) === 0}
+              count={(data?.byRetention ?? []).reduce((s, r) => s + r.count, 0) ?? 0}
+              fallback={!hasData || ((data?.byRetention ?? []).length) === 0}
             />
           </CardTitle>
           <p className="text-sm text-muted-foreground">
