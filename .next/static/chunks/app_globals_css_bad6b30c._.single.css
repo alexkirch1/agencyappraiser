@@ -213,6 +213,7 @@
     --color-emerald-800: #005f46;
     --color-emerald-900: #004e3b;
     --color-emerald-950: #002c22;
+    --color-sky-400: #00bcfe;
     --color-blue-500: #3080ff;
     --color-violet-500: #8d54ff;
     --color-rose-50: #fff1f2;
@@ -325,6 +326,7 @@
       --color-emerald-800: color(display-p3 .135396 .371401 .277561);
       --color-emerald-900: color(display-p3 .117821 .302975 .234501);
       --color-emerald-950: color(display-p3 .0549113 .170434 .13484);
+      --color-sky-400: color(display-p3 .305975 .725011 .980173);
       --color-blue-500: color(display-p3 .266422 .491219 .988624);
       --color-violet-500: color(display-p3 .523372 .329605 .990884);
       --color-rose-50: color(display-p3 .989671 .946597 .949215);
@@ -380,6 +382,7 @@
       --color-emerald-800: lab(35.3675% -33.1188 8.04002);
       --color-emerald-900: lab(28.8637% -26.9249 5.45986);
       --color-emerald-950: lab(15.0582% -17.9507 2.38369);
+      --color-sky-400: lab(70.687% -23.6078 -45.9483);
       --color-blue-500: lab(54.1736% 13.3369 -74.6839);
       --color-violet-500: lab(49.9355% 55.1776 -81.8963);
       --color-rose-50: lab(96.2369% 4.94155 1.28011);
@@ -1209,6 +1212,14 @@
     height: calc(var(--spacing) * 24);
   }
 
+  .h-\[76px\] {
+    height: 76px;
+  }
+
+  .h-\[90px\] {
+    height: 90px;
+  }
+
   .h-\[var\(--radix-select-trigger-height\)\] {
     height: var(--radix-select-trigger-height);
   }
@@ -1227,6 +1238,10 @@
 
   .max-h-48 {
     max-height: calc(var(--spacing) * 48);
+  }
+
+  .max-h-72 {
+    max-height: calc(var(--spacing) * 72);
   }
 
   .max-h-96 {
@@ -1341,8 +1356,16 @@
     width: calc(var(--spacing) * 24);
   }
 
+  .w-28 {
+    width: calc(var(--spacing) * 28);
+  }
+
   .w-32 {
     width: calc(var(--spacing) * 32);
+  }
+
+  .w-48 {
+    width: calc(var(--spacing) * 48);
   }
 
   .w-64 {
@@ -2374,6 +2397,10 @@
     }
   }
 
+  .bg-sky-400 {
+    background-color: var(--color-sky-400);
+  }
+
   .bg-slate-400 {
     background-color: var(--color-slate-400);
   }
@@ -2939,6 +2966,10 @@
     }
   }
 
+  .text-emerald-500 {
+    color: var(--color-emerald-500);
+  }
+
   .text-emerald-600 {
     color: var(--color-emerald-600);
   }
@@ -3389,6 +3420,11 @@
 
   .placeholder\:text-muted-foreground::placeholder {
     color: hsl(var(--muted-foreground));
+  }
+
+  .last\:border-0:last-child {
+    border-style: var(--tw-border-style);
+    border-width: 0;
   }
 
   .last\:border-b-0:last-child {
@@ -4189,6 +4225,12 @@
   @media (min-width: 64rem) {
     .lg\:grid-cols-6 {
       grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .lg\:grid-cols-8 {
+      grid-template-columns: repeat(8, minmax(0, 1fr));
     }
   }
 
