@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { LogOut, Sun, Moon, BarChart3, FolderKanban, Settings, Users, TrendingUp } from "lucide-react"
+import { LogOut, Sun, Moon, BarChart3, FolderKanban, Settings, Users, TrendingUp, BarChart2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/theme-provider"
 import { OverviewTab } from "@/components/admin/overview-tab"
@@ -9,6 +9,7 @@ import { HorizonTab } from "@/components/admin/horizon-tab"
 import { SettingsTab } from "@/components/admin/settings-tab"
 import { LeadsTab } from "@/components/admin/leads-tab"
 import { AnalyticsTab } from "@/components/admin/analytics-tab"
+import { MarketDataTab } from "@/components/admin/market-data-tab"
 import { cn } from "@/lib/utils"
 
 export interface Deal {
@@ -31,6 +32,7 @@ const tabs = [
   { id: "analytics", label: "Analytics", icon: TrendingUp },
   { id: "leads", label: "Leads", icon: Users },
   { id: "horizon", label: "Horizon Pipeline", icon: FolderKanban },
+  { id: "market-data", label: "Market Data", icon: BarChart2 },
   { id: "settings", label: "Settings", icon: Settings },
 ] as const
 
@@ -146,6 +148,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         {activeTab === "horizon" && (
           <HorizonTab deals={deals} onSaveDeal={addDeal} onUpdateDeal={updateDeal} />
         )}
+        {activeTab === "market-data" && <MarketDataTab />}
         {activeTab === "settings" && (
           <SettingsTab onClearAll={clearAllDeals} dealCount={deals.length} />
         )}
