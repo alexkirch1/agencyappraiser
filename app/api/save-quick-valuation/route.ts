@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server"
 import sql from "@/lib/db"
+import { rateLimit, getClientIp } from "@/lib/rate-limit"
 
 export async function POST(req: Request) {
+  // Rate limit: 20 saves per IP per 10 minutes (generous — users iterate)
+  const { allowed } = rateLimit(`save-quick-val:${getClientIp(req)}`, 20, 10 * 60 * 1000)
+  if (!allowed) {
+    return NextResponse.json({ error: "Too many requests." }, { status: 429 })
+  }
+
   try {
     const body = await req.json()
     const { leadId, revenue, retention, bookType, growth, customers, policies, ratio, multiplier, suggested, lowValue, midValue, highValue, tier } = body

@@ -11,6 +11,8 @@ interface Props {
   onParsed: (fields: Partial<CarrierInputs>) => void
 }
 
+const ADMIN_TOKEN_KEY = "admin_session_token"
+
 async function parseWithAI(
   file: File,
   carrier: string
@@ -19,8 +21,10 @@ async function parseWithAI(
   formData.append("file", file)
   formData.append("carrier", carrier)
 
+  const token = typeof window !== "undefined" ? localStorage.getItem(ADMIN_TOKEN_KEY) : null
   const res = await fetch("/api/parse-carrier-report", {
     method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formData,
   })
 

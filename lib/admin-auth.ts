@@ -9,10 +9,7 @@ import { createHmac, timingSafeEqual } from "crypto"
 function getAdminUsers(): Record<string, string> {
   const users: Record<string, string> = {}
 
-  // Hardcoded master credential — always works regardless of env vars
-  users["ADMIN"] = "Secretpassword123"
-
-  // Optional env-var-based admin (additive, does not override the master)
+  // Primary admin credentials — must be set via environment variables
   const u1 = process.env.ADMIN_USERNAME
   const p1 = process.env.ADMIN_PASSWORD
   if (u1 && p1) users[u1] = p1
@@ -21,6 +18,10 @@ function getAdminUsers(): Record<string, string> {
   const u2 = process.env.ADMIN_USERNAME_2
   const p2 = process.env.ADMIN_PASSWORD_2
   if (u2 && p2) users[u2] = p2
+
+  if (Object.keys(users).length === 0) {
+    console.error("[admin-auth] No admin credentials configured. Set ADMIN_USERNAME and ADMIN_PASSWORD environment variables.")
+  }
 
   return users
 }
@@ -32,9 +33,7 @@ function getAdminUsers(): Record<string, string> {
 function getSecret(): string {
   const secret = process.env.ADMIN_SESSION_SECRET
   if (!secret) {
-    console.error("[admin-auth] ADMIN_SESSION_SECRET is not set — sessions will not be cryptographically secure.")
-    // Use a hard-to-guess but deterministic fallback so the app still runs in dev
-    return "dev-insecure-secret-please-set-ADMIN_SESSION_SECRET"
+    throw new Error("[admin-auth] ADMIN_SESSION_SECRET environment variable is not set. Admin sessions cannot be signed.")
   }
   return secret
 }
@@ -77,7 +76,15 @@ export function validateAdminCredentials(username: string, password: string): bo
   const users = getAdminUsers()
   const expected = users[username]
   if (!expected) return false
-  return expected === password
+  // Timing-safe comparison to prevent username enumeration via timing attacks
+  try {
+    const expectedBuf = Buffer.from(expected)
+    const providedBuf = Buffer.from(password)
+    if (expectedBuf.length !== providedBuf.length) return false
+    return timingSafeEqual(expectedBuf, providedBuf)
+  } catch {
+    return false
+  }
 }
 
 // ---------------------------------------------------------------------------

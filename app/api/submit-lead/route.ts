@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import sql from "@/lib/db"
+import { rateLimit, getClientIp } from "@/lib/rate-limit"
 
 const PIPEDRIVE_TOKEN = process.env.PIPEDRIVE_API_TOKEN
 const PIPEDRIVE_DOMAIN = "rocky" // your Pipedrive subdomain
@@ -313,6 +314,12 @@ ${data.valuationSummary}
 }
 
 export async function POST(req: Request) {
+  // Rate limit: 5 leads per IP per 15 minutes
+  const { allowed } = rateLimit(`submit-lead:${getClientIp(req)}`, 5, 15 * 60 * 1000)
+  if (!allowed) {
+    return NextResponse.json({ error: "Too many requests. Please try again later." }, { status: 429 })
+  }
+
   try {
     const body = await req.json()
     const {
