@@ -1,5 +1,167 @@
 import type { ValuationInputs, ValuationResults, RiskAuditResult } from "@/components/calculator/valuation-engine"
 
+export interface QuickValueInputs {
+  revenue: number
+  multiplier: number
+  suggestedMultiplier: number
+  retention: string
+  bookType: string
+  growth: string
+  customers: number | null
+  policies: number | null
+  ratio: number | null
+}
+
+export interface QuickValueEstimate {
+  value: number
+  lowValue: number
+  highValue: number
+  tier: string
+}
+
+export async function downloadQuickValuePDF(
+  inputs: QuickValueInputs,
+  estimate: QuickValueEstimate
+) {
+  const { default: jsPDF } = await import("jspdf")
+
+  const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" })
+  const W = doc.internal.pageSize.getWidth()
+  const margin = 48
+  const col = W - margin * 2
+  let y = margin
+
+  const checkPage = (needed: number) => {
+    if (y + needed > doc.internal.pageSize.getHeight() - margin) {
+      doc.addPage()
+      y = margin
+    }
+  }
+
+  const drawHRule = (color = "#e2e8f0") => {
+    doc.setDrawColor(color)
+    doc.setLineWidth(0.5)
+    doc.line(margin, y, W - margin, y)
+    y += 12
+  }
+
+  const heading = (text: string, size = 14) => {
+    checkPage(size + 20)
+    doc.setFontSize(size)
+    doc.setFont("helvetica", "bold")
+    doc.setTextColor("#0f172a")
+    doc.text(text, margin, y)
+    y += size + 6
+  }
+
+  const body = (text: string, size = 10, color = "#334155") => {
+    checkPage(size + 8)
+    doc.setFontSize(size)
+    doc.setFont("helvetica", "normal")
+    doc.setTextColor(color)
+    const lines = doc.splitTextToSize(text, col) as string[]
+    doc.text(lines, margin, y)
+    y += lines.length * (size + 4) + 4
+  }
+
+  const row = (label: string, value: string) => {
+    checkPage(18)
+    doc.setFontSize(10)
+    doc.setFont("helvetica", "normal")
+    doc.setTextColor("#64748b")
+    doc.text(label, margin, y)
+    doc.setFont("helvetica", "bold")
+    doc.setTextColor("#0f172a")
+    doc.text(value, W - margin, y, { align: "right" })
+    y += 18
+  }
+
+  const retentionLabel: Record<string, string> = {
+    high: "Excellent (90%+)",
+    average: "Average (80–89%)",
+    low: "Below Average (< 80%)",
+  }
+  const bookLabel: Record<string, string> = {
+    commercial: "Mostly Commercial",
+    mixed: "Mixed (PL + CL)",
+    personal: "Mostly Personal",
+  }
+  const growthLabel: Record<string, string> = {
+    strong: "Strong Growth (10%+ / yr)",
+    moderate: "Moderate Growth (3–9% / yr)",
+    flat: "Flat",
+    declining: "Declining",
+  }
+
+  // Cover header
+  doc.setFillColor("#0ea5e9")
+  doc.rect(0, 0, W, 80, "F")
+  doc.setFontSize(22)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor("#ffffff")
+  doc.text("Quick Agency Valuation", margin, 38)
+  doc.setFontSize(10)
+  doc.setFont("helvetica", "normal")
+  doc.text(
+    "Prepared by Agency Appraiser  •  " +
+      new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+    margin,
+    58
+  )
+  y = 104
+
+  // Estimated range
+  heading("Estimated Value Range", 16)
+  doc.setFontSize(26)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor("#16a34a")
+  doc.text(`${fmt(estimate.lowValue)}  –  ${fmt(estimate.highValue)}`, margin, y)
+  y += 36
+
+  row("Midpoint Estimate", fmt(estimate.value))
+  row("Multiplier Used", `${inputs.multiplier.toFixed(2)}x`)
+  row("Suggested Multiplier", `${inputs.suggestedMultiplier.toFixed(2)}x`)
+  row("Annual Revenue", fmt(inputs.revenue))
+  y += 8
+  drawHRule()
+
+  // Inputs summary
+  heading("Your Inputs")
+  if (inputs.retention) row("Client Retention", retentionLabel[inputs.retention] ?? inputs.retention)
+  if (inputs.bookType) row("Book Composition", bookLabel[inputs.bookType] ?? inputs.bookType)
+  if (inputs.growth) row("Revenue Trend", growthLabel[inputs.growth] ?? inputs.growth)
+  if (inputs.customers) row("Active Customers", inputs.customers.toLocaleString())
+  if (inputs.policies) row("Active Policies", inputs.policies.toLocaleString())
+  if (inputs.ratio !== null) row("Policies per Customer", inputs.ratio.toFixed(2))
+  y += 8
+  drawHRule()
+
+  // What comes next
+  heading("What to Do Next")
+  body(
+    "This Quick Valuation is a starting point — not a final number. The full 7-category calculator " +
+      "analyzes your retention, risk profile, client concentration, operational health, and more " +
+      "to produce a precise valuation range with a risk audit and deal simulator."
+  )
+  y += 8
+  body("Visit AgencyAppraiser.com to run the Full Valuation Calculator and unlock your complete report.")
+  y += 8
+  drawHRule("#cbd5e1")
+
+  // Disclaimer
+  doc.setFontSize(8)
+  doc.setFont("helvetica", "italic")
+  doc.setTextColor("#94a3b8")
+  doc.text(
+    "This report is a preliminary estimate for educational purposes only. It is not a binding offer or formal appraisal. Agency Appraiser.",
+    margin,
+    y,
+    { maxWidth: col }
+  )
+
+  doc.save(`quick-valuation-${Date.now()}.pdf`)
+}
+
 function fmt(n: number) {
   return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 }

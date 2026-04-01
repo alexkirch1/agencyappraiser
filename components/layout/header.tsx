@@ -13,6 +13,7 @@ const navItems = [
   { href: "/quick-value", label: "Quick Value" },
   { href: "/calculator", label: "Full Valuation" },
   { href: "/carrier", label: "Carrier Report" },
+  { href: "/market-data", label: "Market Data" },
 ]
 
 export function Header() {

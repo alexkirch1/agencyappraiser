@@ -850,6 +850,10 @@
     left: var(--spacing);
   }
 
+  .-top-5 {
+    top: calc(var(--spacing) * -5);
+  }
+
   .top-0 {
     top: calc(var(--spacing) * 0);
   }
@@ -880,6 +884,10 @@
 
   .right-5 {
     right: calc(var(--spacing) * 5);
+  }
+
+  .-bottom-5 {
+    bottom: calc(var(--spacing) * -5);
   }
 
   .bottom-5 {
@@ -1129,6 +1137,10 @@
     aspect-ratio: 1;
   }
 
+  .h-0\.5 {
+    height: calc(var(--spacing) * .5);
+  }
+
   .h-1\.5 {
     height: calc(var(--spacing) * 1.5);
   }
@@ -1247,6 +1259,10 @@
 
   .min-h-screen {
     min-height: 100vh;
+  }
+
+  .w-0\.5 {
+    width: calc(var(--spacing) * .5);
   }
 
   .w-1 {
@@ -1555,6 +1571,10 @@
 
   .justify-center {
     justify-content: center;
+  }
+
+  .justify-end {
+    justify-content: flex-end;
   }
 
   .gap-0\.5 {
@@ -1928,6 +1948,16 @@
     }
   }
 
+  .border-success\/40 {
+    border-color: hsl(var(--success));
+  }
+
+  @supports (color: color-mix(in lab, red, red)) {
+    .border-success\/40 {
+      border-color: color-mix(in oklab, hsl(var(--success)) 40%, transparent);
+    }
+  }
+
   .border-transparent {
     border-color: rgba(0, 0, 0, 0);
   }
@@ -2112,6 +2142,16 @@
     background-color: hsl(var(--chart-5));
   }
 
+  .bg-chart-5\/10 {
+    background-color: hsl(var(--chart-5));
+  }
+
+  @supports (color: color-mix(in lab, red, red)) {
+    .bg-chart-5\/10 {
+      background-color: color-mix(in oklab, hsl(var(--chart-5)) 10%, transparent);
+    }
+  }
+
   .bg-destructive {
     background-color: hsl(var(--destructive));
   }
@@ -2222,6 +2262,16 @@
     }
   }
 
+  .bg-primary\/25 {
+    background-color: hsl(var(--primary));
+  }
+
+  @supports (color: color-mix(in lab, red, red)) {
+    .bg-primary\/25 {
+      background-color: color-mix(in oklab, hsl(var(--primary)) 25%, transparent);
+    }
+  }
+
   .bg-primary\/60 {
     background-color: hsl(var(--primary));
   }
@@ -2229,6 +2279,16 @@
   @supports (color: color-mix(in lab, red, red)) {
     .bg-primary\/60 {
       background-color: color-mix(in oklab, hsl(var(--primary)) 60%, transparent);
+    }
+  }
+
+  .bg-primary\/70 {
+    background-color: hsl(var(--primary));
+  }
+
+  @supports (color: color-mix(in lab, red, red)) {
+    .bg-primary\/70 {
+      background-color: color-mix(in oklab, hsl(var(--primary)) 70%, transparent);
     }
   }
 
@@ -2577,6 +2637,10 @@
 
   .py-8 {
     padding-block: calc(var(--spacing) * 8);
+  }
+
+  .py-10 {
+    padding-block: calc(var(--spacing) * 10);
   }
 
   .py-12 {
@@ -3897,6 +3961,24 @@
   }
 
   @media (min-width: 40rem) {
+    .sm\:col-span-1 {
+      grid-column: span 1 / span 1;
+    }
+  }
+
+  @media (min-width: 40rem) {
+    .sm\:col-span-2 {
+      grid-column: span 2 / span 2;
+    }
+  }
+
+  @media (min-width: 40rem) {
+    .sm\:mt-0 {
+      margin-top: calc(var(--spacing) * 0);
+    }
+  }
+
+  @media (min-width: 40rem) {
     .sm\:grid-cols-2 {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -3911,6 +3993,12 @@
   @media (min-width: 40rem) {
     .sm\:grid-cols-4 {
       grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 40rem) {
+    .sm\:grid-cols-5 {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
     }
   }
 

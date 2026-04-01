@@ -1,6 +1,7 @@
 import Link from "next/link"
 import {
   ArrowRight,
+  BarChart2,
   Calculator,
   CheckCircle2,
   Shield,
@@ -38,6 +39,15 @@ const tools = [
     accent: "text-chart-4",
     accentBg: "bg-chart-4/10",
     tag: null,
+  },
+  {
+    href: "/market-data",
+    icon: BarChart2,
+    title: "Market Data",
+    description: "Browse deal comps: typical multiples by agency size, book type, retention rate, and deal structure. See how your agency stacks up.",
+    accent: "text-chart-5",
+    accentBg: "bg-chart-5/10",
+    tag: "New",
   },
 ]
 
@@ -123,14 +133,21 @@ export default function HomePage() {
           ))}
         </div>
 
-        {/* Bottom card */}
-        <div className="mt-4">
+        {/* Bottom cards — 2-column grid */}
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
           {tools.slice(2).map((tool) => (
             <Link key={tool.href} href={tool.href} className="group">
               <Card className="h-full border border-border bg-card transition-colors hover:border-primary/50">
                 <CardContent className="flex flex-col gap-3 p-5">
-                  <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${tool.accentBg}`}>
-                    <tool.icon className={`h-4 w-4 ${tool.accent}`} />
+                  <div className="flex items-center justify-between">
+                    <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${tool.accentBg}`}>
+                      <tool.icon className={`h-4 w-4 ${tool.accent}`} />
+                    </div>
+                    {tool.tag && (
+                      <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                        {tool.tag}
+                      </span>
+                    )}
                   </div>
                   <h3 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
                     {tool.title}
@@ -154,8 +171,8 @@ export default function HomePage() {
           <div className="grid gap-8 md:grid-cols-3">
             {[
               { n: "1", title: "Quick Estimate", desc: "Start with our 60-second Quick Valuation to see a ballpark range." },
-              { n: "2", title: "Go Deeper", desc: "Run the full 7-category calculator with risk audit and deal simulator." },
-              { n: "3", title: "Drill Into Carriers", desc: "Use the Carrier Report to value individual books of business by carrier with upload-and-parse reporting." },
+              { n: "2", title: "Go Deeper", desc: "Run the full 7-category calculator with risk audit, deal simulator, and downloadable PDF report." },
+              { n: "3", title: "Benchmark the Market", desc: "Browse Market Data to see closed deal multiples by size, book type, and deal structure — so you know what buyers are actually paying." },
             ].map((step) => (
               <div key={step.n} className="flex flex-col items-center text-center">
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-primary/30 bg-primary/5 text-xl font-bold text-primary">

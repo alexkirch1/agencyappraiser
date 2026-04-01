@@ -963,18 +963,23 @@ function normaliseCarrierDisplay(raw) {
             return null;
     }
 }
-function classifyLob(lob) {
+function classifyLob(lob, policyType) {
     const l = lob.toLowerCase();
-    // Personal & commercial auto
-    if (l.includes("auto") || l.includes("private passenger") || l.includes("motorcycle")) return "auto";
+    const isPersonal = /personal/i.test(policyType ?? "");
+    const isCommercial = /commercial/i.test(policyType ?? "");
+    // Workers Comp — always its own bucket
+    if (l.includes("workers comp") || l.includes("work comp") || l.includes("wc")) return "wc";
+    // Auto — personal or commercial
+    if (l.includes("auto (personal)") || l.includes("private passenger") || l.includes("auto") && isPersonal) return "auto";
+    if (l.includes("auto (commercial)") || l.includes("auto") && isCommercial) return "commercial";
+    // Catch motorcycle/watercraft — personal = "other" bucket (Special Lines)
+    if (l.includes("motorcycle") || l.includes("watercraft") || l.includes("boat")) return "other";
     // Home / personal property
     if (l.includes("homeowner") || l.includes("home owner") || l.includes("dwelling") || l.includes("condo") || l.includes("renters") || l.includes("tenant") || l.includes("landlord") || l.includes("mobile home")) return "home";
-    // Workers Comp
-    if (l.includes("workers comp") || l.includes("work comp") || l.includes("wc")) return "wc";
-    // Umbrella / Excess — separate bucket
+    // Umbrella / Excess — keep in "other" (PL umbrella not CL)
     if (l.includes("umbrella") || l.includes("excess liability")) return "other";
-    // Commercial lines (BOP, GL, Pkg, Prpty, Inland Marine, Crime, CPP, Flood)
-    if (l.includes("bop") || l.includes("business owner") || l.includes("genl liab") || l.includes("general liab") || l.includes("commercial") || l.includes("inland marine") || l.includes("crime") || l.includes("cpp") || l.includes("flood") || l.includes("surety") || l.includes("professional")) return "commercial";
+    // Commercial lines (BOP, GL, Pkg, Prpty, Inland Marine, Crime, CPP, Flood, Artisan)
+    if (l.includes("bop") || l.includes("business owner") || l.includes("genl liab") || l.includes("general liab") || l.includes("commercial") || l.includes("inland marine") || l.includes("crime") || l.includes("cpp") || l.includes("flood") || l.includes("surety") || l.includes("professional") || l.includes("artisan") || l.includes("truckers")) return "commercial";
     // Catch-all
     return "other";
 }
@@ -1004,7 +1009,10 @@ function parseCommissionStatement(csvText) {
     const iPolicyEffDate = col("policy effective date");
     const iExpiringPolicies = col("expiringpolicies");
     const iPolicyStatus = col("policy status");
-    const iPremium = iTotalWrittenPrem >= 0 ? iTotalWrittenPrem : iTotalAnnPremium;
+    // Use annualized premium — this normalises 6-month policies to annual,
+    // matching what carriers show in their production reports (e.g. Progressive ADP).
+    // Fall back to written premium if annualized not present.
+    const iPremium = iTotalAnnPremium >= 0 ? iTotalAnnPremium : iTotalWrittenPrem;
     if (iAccountName < 0 || iPolicyNumber < 0 || iPremium < 0) return emptyResult();
     const rows = [];
     for(let i = headerIdx + 1; i < lines.length; i++){
@@ -1039,7 +1047,7 @@ function parseCommissionStatement(csvText) {
             carrier,
             policyType,
             lob,
-            lobGroup: classifyLob(lob),
+            lobGroup: classifyLob(lob, policyType),
             premium,
             isNewBusiness,
             isExpiring
@@ -1313,16 +1321,25 @@ function mapToCarrierInputs(parsed) {
                 break;
             }
         // ── Progressive ────────────────────────────────────────────────────────
+        // The CSV uses Total Annualized Premium (parser now defaults to this), so
+        // premium figures match what Progressive's Account Production Report shows.
+        // PL = auto + home + other (Special Lines: watercraft, umbrella, etc.)
+        // CL = commercial + wc
         case "progressive":
             {
-                const plTotal = lob.auto + lob.home;
-                const clTotal = lob.commercial + lob.wc;
-                if (plTotal > 0) fields.prog_pl_premium = plTotal;
-                if (clTotal > 0) fields.prog_cl_premium = clTotal;
+                const plTotal = lob.auto + lob.home + lob.other // PL: auto + property + special lines
+                ;
+                const clTotal = lob.commercial + lob.wc // CL: commercial auto + BOP + WC etc.
+                ;
+                if (plTotal > 0) fields.prog_pl_premium = Math.round(plTotal);
+                if (clTotal > 0) fields.prog_cl_premium = Math.round(clTotal);
+                // Split PIF proportionally by annualized premium weight
                 if (pif > 0 && total > 0) {
                     if (plTotal > 0) fields.prog_pl_pif = Math.round(pif * plTotal / total);
                     if (clTotal > 0) fields.prog_cl_pif = Math.round(pif * clTotal / total);
                 }
+                // YTD apps = new business policy count (best proxy from CSV)
+                if (nbCount > 0) fields.prog_ytd_apps = nbCount;
                 break;
             }
         // ── Berkshire / BH Guard (Commercial) ─────────────────────────────────
@@ -1348,13 +1365,13 @@ function LobPill({ label, value }) {
                 children: fmt$(value)
             }, void 0, false, {
                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                lineNumber: 118,
+                lineNumber: 132,
                 columnNumber: 16
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/components/carrier/commission-upload.tsx",
-        lineNumber: 117,
+        lineNumber: 131,
         columnNumber: 5
     }, this);
 }
@@ -1423,7 +1440,7 @@ function CommissionUpload({ onParsed }) {
                 }
             }, void 0, false, {
                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                lineNumber: 175,
+                lineNumber: 189,
                 columnNumber: 7
             }, this),
             status === "idle" && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1438,12 +1455,12 @@ function CommissionUpload({ onParsed }) {
                             className: "h-4 w-4 text-primary"
                         }, void 0, false, {
                             fileName: "[project]/components/carrier/commission-upload.tsx",
-                            lineNumber: 188,
+                            lineNumber: 202,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                        lineNumber: 187,
+                        lineNumber: 201,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1453,7 +1470,7 @@ function CommissionUpload({ onParsed }) {
                                 children: "Upload Book of Business Detail Report"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 191,
+                                lineNumber: 205,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1461,19 +1478,19 @@ function CommissionUpload({ onParsed }) {
                                 children: "EZLynx EZ Links CSV export — auto-detects carrier, fills premium, PIF & book quality fields"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 192,
+                                lineNumber: 206,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                        lineNumber: 190,
+                        lineNumber: 204,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                lineNumber: 182,
+                lineNumber: 196,
                 columnNumber: 9
             }, this),
             status === "loading" && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1483,7 +1500,7 @@ function CommissionUpload({ onParsed }) {
                         className: "h-4 w-4 animate-spin text-primary"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                        lineNumber: 202,
+                        lineNumber: 216,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1495,13 +1512,13 @@ function CommissionUpload({ onParsed }) {
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                        lineNumber: 203,
+                        lineNumber: 217,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                lineNumber: 201,
+                lineNumber: 215,
                 columnNumber: 9
             }, this),
             status === "error" && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1514,7 +1531,7 @@ function CommissionUpload({ onParsed }) {
                                 className: "mt-0.5 h-4 w-4 shrink-0 text-destructive"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 211,
+                                lineNumber: 225,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1522,13 +1539,13 @@ function CommissionUpload({ onParsed }) {
                                 children: errorMsg
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 212,
+                                lineNumber: 226,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                        lineNumber: 210,
+                        lineNumber: 224,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Button"], {
@@ -1539,13 +1556,13 @@ function CommissionUpload({ onParsed }) {
                         children: "Try another file"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                        lineNumber: 214,
+                        lineNumber: 228,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                lineNumber: 209,
+                lineNumber: 223,
                 columnNumber: 9
             }, this),
             status === "success" && result && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1561,7 +1578,7 @@ function CommissionUpload({ onParsed }) {
                                         className: "h-4 w-4 shrink-0 text-success"
                                     }, void 0, false, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 226,
+                                        lineNumber: 240,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1573,7 +1590,7 @@ function CommissionUpload({ onParsed }) {
                                                         className: "mr-1 inline h-3.5 w-3.5 text-muted-foreground"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                        lineNumber: 229,
+                                                        lineNumber: 243,
                                                         columnNumber: 19
                                                     }, this),
                                                     fileName,
@@ -1586,13 +1603,13 @@ function CommissionUpload({ onParsed }) {
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                        lineNumber: 232,
+                                                        lineNumber: 246,
                                                         columnNumber: 21
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                lineNumber: 228,
+                                                lineNumber: 242,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1606,19 +1623,19 @@ function CommissionUpload({ onParsed }) {
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                lineNumber: 235,
+                                                lineNumber: 249,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 227,
+                                        lineNumber: 241,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 225,
+                                lineNumber: 239,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1634,20 +1651,20 @@ function CommissionUpload({ onParsed }) {
                                                 className: "h-3.5 w-3.5"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                lineNumber: 242,
+                                                lineNumber: 256,
                                                 columnNumber: 29
                                             }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$lucide$2d$react$40$0$2e$469$2e$0_react$40$19$2e$2$2e$4$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chevron$2d$down$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$export__default__as__ChevronDown$3e$__["ChevronDown"], {
                                                 className: "h-3.5 w-3.5"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                lineNumber: 242,
+                                                lineNumber: 256,
                                                 columnNumber: 69
                                             }, this),
                                             "Details"
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 241,
+                                        lineNumber: 255,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Button"], {
@@ -1659,24 +1676,24 @@ function CommissionUpload({ onParsed }) {
                                             className: "h-3.5 w-3.5"
                                         }, void 0, false, {
                                             fileName: "[project]/components/carrier/commission-upload.tsx",
-                                            lineNumber: 246,
+                                            lineNumber: 260,
                                             columnNumber: 17
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 245,
+                                        lineNumber: 259,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 240,
+                                lineNumber: 254,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                        lineNumber: 224,
+                        lineNumber: 238,
                         columnNumber: 11
                     }, this),
                     (result.detectedCarrier || result.detectedBookType) && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1686,7 +1703,7 @@ function CommissionUpload({ onParsed }) {
                                 className: "h-3.5 w-3.5 shrink-0 text-primary"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 254,
+                                lineNumber: 268,
                                 columnNumber: 15
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1696,7 +1713,7 @@ function CommissionUpload({ onParsed }) {
                                         children: "Auto-detected:"
                                     }, void 0, false, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 256,
+                                        lineNumber: 270,
                                         columnNumber: 17
                                     }, this),
                                     " ",
@@ -1705,7 +1722,7 @@ function CommissionUpload({ onParsed }) {
                                         children: result.detectedCarrier === "libertymutual" ? "Liberty Mutual" : result.detectedCarrier === "berkshire" ? "Berkshire / BH Guard" : result.detectedCarrier.charAt(0).toUpperCase() + result.detectedCarrier.slice(1)
                                     }, void 0, false, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 258,
+                                        lineNumber: 272,
                                         columnNumber: 21
                                     }, this) : null,
                                     result.detectedCarrier && result.detectedBookType && " · ",
@@ -1717,20 +1734,20 @@ function CommissionUpload({ onParsed }) {
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 262,
+                                        lineNumber: 276,
                                         columnNumber: 21
                                     }, this) : null,
                                     " — carrier &amp; premium fields pre-filled below"
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 255,
+                                lineNumber: 269,
                                 columnNumber: 15
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                        lineNumber: 253,
+                        lineNumber: 267,
                         columnNumber: 13
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1744,13 +1761,13 @@ function CommissionUpload({ onParsed }) {
                                         children: fmt$(result.totalWrittenPremium)
                                     }, void 0, false, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 273,
+                                        lineNumber: 287,
                                         columnNumber: 32
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 272,
+                                lineNumber: 286,
                                 columnNumber: 15
                             }, this),
                             result.newBusinessPremium != null && result.newBusinessPremium > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1761,13 +1778,13 @@ function CommissionUpload({ onParsed }) {
                                         children: fmt$(result.newBusinessPremium)
                                     }, void 0, false, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 278,
+                                        lineNumber: 292,
                                         columnNumber: 29
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 277,
+                                lineNumber: 291,
                                 columnNumber: 15
                             }, this),
                             result.book_new_business_pct != null && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1781,13 +1798,13 @@ function CommissionUpload({ onParsed }) {
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 283,
+                                        lineNumber: 297,
                                         columnNumber: 31
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 282,
+                                lineNumber: 296,
                                 columnNumber: 15
                             }, this),
                             result.book_policies_per_customer != null && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1798,13 +1815,13 @@ function CommissionUpload({ onParsed }) {
                                         children: result.book_policies_per_customer.toFixed(2)
                                     }, void 0, false, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 288,
+                                        lineNumber: 302,
                                         columnNumber: 36
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 287,
+                                lineNumber: 301,
                                 columnNumber: 15
                             }, this),
                             result.book_avg_premium_per_policy != null && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1815,13 +1832,13 @@ function CommissionUpload({ onParsed }) {
                                         children: fmt$(result.book_avg_premium_per_policy)
                                     }, void 0, false, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 293,
+                                        lineNumber: 307,
                                         columnNumber: 34
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 292,
+                                lineNumber: 306,
                                 columnNumber: 15
                             }, this),
                             result.book_monoline_pct != null && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1835,13 +1852,13 @@ function CommissionUpload({ onParsed }) {
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 298,
+                                        lineNumber: 312,
                                         columnNumber: 27
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 297,
+                                lineNumber: 311,
                                 columnNumber: 15
                             }, this),
                             result.expiringCount != null && result.expiringCount > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1852,19 +1869,19 @@ function CommissionUpload({ onParsed }) {
                                         children: result.expiringCount
                                     }, void 0, false, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 303,
+                                        lineNumber: 317,
                                         columnNumber: 27
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 302,
+                                lineNumber: 316,
                                 columnNumber: 15
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                        lineNumber: 270,
+                        lineNumber: 284,
                         columnNumber: 11
                     }, this),
                     expanded && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1877,7 +1894,7 @@ function CommissionUpload({ onParsed }) {
                                         children: "Premium by Line of Business"
                                     }, void 0, false, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 314,
+                                        lineNumber: 328,
                                         columnNumber: 19
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1888,7 +1905,7 @@ function CommissionUpload({ onParsed }) {
                                                 value: lob.auto
                                             }, void 0, false, {
                                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                lineNumber: 318,
+                                                lineNumber: 332,
                                                 columnNumber: 21
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(LobPill, {
@@ -1896,7 +1913,7 @@ function CommissionUpload({ onParsed }) {
                                                 value: lob.home
                                             }, void 0, false, {
                                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                lineNumber: 319,
+                                                lineNumber: 333,
                                                 columnNumber: 21
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(LobPill, {
@@ -1904,7 +1921,7 @@ function CommissionUpload({ onParsed }) {
                                                 value: lob.commercial
                                             }, void 0, false, {
                                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                lineNumber: 320,
+                                                lineNumber: 334,
                                                 columnNumber: 21
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(LobPill, {
@@ -1912,7 +1929,7 @@ function CommissionUpload({ onParsed }) {
                                                 value: lob.wc
                                             }, void 0, false, {
                                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                lineNumber: 321,
+                                                lineNumber: 335,
                                                 columnNumber: 21
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(LobPill, {
@@ -1920,19 +1937,19 @@ function CommissionUpload({ onParsed }) {
                                                 value: lob.other
                                             }, void 0, false, {
                                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                lineNumber: 322,
+                                                lineNumber: 336,
                                                 columnNumber: 21
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 317,
+                                        lineNumber: 331,
                                         columnNumber: 19
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 313,
+                                lineNumber: 327,
                                 columnNumber: 17
                             }, this),
                             result.carrierBreakdown.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1942,7 +1959,7 @@ function CommissionUpload({ onParsed }) {
                                         children: "Writing Company Breakdown"
                                     }, void 0, false, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 330,
+                                        lineNumber: 344,
                                         columnNumber: 19
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1959,7 +1976,7 @@ function CommissionUpload({ onParsed }) {
                                                                 children: "Carrier"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                                lineNumber: 337,
+                                                                lineNumber: 351,
                                                                 columnNumber: 27
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1967,7 +1984,7 @@ function CommissionUpload({ onParsed }) {
                                                                 children: "Written Prem"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                                lineNumber: 338,
+                                                                lineNumber: 352,
                                                                 columnNumber: 27
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1975,7 +1992,7 @@ function CommissionUpload({ onParsed }) {
                                                                 children: "Policies"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                                lineNumber: 339,
+                                                                lineNumber: 353,
                                                                 columnNumber: 27
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1983,18 +2000,18 @@ function CommissionUpload({ onParsed }) {
                                                                 children: "New Biz"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                                lineNumber: 340,
+                                                                lineNumber: 354,
                                                                 columnNumber: 27
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                        lineNumber: 336,
+                                                        lineNumber: 350,
                                                         columnNumber: 25
                                                     }, this)
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                    lineNumber: 335,
+                                                    lineNumber: 349,
                                                     columnNumber: 23
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("tbody", {
@@ -2007,7 +2024,7 @@ function CommissionUpload({ onParsed }) {
                                                                     children: cb.carrier
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                                    lineNumber: 346,
+                                                                    lineNumber: 360,
                                                                     columnNumber: 29
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -2015,7 +2032,7 @@ function CommissionUpload({ onParsed }) {
                                                                     children: fmt$(cb.writtenPremium)
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                                    lineNumber: 347,
+                                                                    lineNumber: 361,
                                                                     columnNumber: 29
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -2023,7 +2040,7 @@ function CommissionUpload({ onParsed }) {
                                                                     children: cb.policyCount
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                                    lineNumber: 348,
+                                                                    lineNumber: 362,
                                                                     columnNumber: 29
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -2031,53 +2048,53 @@ function CommissionUpload({ onParsed }) {
                                                                     children: cb.newBusinessCount
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                                    lineNumber: 349,
+                                                                    lineNumber: 363,
                                                                     columnNumber: 29
                                                                 }, this)
                                                             ]
                                                         }, cb.carrier, true, {
                                                             fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                            lineNumber: 345,
+                                                            lineNumber: 359,
                                                             columnNumber: 27
                                                         }, this))
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/carrier/commission-upload.tsx",
-                                                    lineNumber: 343,
+                                                    lineNumber: 357,
                                                     columnNumber: 23
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/carrier/commission-upload.tsx",
-                                            lineNumber: 334,
+                                            lineNumber: 348,
                                             columnNumber: 21
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                                        lineNumber: 333,
+                                        lineNumber: 347,
                                         columnNumber: 19
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                                lineNumber: 329,
+                                lineNumber: 343,
                                 columnNumber: 17
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/carrier/commission-upload.tsx",
-                        lineNumber: 310,
+                        lineNumber: 324,
                         columnNumber: 13
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/commission-upload.tsx",
-                lineNumber: 222,
+                lineNumber: 236,
                 columnNumber: 9
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/components/carrier/commission-upload.tsx",
-        lineNumber: 174,
+        lineNumber: 188,
         columnNumber: 5
     }, this);
 }
@@ -3095,7 +3112,7 @@ function CarrierForm({ inputs, onChange }) {
                                                 onChange: (v)=>update({
                                                         book_preferred_pct: v
                                                     }),
-                                                placeholder: "e.g. 78",
+                                                placeholder: "e.g. 75",
                                                 type: "percent",
                                                 hint: "% of policies in preferred or standard tier (vs non-standard/high-risk)",
                                                 benchmark: {
@@ -3116,7 +3133,7 @@ function CarrierForm({ inputs, onChange }) {
                                                 onChange: (v)=>update({
                                                         book_policies_per_customer: v
                                                     }),
-                                                placeholder: "e.g. 1.9",
+                                                placeholder: "e.g. 1.8",
                                                 type: "number",
                                                 hint: "Total policies ÷ total customers — higher means stronger multi-line",
                                                 benchmark: {
@@ -3137,7 +3154,7 @@ function CarrierForm({ inputs, onChange }) {
                                                 onChange: (v)=>update({
                                                         book_avg_premium_per_policy: v
                                                     }),
-                                                placeholder: "e.g. 1,200",
+                                                placeholder: "e.g. 1,100",
                                                 type: "currency",
                                                 hint: "Total written premium ÷ total policies in force",
                                                 benchmark: {
@@ -3158,7 +3175,7 @@ function CarrierForm({ inputs, onChange }) {
                                                 onChange: (v)=>update({
                                                         book_new_business_pct: v
                                                     }),
-                                                placeholder: "e.g. 15",
+                                                placeholder: "e.g. 18",
                                                 type: "percent",
                                                 hint: "New policies written in past 12 months ÷ total PIF — from Book of Business Detail Report",
                                                 benchmark: {
@@ -3179,7 +3196,7 @@ function CarrierForm({ inputs, onChange }) {
                                                 onChange: (v)=>update({
                                                         book_monoline_pct: v
                                                     }),
-                                                placeholder: "e.g. 42",
+                                                placeholder: "e.g. 45",
                                                 type: "percent",
                                                 hint: "% of customers with only one policy — lower is better (multi-line = stickier)",
                                                 benchmark: {
@@ -3200,7 +3217,7 @@ function CarrierForm({ inputs, onChange }) {
                                                 onChange: (v)=>update({
                                                         book_digital_docs_pct: v
                                                     }),
-                                                placeholder: "e.g. 65",
+                                                placeholder: "e.g. 60",
                                                 type: "percent",
                                                 hint: "% of customers enrolled in paperless — higher engagement = lower lapse rate",
                                                 benchmark: {
@@ -3421,13 +3438,14 @@ function ProgressiveFields({ inputs, update, bookType }) {
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
-                        label: "T12 Written Premium ($)",
+                        label: "Current Book Written Premium ($)",
                         value: inputs.prog_pl_premium,
                         onChange: (v)=>update({
                                 prog_pl_premium: v
                             }),
-                        placeholder: "e.g. 2,500,000",
-                        type: "currency"
+                        placeholder: "e.g. 750,000",
+                        type: "currency",
+                        hint: "Total PL Written Premium from the Account Production Report (ADP) — Current Book column"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
                         lineNumber: 486,
@@ -3439,31 +3457,33 @@ function ProgressiveFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 prog_pl_pif: v
                             }),
-                        placeholder: "e.g. 1,200",
-                        type: "count"
+                        placeholder: "e.g. 350",
+                        type: "count",
+                        hint: "Total PL PIF — sum of Auto + Property + Special Lines + Umbrella rows"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 487,
+                        lineNumber: 494,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
-                        label: "T12 Loss Ratio (%)",
+                        label: "Loss Ratio (Trailing 12, %)",
                         value: inputs.prog_pl_loss_ratio,
                         onChange: (v)=>update({
                                 prog_pl_loss_ratio: v
                             }),
-                        placeholder: "e.g. 42.5",
+                        placeholder: "e.g. 52",
                         type: "percent",
+                        hint: "Most recent trailing 12-month PL Loss Ratio from the Loss Ratio section of the ADP",
                         benchmark: {
                             good: 40,
-                            poor: 58,
+                            poor: 62,
                             direction: "lower-better",
                             goodLabel: "Good",
                             poorLabel: "High"
                         }
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 488,
+                        lineNumber: 502,
                         columnNumber: 11
                     }, this)
                 ]
@@ -3480,20 +3500,21 @@ function ProgressiveFields({ inputs, update, bookType }) {
                         children: "Commercial Lines"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 493,
+                        lineNumber: 515,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
-                        label: "T12 Written Premium ($)",
+                        label: "Current Book Written Premium ($)",
                         value: inputs.prog_cl_premium,
                         onChange: (v)=>update({
                                 prog_cl_premium: v
                             }),
-                        placeholder: "e.g. 800,000",
-                        type: "currency"
+                        placeholder: "e.g. 300,000",
+                        type: "currency",
+                        hint: "Total CL Written Premium from the ADP — Current Book column"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 494,
+                        lineNumber: 516,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -3502,21 +3523,23 @@ function ProgressiveFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 prog_cl_pif: v
                             }),
-                        placeholder: "e.g. 500",
-                        type: "count"
+                        placeholder: "e.g. 45",
+                        type: "count",
+                        hint: "Total CL PIF from the ADP — Commercial Lines row"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 495,
+                        lineNumber: 524,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
-                        label: "T12 Loss Ratio (%)",
+                        label: "Loss Ratio (Trailing 12, %)",
                         value: inputs.prog_cl_loss_ratio,
                         onChange: (v)=>update({
                                 prog_cl_loss_ratio: v
                             }),
-                        placeholder: "e.g. 8.0",
+                        placeholder: "e.g. 38",
                         type: "percent",
+                        hint: "Most recent trailing 12-month CL Loss Ratio from the Loss Ratio section of the ADP",
                         benchmark: {
                             good: 35,
                             poor: 58,
@@ -3526,39 +3549,55 @@ function ProgressiveFields({ inputs, update, bookType }) {
                         }
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 496,
+                        lineNumber: 532,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 492,
+                lineNumber: 514,
                 columnNumber: 9
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
-                label: "Bundle Rate (%)",
+                label: "PIF Bundle Rate (%)",
                 value: inputs.prog_bundle_rate,
                 onChange: (v)=>update({
                         prog_bundle_rate: v
                     }),
-                placeholder: "e.g. 68",
-                type: "percent"
+                placeholder: "e.g. 58",
+                type: "percent",
+                hint: "PIF Bundle Rate from the Property Quality section — Auto + Home/Condo/MH customers ÷ total HO/CO/MH PIFs",
+                benchmark: {
+                    good: 65,
+                    poor: 45,
+                    direction: "higher-better",
+                    goodLabel: "Strong",
+                    poorLabel: "Low"
+                }
             }, void 0, false, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 499,
+                lineNumber: 543,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
-                label: "YTD New Applications",
+                label: "YTD New Applications (Total)",
                 value: inputs.prog_ytd_apps,
                 onChange: (v)=>update({
                         prog_ytd_apps: v
                     }),
-                placeholder: "e.g. 55",
-                type: "count"
+                placeholder: "e.g. 85",
+                type: "count",
+                hint: "YTD Apps column — Total Personal Lines + Commercial Lines new applications from the New Business section",
+                benchmark: {
+                    good: 50,
+                    poor: 20,
+                    direction: "higher-better",
+                    goodLabel: "Active",
+                    poorLabel: "Low"
+                }
             }, void 0, false, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 500,
+                lineNumber: 552,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3571,7 +3610,7 @@ function ProgressiveFields({ inputs, update, bookType }) {
                                 children: "Diamond / Preferred Program Status"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 503,
+                                lineNumber: 563,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3579,13 +3618,13 @@ function ProgressiveFields({ inputs, update, bookType }) {
                                 children: "Agency has Diamond or top-tier program status"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 504,
+                                lineNumber: 564,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 502,
+                        lineNumber: 562,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$switch$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Switch"], {
@@ -3595,13 +3634,13 @@ function ProgressiveFields({ inputs, update, bookType }) {
                             })
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 506,
+                        lineNumber: 566,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 501,
+                lineNumber: 561,
                 columnNumber: 7
             }, this)
         ]
@@ -3623,7 +3662,7 @@ function TravelersFields({ inputs, update, bookType }) {
                         children: "Auto"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 524,
+                        lineNumber: 584,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -3632,12 +3671,12 @@ function TravelersFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 travelers_auto_wp: v
                             }),
-                        placeholder: "e.g. 3,500",
+                        placeholder: "e.g. 400",
                         type: "currency",
-                        hint: "From WP (,000) YE column — e.g. 206 = $206k"
+                        hint: "From WP (,000) YE column — e.g. 400 = $400k"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 525,
+                        lineNumber: 585,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -3646,11 +3685,11 @@ function TravelersFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 travelers_auto_pif: v
                             }),
-                        placeholder: "e.g. 75",
+                        placeholder: "e.g. 120",
                         type: "count"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 526,
+                        lineNumber: 586,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -3659,7 +3698,7 @@ function TravelersFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 travelers_auto_lr: v
                             }),
-                        placeholder: "e.g. 77.2",
+                        placeholder: "e.g. 72.0",
                         type: "percent",
                         benchmark: {
                             good: 65,
@@ -3670,7 +3709,7 @@ function TravelersFields({ inputs, update, bookType }) {
                         }
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 527,
+                        lineNumber: 587,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -3679,7 +3718,7 @@ function TravelersFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 travelers_auto_retention: v
                             }),
-                        placeholder: "e.g. 76.2",
+                        placeholder: "e.g. 76.0",
                         type: "percent",
                         benchmark: {
                             good: 75,
@@ -3690,13 +3729,13 @@ function TravelersFields({ inputs, update, bookType }) {
                         }
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 528,
+                        lineNumber: 588,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 523,
+                lineNumber: 583,
                 columnNumber: 9
             }, this),
             showHome && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3707,7 +3746,7 @@ function TravelersFields({ inputs, update, bookType }) {
                         children: "Homeowners"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 533,
+                        lineNumber: 593,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -3716,12 +3755,12 @@ function TravelersFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 travelers_home_wp: v
                             }),
-                        placeholder: "e.g. 4,500",
+                        placeholder: "e.g. 500",
                         type: "currency",
-                        hint: "From WP (,000) YE column — e.g. 221 = $221k"
+                        hint: "From WP (,000) YE column — e.g. 500 = $500k"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 534,
+                        lineNumber: 594,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -3730,11 +3769,11 @@ function TravelersFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 travelers_home_pif: v
                             }),
-                        placeholder: "e.g. 122",
+                        placeholder: "e.g. 150",
                         type: "count"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 535,
+                        lineNumber: 595,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -3743,7 +3782,7 @@ function TravelersFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 travelers_home_lr: v
                             }),
-                        placeholder: "e.g. 40.0",
+                        placeholder: "e.g. 68.0",
                         type: "percent",
                         benchmark: {
                             good: 75,
@@ -3754,7 +3793,7 @@ function TravelersFields({ inputs, update, bookType }) {
                         }
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 536,
+                        lineNumber: 596,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -3763,7 +3802,7 @@ function TravelersFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 travelers_home_retention: v
                             }),
-                        placeholder: "e.g. 88.0",
+                        placeholder: "e.g. 82.0",
                         type: "percent",
                         benchmark: {
                             good: 80,
@@ -3774,13 +3813,13 @@ function TravelersFields({ inputs, update, bookType }) {
                         }
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 537,
+                        lineNumber: 597,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 532,
+                lineNumber: 592,
                 columnNumber: 9
             }, this)
         ]
@@ -3804,7 +3843,7 @@ function HartfordFields({ inputs, update, bookType }) {
                                 children: "Personal Lines — Auto"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 557,
+                                lineNumber: 617,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -3813,12 +3852,12 @@ function HartfordFields({ inputs, update, bookType }) {
                                 onChange: (v)=>update({
                                         hartford_pl_auto_twp: v
                                     }),
-                                placeholder: "e.g. 1,991",
+                                placeholder: "e.g. 1,500",
                                 type: "currency",
                                 hint: "All Auto TWP — most recent full year column in Production & Growth"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 558,
+                                lineNumber: 618,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -3827,12 +3866,12 @@ function HartfordFields({ inputs, update, bookType }) {
                                 onChange: (v)=>update({
                                         hartford_pl_auto_pif: v
                                     }),
-                                placeholder: "e.g. 2,569",
+                                placeholder: "e.g. 1,800",
                                 type: "count",
                                 hint: "Total Policy Inforce — All Auto YE Total from Flow section"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 559,
+                                lineNumber: 619,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -3841,7 +3880,7 @@ function HartfordFields({ inputs, update, bookType }) {
                                 onChange: (v)=>update({
                                         hartford_pl_auto_lr: v
                                     }),
-                                placeholder: "e.g. 32.9",
+                                placeholder: "e.g. 72.0",
                                 type: "percent",
                                 hint: "CYLR most recent year — All Auto row in Profitability",
                                 benchmark: {
@@ -3853,7 +3892,7 @@ function HartfordFields({ inputs, update, bookType }) {
                                 }
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 560,
+                                lineNumber: 620,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -3862,7 +3901,7 @@ function HartfordFields({ inputs, update, bookType }) {
                                 onChange: (v)=>update({
                                         hartford_pl_auto_retention: v
                                     }),
-                                placeholder: "e.g. 77.0",
+                                placeholder: "e.g. 76.0",
                                 type: "percent",
                                 hint: "Premium Retention % most recent year — All Auto row",
                                 benchmark: {
@@ -3874,13 +3913,13 @@ function HartfordFields({ inputs, update, bookType }) {
                                 }
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 561,
+                                lineNumber: 621,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 556,
+                        lineNumber: 616,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3891,7 +3930,7 @@ function HartfordFields({ inputs, update, bookType }) {
                                 children: "Personal Lines — Home"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 564,
+                                lineNumber: 624,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -3900,12 +3939,12 @@ function HartfordFields({ inputs, update, bookType }) {
                                 onChange: (v)=>update({
                                         hartford_pl_home_twp: v
                                     }),
-                                placeholder: "e.g. 3,989",
+                                placeholder: "e.g. 2,800",
                                 type: "currency",
                                 hint: "All Home TWP — most recent full year column in Production & Growth"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 565,
+                                lineNumber: 625,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -3914,12 +3953,12 @@ function HartfordFields({ inputs, update, bookType }) {
                                 onChange: (v)=>update({
                                         hartford_pl_home_pif: v
                                     }),
-                                placeholder: "e.g. 1,442",
+                                placeholder: "e.g. 1,200",
                                 type: "count",
                                 hint: "Total Policy Inforce — All Home YE Total from Flow section"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 566,
+                                lineNumber: 626,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -3928,7 +3967,7 @@ function HartfordFields({ inputs, update, bookType }) {
                                 onChange: (v)=>update({
                                         hartford_pl_home_lr: v
                                     }),
-                                placeholder: "e.g. 20.4",
+                                placeholder: "e.g. 65.0",
                                 type: "percent",
                                 hint: "CYLR most recent year — All Home row in Profitability",
                                 benchmark: {
@@ -3940,7 +3979,7 @@ function HartfordFields({ inputs, update, bookType }) {
                                 }
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 567,
+                                lineNumber: 627,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -3949,7 +3988,7 @@ function HartfordFields({ inputs, update, bookType }) {
                                 onChange: (v)=>update({
                                         hartford_pl_home_retention: v
                                     }),
-                                placeholder: "e.g. 68.0",
+                                placeholder: "e.g. 74.0",
                                 type: "percent",
                                 hint: "Premium Retention % most recent year — All Home row",
                                 benchmark: {
@@ -3961,13 +4000,13 @@ function HartfordFields({ inputs, update, bookType }) {
                                 }
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 568,
+                                lineNumber: 628,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 563,
+                        lineNumber: 623,
                         columnNumber: 11
                     }, this)
                 ]
@@ -3980,7 +4019,7 @@ function HartfordFields({ inputs, update, bookType }) {
                         children: "Small Commercial"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 574,
+                        lineNumber: 634,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -3989,12 +4028,12 @@ function HartfordFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 hartford_cl_twp: v
                             }),
-                        placeholder: "e.g. 2,043",
+                        placeholder: "e.g. 1,500",
                         type: "currency",
                         hint: "Small Commercial Total TWP — most recent full year, Production & Growth"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 575,
+                        lineNumber: 635,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4003,7 +4042,7 @@ function HartfordFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 hartford_cl_lr: v
                             }),
-                        placeholder: "e.g. 24.7",
+                        placeholder: "e.g. 48.0",
                         type: "percent",
                         hint: "CYLR most recent year — Small Commercial Total row (negative = profitable)",
                         benchmark: {
@@ -4015,7 +4054,7 @@ function HartfordFields({ inputs, update, bookType }) {
                         }
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 576,
+                        lineNumber: 636,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4024,7 +4063,7 @@ function HartfordFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 hartford_cl_retention: v
                             }),
-                        placeholder: "e.g. 73.9",
+                        placeholder: "e.g. 76.0",
                         type: "percent",
                         hint: "Premium Retention Rate (PRR) most recent year — Total row in Retention table",
                         benchmark: {
@@ -4036,13 +4075,13 @@ function HartfordFields({ inputs, update, bookType }) {
                         }
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 577,
+                        lineNumber: 637,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 573,
+                lineNumber: 633,
                 columnNumber: 9
             }, this)
         ]
@@ -4065,7 +4104,7 @@ function SafecoFields({ inputs, update, bookType }) {
                         children: "Auto"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 597,
+                        lineNumber: 657,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4074,12 +4113,12 @@ function SafecoFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 safeco_auto_dwp: v
                             }),
-                        placeholder: "e.g. 6,645,555",
+                        placeholder: "e.g. 2,500,000",
                         type: "currency",
                         hint: "Rolling 12 Direct Written Premium — Auto row in the DWP table on your ADP"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 598,
+                        lineNumber: 658,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4088,12 +4127,12 @@ function SafecoFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 safeco_auto_pif: v
                             }),
-                        placeholder: "e.g. 2,485",
+                        placeholder: "e.g. 900",
                         type: "count",
                         hint: "Current Policy Inforce — Auto row, Current PIF column"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 599,
+                        lineNumber: 659,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4102,7 +4141,7 @@ function SafecoFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 safeco_auto_lr: v
                             }),
-                        placeholder: "e.g. 74.0",
+                        placeholder: "e.g. 68.0",
                         type: "percent",
                         hint: "YTD Loss Ratio — Auto row in Profitability section of ADP",
                         benchmark: {
@@ -4114,7 +4153,7 @@ function SafecoFields({ inputs, update, bookType }) {
                         }
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 600,
+                        lineNumber: 660,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4123,7 +4162,7 @@ function SafecoFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 safeco_auto_retention: v
                             }),
-                        placeholder: "e.g. 69.3",
+                        placeholder: "e.g. 72.0",
                         type: "percent",
                         hint: "PIF Retention — Auto row, YTD column in DWP table",
                         benchmark: {
@@ -4135,13 +4174,13 @@ function SafecoFields({ inputs, update, bookType }) {
                         }
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 601,
+                        lineNumber: 661,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 596,
+                lineNumber: 656,
                 columnNumber: 9
             }, this),
             showHome && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4152,7 +4191,7 @@ function SafecoFields({ inputs, update, bookType }) {
                         children: "Homeowners"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 606,
+                        lineNumber: 666,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4161,12 +4200,12 @@ function SafecoFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 safeco_home_dwp: v
                             }),
-                        placeholder: "e.g. 5,931,825",
+                        placeholder: "e.g. 2,000,000",
                         type: "currency",
                         hint: "Rolling 12 Direct Written Premium — Home row in the DWP table"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 607,
+                        lineNumber: 667,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4175,12 +4214,12 @@ function SafecoFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 safeco_home_pif: v
                             }),
-                        placeholder: "e.g. 2,375",
+                        placeholder: "e.g. 750",
                         type: "count",
                         hint: "Current Policy Inforce — Home row, Current PIF column"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 608,
+                        lineNumber: 668,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4189,7 +4228,7 @@ function SafecoFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 safeco_home_lr: v
                             }),
-                        placeholder: "e.g. -4.4",
+                        placeholder: "e.g. 58.0",
                         type: "percent",
                         hint: "YTD Loss Ratio — Home row in Profitability section (can be negative = very profitable)",
                         benchmark: {
@@ -4201,7 +4240,7 @@ function SafecoFields({ inputs, update, bookType }) {
                         }
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 609,
+                        lineNumber: 669,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4210,7 +4249,7 @@ function SafecoFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 safeco_home_retention: v
                             }),
-                        placeholder: "e.g. 73.2",
+                        placeholder: "e.g. 74.0",
                         type: "percent",
                         hint: "PIF Retention — Home row, YTD column in DWP table",
                         benchmark: {
@@ -4222,13 +4261,13 @@ function SafecoFields({ inputs, update, bookType }) {
                         }
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 610,
+                        lineNumber: 670,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 605,
+                lineNumber: 665,
                 columnNumber: 9
             }, this),
             showOther && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4239,7 +4278,7 @@ function SafecoFields({ inputs, update, bookType }) {
                         children: "Other Lines (Condo + Renters + Umbrella + Landlord)"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 615,
+                        lineNumber: 675,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4248,12 +4287,12 @@ function SafecoFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 safeco_other_dwp: v
                             }),
-                        placeholder: "e.g. 1,986,255",
+                        placeholder: "e.g. 500,000",
                         type: "currency",
                         hint: "Sum of R12 DWP for Condo, Renters, Umbrella, and Landlord rows"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 616,
+                        lineNumber: 676,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4262,12 +4301,12 @@ function SafecoFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 safeco_other_lr: v
                             }),
-                        placeholder: "e.g. 31.0",
+                        placeholder: "e.g. 42.0",
                         type: "percent",
                         hint: "Blended YTD Loss Ratio across the other product lines"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 617,
+                        lineNumber: 677,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4276,18 +4315,18 @@ function SafecoFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 safeco_other_retention: v
                             }),
-                        placeholder: "e.g. 71.0",
+                        placeholder: "e.g. 72.0",
                         type: "percent",
                         hint: "Average PIF Retention across other lines"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 618,
+                        lineNumber: 678,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 614,
+                lineNumber: 674,
                 columnNumber: 9
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4298,7 +4337,7 @@ function SafecoFields({ inputs, update, bookType }) {
                         children: "Engagement & Program"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 623,
+                        lineNumber: 683,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4307,12 +4346,12 @@ function SafecoFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 safeco_cross_sell_pct: v
                             }),
-                        placeholder: "e.g. 39.8",
+                        placeholder: "e.g. 42.0",
                         type: "percent",
                         hint: "Valid Cross Sell % for Home/Condo/Rent — from Cross Sell section of ADP"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 624,
+                        lineNumber: 684,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4321,12 +4360,12 @@ function SafecoFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 safeco_right_track_pct: v
                             }),
-                        placeholder: "e.g. 26.9",
+                        placeholder: "e.g. 25.0",
                         type: "percent",
                         hint: "RT % of Auto — YTD RT Issues ÷ YTD Auto Issues from Auto Term Length section"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 625,
+                        lineNumber: 685,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4335,12 +4374,12 @@ function SafecoFields({ inputs, update, bookType }) {
                         onChange: (v)=>update({
                                 safeco_nb_dwp: v
                             }),
-                        placeholder: "e.g. 722,941",
+                        placeholder: "e.g. 400,000",
                         type: "currency",
                         hint: "YTD Total New Business DWP — Total row, YTD NB DWP column in ADP"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 626,
+                        lineNumber: 686,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4353,7 +4392,7 @@ function SafecoFields({ inputs, update, bookType }) {
                                         children: "Gold Service Designation"
                                     }, void 0, false, {
                                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                                        lineNumber: 629,
+                                        lineNumber: 689,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -4361,13 +4400,13 @@ function SafecoFields({ inputs, update, bookType }) {
                                         children: 'Agency has earned Safeco Gold Service status — shows as "Y" on ADP header'
                                     }, void 0, false, {
                                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                                        lineNumber: 630,
+                                        lineNumber: 690,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 628,
+                                lineNumber: 688,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$switch$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Switch"], {
@@ -4377,19 +4416,19 @@ function SafecoFields({ inputs, update, bookType }) {
                                     })
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 632,
+                                lineNumber: 692,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 627,
+                        lineNumber: 687,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 622,
+                lineNumber: 682,
                 columnNumber: 7
             }, this)
         ]
@@ -4409,7 +4448,7 @@ function BerkshireFields({ inputs, update }) {
                         children: "Written Premium"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 649,
+                        lineNumber: 709,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -4417,7 +4456,7 @@ function BerkshireFields({ inputs, update }) {
                         children: "From the Written Premium (Calendar Year Basis) section of your PAR report."
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 650,
+                        lineNumber: 710,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4426,12 +4465,12 @@ function BerkshireFields({ inputs, update }) {
                         onChange: (v)=>update({
                                 bh_written_premium_r12: v
                             }),
-                        placeholder: "e.g. 600,000",
+                        placeholder: "e.g. 800,000",
                         type: "currency",
                         hint: "Current Rolling 12 Months — Total row, Premium column. Most accurate for valuation."
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 651,
+                        lineNumber: 711,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4440,12 +4479,12 @@ function BerkshireFields({ inputs, update }) {
                         onChange: (v)=>update({
                                 bh_written_premium_ytd: v
                             }),
-                        placeholder: "e.g. 100,000",
+                        placeholder: "e.g. 450,000",
                         type: "currency",
                         hint: "Current YTD (01/01/xxxx–xx/xx/xxxx) — Total row, Premium column"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 659,
+                        lineNumber: 719,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4457,12 +4496,12 @@ function BerkshireFields({ inputs, update }) {
                                 onChange: (v)=>update({
                                         bh_new_policies_ytd: v
                                     }),
-                                placeholder: "e.g. 20",
+                                placeholder: "e.g. 30",
                                 type: "count",
                                 hint: "New row — Current YTD Policies column"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 668,
+                                lineNumber: 728,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4471,24 +4510,24 @@ function BerkshireFields({ inputs, update }) {
                                 onChange: (v)=>update({
                                         bh_renewal_policies_ytd: v
                                     }),
-                                placeholder: "e.g. 80",
+                                placeholder: "e.g. 95",
                                 type: "count",
                                 hint: "Renewal row — Current YTD Policies column"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 676,
+                                lineNumber: 736,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 667,
+                        lineNumber: 727,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 648,
+                lineNumber: 708,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4499,7 +4538,7 @@ function BerkshireFields({ inputs, update }) {
                         children: "Conversion & Activity Ratios"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 689,
+                        lineNumber: 749,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -4507,7 +4546,7 @@ function BerkshireFields({ inputs, update }) {
                         children: "From the Hit Ratio and Yield Ratio sections of your PAR report."
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 690,
+                        lineNumber: 750,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4531,7 +4570,7 @@ function BerkshireFields({ inputs, update }) {
                                 }
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 692,
+                                lineNumber: 752,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4552,13 +4591,13 @@ function BerkshireFields({ inputs, update }) {
                                 }
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 701,
+                                lineNumber: 761,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 691,
+                        lineNumber: 751,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4572,13 +4611,13 @@ function BerkshireFields({ inputs, update }) {
                         hint: "Total row — Current YTD Premium % (WP/Submitted). Measures overall submission-to-bind efficiency."
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 711,
+                        lineNumber: 771,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 688,
+                lineNumber: 748,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4589,7 +4628,7 @@ function BerkshireFields({ inputs, update }) {
                         children: "Direct Loss Ratios"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 723,
+                        lineNumber: 783,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -4597,7 +4636,7 @@ function BerkshireFields({ inputs, update }) {
                         children: "From the Direct Loss Ratios section. Each value is the Incurred Loss Ratio % for that year's SUBTOTAL row."
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 724,
+                        lineNumber: 784,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4614,7 +4653,7 @@ function BerkshireFields({ inputs, update }) {
                                 hint: "SUBTOTAL row for 1983-2020 block"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 726,
+                                lineNumber: 786,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4628,7 +4667,7 @@ function BerkshireFields({ inputs, update }) {
                                 hint: "2022 SUBTOTAL Incurred Loss Ratio"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 734,
+                                lineNumber: 794,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4642,7 +4681,7 @@ function BerkshireFields({ inputs, update }) {
                                 hint: "2023 SUBTOTAL Incurred Loss Ratio"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 742,
+                                lineNumber: 802,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4656,7 +4695,7 @@ function BerkshireFields({ inputs, update }) {
                                 hint: "2024 SUBTOTAL Incurred Loss Ratio"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 750,
+                                lineNumber: 810,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4670,7 +4709,7 @@ function BerkshireFields({ inputs, update }) {
                                 hint: "2025 SUBTOTAL Incurred Loss Ratio"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 758,
+                                lineNumber: 818,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4684,13 +4723,13 @@ function BerkshireFields({ inputs, update }) {
                                 hint: "Current partial-year SUBTOTAL from the last block in the Loss Ratio section"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 766,
+                                lineNumber: 826,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 725,
+                        lineNumber: 785,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4711,13 +4750,13 @@ function BerkshireFields({ inputs, update }) {
                         }
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 775,
+                        lineNumber: 835,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 722,
+                lineNumber: 782,
                 columnNumber: 7
             }, this)
         ]
@@ -4737,7 +4776,7 @@ function LibertyMutualFields({ inputs, update }) {
                         children: "Written Premium"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 798,
+                        lineNumber: 858,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -4745,7 +4784,7 @@ function LibertyMutualFields({ inputs, update }) {
                         children: "From your CL ADP or CL ADP Summary report. Upload either PDF to auto-fill these fields."
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 799,
+                        lineNumber: 859,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4754,12 +4793,12 @@ function LibertyMutualFields({ inputs, update }) {
                         onChange: (v)=>update({
                                 lm_dwp_r12: v
                             }),
-                        placeholder: "e.g. 500,000",
+                        placeholder: "e.g. 600,000",
                         type: "currency",
                         hint: "Rolling 12 months Direct Written Premium — most accurate for valuation"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 800,
+                        lineNumber: 860,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4771,12 +4810,12 @@ function LibertyMutualFields({ inputs, update }) {
                                 onChange: (v)=>update({
                                         lm_dwp_ytd: v
                                     }),
-                                placeholder: "e.g. 100,000",
+                                placeholder: "e.g. 320,000",
                                 type: "currency",
                                 hint: "Year-to-date Direct Written Premium"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 809,
+                                lineNumber: 869,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4785,18 +4824,18 @@ function LibertyMutualFields({ inputs, update }) {
                                 onChange: (v)=>update({
                                         lm_dwp_pytd: v
                                     }),
-                                placeholder: "e.g. 80,000",
+                                placeholder: "e.g. 290,000",
                                 type: "currency",
                                 hint: "Prior year-to-date DWP — for growth comparison"
                             }, void 0, false, {
                                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                                lineNumber: 817,
+                                lineNumber: 877,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 808,
+                        lineNumber: 868,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4805,12 +4844,12 @@ function LibertyMutualFields({ inputs, update }) {
                         onChange: (v)=>update({
                                 lm_nb_dwp_ytd: v
                             }),
-                        placeholder: "e.g. 50,000",
+                        placeholder: "e.g. 80,000",
                         type: "currency",
                         hint: "New Business DWP YTD"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 826,
+                        lineNumber: 886,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4819,18 +4858,18 @@ function LibertyMutualFields({ inputs, update }) {
                         onChange: (v)=>update({
                                 lm_pif: v
                             }),
-                        placeholder: "e.g. 200",
+                        placeholder: "e.g. 175",
                         type: "count",
                         hint: "Current PIF count"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 834,
+                        lineNumber: 894,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 797,
+                lineNumber: 857,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4841,7 +4880,7 @@ function LibertyMutualFields({ inputs, update }) {
                         children: "Retention & Loss Ratios"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 845,
+                        lineNumber: 905,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4862,7 +4901,7 @@ function LibertyMutualFields({ inputs, update }) {
                         }
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 846,
+                        lineNumber: 906,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4883,7 +4922,7 @@ function LibertyMutualFields({ inputs, update }) {
                         }
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 855,
+                        lineNumber: 915,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -4904,13 +4943,13 @@ function LibertyMutualFields({ inputs, update }) {
                         }
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 864,
+                        lineNumber: 924,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 844,
+                lineNumber: 904,
                 columnNumber: 7
             }, this)
         ]
@@ -4930,7 +4969,7 @@ function NumField({ label, value, onChange, placeholder, type, hint, benchmark }
                         children: label
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 895,
+                        lineNumber: 955,
                         columnNumber: 9
                     }, this),
                     benchmark && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(BenchmarkBadge, {
@@ -4938,13 +4977,13 @@ function NumField({ label, value, onChange, placeholder, type, hint, benchmark }
                         config: benchmark
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 896,
+                        lineNumber: 956,
                         columnNumber: 23
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 894,
+                lineNumber: 954,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$smart$2d$input$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["SmartInput"], {
@@ -4954,7 +4993,7 @@ function NumField({ label, value, onChange, placeholder, type, hint, benchmark }
                 onValueChange: onChange
             }, void 0, false, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 898,
+                lineNumber: 958,
                 columnNumber: 7
             }, this),
             hint && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -4962,13 +5001,13 @@ function NumField({ label, value, onChange, placeholder, type, hint, benchmark }
                 children: hint
             }, void 0, false, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 904,
+                lineNumber: 964,
                 columnNumber: 16
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/components/carrier/carrier-form.tsx",
-        lineNumber: 893,
+        lineNumber: 953,
         columnNumber: 5
     }, this);
 }
