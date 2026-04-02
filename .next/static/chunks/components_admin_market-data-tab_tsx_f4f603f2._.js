@@ -374,7 +374,7 @@ function MarketDataTab() {
             };
         });
     })();
-    var _data_totalDeals, _data_totalDeals1, _data_byStructure, _data_byStructure1, _data_byStructure2, _data_byRetention_reduce, _data_byRetention_length;
+    var _data_totalDeals, _data_totalDeals1, _data_byStructure, _data_byStructure1, _data_byStructure2, _data_byRetention, _reduce, _data_byRetention1;
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
         children: [
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -826,6 +826,7 @@ function MarketDataTab() {
                             var _data_byStructure, _data_byStructure1;
                             const total = hasData && ((_data_byStructure = data.byStructure) !== null && _data_byStructure !== void 0 ? _data_byStructure : []).length > 0 ? ((_data_byStructure1 = data.byStructure) !== null && _data_byStructure1 !== void 0 ? _data_byStructure1 : []).reduce((s, r)=>s + r.count, 0) : 100;
                             const pct = total > 0 ? Math.round(row.count / total * 100) : 0;
+                            var _data_byStructure2, _data_byStructure3;
                             return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                 className: "space-y-1.5",
                                 children: [
@@ -856,7 +857,7 @@ function MarketDataTab() {
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                         className: "w-10 text-right font-mono font-bold text-primary",
-                                                        children: hasData && data.byStructure.length > 0 ? "".concat(pct, "%") : "—"
+                                                        children: hasData && ((_data_byStructure2 = data.byStructure) !== null && _data_byStructure2 !== void 0 ? _data_byStructure2 : []).length > 0 ? "".concat(pct, "%") : "—"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/market-data-tab.tsx",
                                                         lineNumber: 375,
@@ -874,7 +875,7 @@ function MarketDataTab() {
                                         lineNumber: 367,
                                         columnNumber: 17
                                     }, this),
-                                    hasData && data.byStructure.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                    hasData && ((_data_byStructure3 = data.byStructure) !== null && _data_byStructure3 !== void 0 ? _data_byStructure3 : []).length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                         className: "relative h-2 w-full overflow-hidden rounded-full bg-secondary",
                                         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                             className: "absolute left-0 top-0 h-full rounded-full bg-primary/70",
@@ -939,8 +940,8 @@ function MarketDataTab() {
                                     }, this),
                                     "Retention Rate Impact on Multiple",
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(DataBadge, {
-                                        count: (_data_byRetention_reduce = data === null || data === void 0 ? void 0 : data.byRetention.reduce((s, r)=>s + r.count, 0)) !== null && _data_byRetention_reduce !== void 0 ? _data_byRetention_reduce : 0,
-                                        fallback: !hasData || ((_data_byRetention_length = data === null || data === void 0 ? void 0 : data.byRetention.length) !== null && _data_byRetention_length !== void 0 ? _data_byRetention_length : 0) === 0
+                                        count: (_reduce = ((_data_byRetention = data === null || data === void 0 ? void 0 : data.byRetention) !== null && _data_byRetention !== void 0 ? _data_byRetention : []).reduce((s, r)=>s + r.count, 0)) !== null && _reduce !== void 0 ? _reduce : 0,
+                                        fallback: !hasData || ((_data_byRetention1 = data === null || data === void 0 ? void 0 : data.byRetention) !== null && _data_byRetention1 !== void 0 ? _data_byRetention1 : []).length === 0
                                     }, void 0, false, {
                                         fileName: "[project]/components/admin/market-data-tab.tsx",
                                         lineNumber: 400,

@@ -74,15 +74,28 @@ export function verifySession(token: string): string | null {
 // ---------------------------------------------------------------------------
 export function validateAdminCredentials(username: string, password: string): boolean {
   const users = getAdminUsers()
+  console.log("[v0] validateAdminCredentials called for username:", username)
+  console.log("[v0] Available admin users:", Object.keys(users))
+  
   const expected = users[username]
-  if (!expected) return false
+  if (!expected) {
+    console.log("[v0] Username not found in admin users")
+    return false
+  }
+  
   // Timing-safe comparison to prevent username enumeration via timing attacks
   try {
     const expectedBuf = Buffer.from(expected)
     const providedBuf = Buffer.from(password)
-    if (expectedBuf.length !== providedBuf.length) return false
-    return timingSafeEqual(expectedBuf, providedBuf)
-  } catch {
+    if (expectedBuf.length !== providedBuf.length) {
+      console.log("[v0] Password length mismatch")
+      return false
+    }
+    const result = timingSafeEqual(expectedBuf, providedBuf)
+    console.log("[v0] Password comparison result:", result)
+    return result
+  } catch (e) {
+    console.log("[v0] Error in password comparison:", e)
     return false
   }
 }

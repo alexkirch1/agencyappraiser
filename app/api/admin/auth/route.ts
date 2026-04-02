@@ -8,23 +8,34 @@ export async function POST(req: NextRequest) {
 
     // ── Login ───────────────────────────────────────────────────────────────
     if (action === "login") {
+      console.log("[v0] Login attempt for username:", username)
+      
       if (
         typeof username !== "string" ||
         typeof password !== "string" ||
         !username.trim() ||
         !password.trim()
       ) {
+        console.log("[v0] Invalid input format")
         return NextResponse.json({ success: false, error: "Invalid credentials." }, { status: 401 })
       }
 
-      const valid = validateAdminCredentials(username.trim(), password.trim())
-      if (!valid) {
-        return NextResponse.json({ success: false, error: "Invalid credentials." }, { status: 401 })
-      }
+      try {
+        const valid = validateAdminCredentials(username.trim(), password.trim())
+        console.log("[v0] Validation result:", valid)
+        
+        if (!valid) {
+          return NextResponse.json({ success: false, error: "Invalid credentials." }, { status: 401 })
+        }
 
-      const sessionToken = signSession(username.trim())
-      // Return token in response body — client stores in localStorage
-      return NextResponse.json({ success: true, token: sessionToken })
+        const sessionToken = signSession(username.trim())
+        console.log("[v0] Session token generated successfully")
+        // Return token in response body — client stores in localStorage
+        return NextResponse.json({ success: true, token: sessionToken })
+      } catch (e) {
+        console.log("[v0] Error during login:", e)
+        return NextResponse.json({ success: false, error: "Server configuration error." }, { status: 500 })
+      }
     }
 
     // ── Logout ──────────────────────────────────────────────────────────────
