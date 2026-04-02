@@ -1,5 +1,7 @@
+export const dynamic = "force-dynamic"
 import { NextResponse } from "next/server"
 import { rateLimit, getClientIp } from "@/lib/rate-limit"
+import sql from "@/lib/db"
 
 const RESEND_API_KEY: string | undefined = process.env.RESEND_API_KEY
 const NOTIFY_EMAIL = "mergers@rockyquote.com"
@@ -20,6 +22,17 @@ export async function POST(req: Request) {
     // Cap message length
     if (typeof message !== "string" || message.length > 2000) {
       return NextResponse.json({ error: "Message too long (max 2000 characters)." }, { status: 400 })
+    }
+
+    // Persist to database so admin can view and respond
+    try {
+      await sql`
+        INSERT INTO feedback (message, category, status)
+        VALUES (${message.trim()}, ${category ?? "general"}, 'new')
+      `
+    } catch (dbErr) {
+      console.error("[feedback] DB insert failed:", dbErr)
+      // Non-fatal — still send email if configured
     }
 
     // Send email notification if Resend is configured
