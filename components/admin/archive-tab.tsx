@@ -37,9 +37,9 @@ const ACTIVE_CARRIERS = [
 
 interface ArchivedCarrier {
   id: number
-  carrier_key: string
-  carrier_name: string
+  name: string
   reason: string | null
+  archived_by: string | null
   archived_at: string
 }
 
@@ -56,19 +56,20 @@ export function ArchiveTab() {
   const [reason, setReason] = useState("")
   const [showCustom, setShowCustom] = useState(false)
 
-  const archivedKeys = new Set((data?.carriers ?? []).map((c) => c.carrier_key))
+  const archivedNames = new Set((data?.carriers ?? []).map((c) => c.name))
 
   const handleArchive = async () => {
-    const key = showCustom ? customName.toLowerCase().replace(/\s+/g, "-") : selectedKey
-    const name = showCustom ? customName : ACTIVE_CARRIERS.find((c) => c.key === selectedKey)?.label ?? selectedKey
-    if (!key || !name) return
+    const name = showCustom
+      ? customName
+      : ACTIVE_CARRIERS.find((c) => c.key === selectedKey)?.label ?? selectedKey
+    if (!name) return
 
     setArchiving(true)
     try {
       await fetch("/api/admin/archived-carriers", {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify({ carrier_key: key, carrier_name: name, reason }),
+        body: JSON.stringify({ name, reason }),
       })
       setSelectedKey("")
       setCustomName("")
@@ -80,13 +81,13 @@ export function ArchiveTab() {
     }
   }
 
-  const handleRestore = async (carrier_key: string) => {
-    setRestoring(carrier_key)
+  const handleRestore = async (name: string) => {
+    setRestoring(name)
     try {
       await fetch("/api/admin/archived-carriers", {
         method: "DELETE",
         headers: authHeaders(),
-        body: JSON.stringify({ carrier_key }),
+        body: JSON.stringify({ name }),
       })
       mutate()
     } finally {
@@ -94,7 +95,7 @@ export function ArchiveTab() {
     }
   }
 
-  const availableToArchive = ACTIVE_CARRIERS.filter((c) => !archivedKeys.has(c.key))
+  const availableToArchive = ACTIVE_CARRIERS.filter((c) => !archivedNames.has(c.label))
 
   return (
     <div className="space-y-6">
@@ -198,25 +199,24 @@ export function ArchiveTab() {
               {(data?.carriers ?? []).map((carrier) => (
                 <div key={carrier.id} className="flex items-center justify-between py-3">
                   <div className="space-y-0.5">
-                    <p className="text-sm font-semibold text-foreground">{carrier.carrier_name}</p>
+                    <p className="text-sm font-semibold text-foreground">{carrier.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      Key: <code className="font-mono text-xs">{carrier.carrier_key}</code>
-                      {" · "}
                       Archived {new Date(carrier.archived_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      {carrier.archived_by && ` · by ${carrier.archived_by}`}
                     </p>
                     {carrier.reason && (
-                      <p className="text-xs italic text-muted-foreground">"{carrier.reason}"</p>
+                      <p className="text-xs italic text-muted-foreground">&ldquo;{carrier.reason}&rdquo;</p>
                     )}
                   </div>
                   <Button
                     variant="outline"
                     size="sm"
                     className="gap-1.5 text-xs"
-                    disabled={restoring === carrier.carrier_key}
-                    onClick={() => handleRestore(carrier.carrier_key)}
+                    disabled={restoring === carrier.name}
+                    onClick={() => handleRestore(carrier.name)}
                   >
                     <ArchiveRestore className="h-3 w-3" />
-                    {restoring === carrier.carrier_key ? "Restoring..." : "Restore"}
+                    {restoring === carrier.name ? "Restoring..." : "Restore"}
                   </Button>
                 </div>
               ))}

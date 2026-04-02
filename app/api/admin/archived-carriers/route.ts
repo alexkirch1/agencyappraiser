@@ -10,8 +10,9 @@ export async function GET(req: Request) {
   }
   try {
     const rows = await sql`
-      SELECT id, carrier_key, carrier_name, reason, archived_at
+      SELECT id, name, reason, archived_by, archived_at
       FROM archived_carriers
+      WHERE restored_at IS NULL
       ORDER BY archived_at DESC
     `
     return NextResponse.json({ carriers: rows })
@@ -27,14 +28,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   try {
-    const { carrier_key, carrier_name, reason } = await req.json()
-    if (!carrier_key || !carrier_name) {
-      return NextResponse.json({ error: "carrier_key and carrier_name required" }, { status: 400 })
+    const { name, reason } = await req.json()
+    if (!name) {
+      return NextResponse.json({ error: "name is required" }, { status: 400 })
     }
     const rows = await sql`
-      INSERT INTO archived_carriers (carrier_key, carrier_name, reason)
-      VALUES (${carrier_key}, ${carrier_name}, ${reason ?? null})
-      ON CONFLICT (carrier_key) DO UPDATE SET reason = EXCLUDED.reason, archived_at = now()
+      INSERT INTO archived_carriers (name, reason, archived_by)
+      VALUES (${name}, ${reason ?? null}, 'admin')
+      ON CONFLICT (name) DO UPDATE
+        SET reason = EXCLUDED.reason,
+            archived_at = now(),
+            restored_at = NULL
       RETURNING *
     `
     return NextResponse.json({ carrier: rows[0] })
@@ -44,20 +48,24 @@ export async function POST(req: Request) {
   }
 }
 
-// DELETE — unarchive a carrier (restore it)
+// DELETE — restore a carrier (soft restore via restored_at timestamp)
 export async function DELETE(req: Request) {
   if (!(await isAdminAuthenticated(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   try {
-    const { carrier_key } = await req.json()
-    if (!carrier_key) {
-      return NextResponse.json({ error: "carrier_key required" }, { status: 400 })
+    const { name } = await req.json()
+    if (!name) {
+      return NextResponse.json({ error: "name is required" }, { status: 400 })
     }
-    await sql`DELETE FROM archived_carriers WHERE carrier_key = ${carrier_key}`
+    await sql`
+      UPDATE archived_carriers
+      SET restored_at = now()
+      WHERE name = ${name}
+    `
     return NextResponse.json({ success: true })
   } catch (e) {
     console.error("[archived-carriers DELETE]", e)
-    return NextResponse.json({ error: "Failed to unarchive carrier" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to restore carrier" }, { status: 500 })
   }
 }

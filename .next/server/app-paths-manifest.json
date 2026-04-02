@@ -1,6 +1,7 @@
 {
   "/admin/page": "app/admin/page.js",
   "/api/admin/analytics/route": "app/api/admin/analytics/route.js",
+  "/api/admin/archived-carriers/route": "app/api/admin/archived-carriers/route.js",
   "/api/admin/auth/route": "app/api/admin/auth/route.js",
   "/api/admin/leads/route": "app/api/admin/leads/route.js",
   "/api/admin/overview/route": "app/api/admin/overview/route.js",

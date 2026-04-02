@@ -1,13 +1,13 @@
 (globalThis.TURBOPACK_CHUNK_LISTS || (globalThis.TURBOPACK_CHUNK_LISTS = [])).push({
     script: typeof document === "object" ? document.currentScript : undefined,
     chunks: [
-  "static/chunks/node_modules__pnpm_ff9a89c8._.js",
+  "static/chunks/node_modules__pnpm_0fc647c5._.js",
   "static/chunks/components_admin_overview-tab_tsx_c4e6669b._.js",
   "static/chunks/components_admin_horizon-tab_tsx_4d3436bf._.js",
   "static/chunks/components_admin_leads-tab_tsx_0b9326fb._.js",
   "static/chunks/components_admin_market-data-tab_tsx_f4f603f2._.js",
-  "static/chunks/components_admin_605420cd._.js",
-  "static/chunks/components_cd6e13f6._.js",
+  "static/chunks/components_admin_0645b0bb._.js",
+  "static/chunks/components_e2bbc1c4._.js",
   "static/chunks/_68b5bd8c._.js",
   "static/chunks/5a0f3_swr_dist_db5a0a40._.js",
   "static/chunks/542c0_recharts_es6_util_3a4e8b12._.js",
@@ -16,7 +16,7 @@
   "static/chunks/542c0_recharts_es6_cartesian_dfd7bd80._.js",
   "static/chunks/542c0_recharts_es6_shape_0291ca03._.js",
   "static/chunks/542c0_recharts_es6_ada52b0b._.js",
-  "static/chunks/node_modules__pnpm_2042cabf._.js"
+  "static/chunks/node_modules__pnpm_5862c29e._.js"
 ],
     source: "dynamic"
 });
