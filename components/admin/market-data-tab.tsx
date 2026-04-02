@@ -353,43 +353,45 @@ export function MarketDataTab() {
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {(hasData && (data.byStructure ?? []).length > 0 ? (data.byStructure ?? []) : [
-            { structure: "All Cash at Close",          count: 0, medianMultiple: 1.30, avgEarnoutPct: 0 },
-            { structure: "Cash + Short Earnout (1–2 yr)", count: 0, medianMultiple: 1.60, avgEarnoutPct: 25 },
-            { structure: "Cash + Extended Earnout (3–5 yr)", count: 0, medianMultiple: 1.75, avgEarnoutPct: 35 },
-            { structure: "Equity Roll / Partnership",  count: 0, medianMultiple: 2.10, avgEarnoutPct: 0 },
-          ]).map((row) => {
-            const total = hasData && (data.byStructure ?? []).length > 0
-              ? (data.byStructure ?? []).reduce((s, r) => s + r.count, 0)
-              : 100
-            const pct = total > 0 ? Math.round((row.count / total) * 100) : 0
-            return (
-              <div key={row.structure} className="space-y-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-foreground">{row.structure}</span>
-                  <div className="flex items-center gap-3">
-                    {row.medianMultiple != null && (
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {row.medianMultiple.toFixed(2)}x median
-                      </span>
-                    )}
-                    {/* Percentage display */}
-                    <span className="w-10 text-right font-mono font-bold text-primary">
-                      {hasData && (data.byStructure ?? []).length > 0 ? `${pct}%` : "—"}
-                    </span>
+          {(() => {
+            const structureFallback = [
+              { structure: "All Cash at Close", count: 0, medianMultiple: 1.30, avgEarnoutPct: 0 },
+              { structure: "Cash + Short Earnout (1–2 yr)", count: 0, medianMultiple: 1.60, avgEarnoutPct: 25 },
+              { structure: "Cash + Extended Earnout (3–5 yr)", count: 0, medianMultiple: 1.75, avgEarnoutPct: 35 },
+              { structure: "Equity Roll / Partnership", count: 0, medianMultiple: 2.10, avgEarnoutPct: 0 },
+            ]
+            const liveStructure = hasData ? (data.byStructure ?? []) : []
+            const rows = liveStructure.length > 0 ? liveStructure : structureFallback
+            const isLive = liveStructure.length > 0
+            const total = isLive ? rows.reduce((s, r) => s + r.count, 0) : 100
+            return rows.map((row) => {
+              const pct = total > 0 ? Math.round((row.count / total) * 100) : 0
+              const pctDisplay = isLive ? `${pct}%` : "—"
+              return (
+                <div key={row.structure} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium text-foreground">{row.structure}</span>
+                    <div className="flex items-center gap-3">
+                      {row.medianMultiple != null && (
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {row.medianMultiple.toFixed(2)}x median
+                        </span>
+                      )}
+                      <span className="w-10 text-right font-mono font-bold text-primary">{pctDisplay}</span>
+                    </div>
                   </div>
+                  {isLive && (
+                    <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
+                      <div className="absolute left-0 top-0 h-full rounded-full bg-primary/70" style={{ width: `${pct}%` }} />
+                    </div>
+                  )}
+                  {row.avgEarnoutPct != null && row.avgEarnoutPct > 0 && (
+                    <p className="text-xs text-muted-foreground">Avg earnout component: {row.avgEarnoutPct.toFixed(0)}%</p>
+                  )}
                 </div>
-                {hasData && (data.byStructure ?? []).length > 0 && (
-                  <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
-                    <div className="absolute left-0 top-0 h-full rounded-full bg-primary/70" style={{ width: `${pct}%` }} />
-                  </div>
-                )}
-                {row.avgEarnoutPct != null && row.avgEarnoutPct > 0 && (
-                  <p className="text-xs text-muted-foreground">Avg earnout component: {row.avgEarnoutPct.toFixed(0)}%</p>
-                )}
-              </div>
-            )
-          })}
+              )
+            })
+          })()}
         </CardContent>
       </Card>
 
