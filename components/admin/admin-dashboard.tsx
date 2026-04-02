@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { LogOut, Sun, Moon, BarChart3, FolderKanban, Settings, Users, TrendingUp, BarChart2 } from "lucide-react"
+import { LogOut, Sun, Moon, BarChart3, FolderKanban, Settings, Users, TrendingUp, BarChart2, Archive, MessageSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/theme-provider"
 import { OverviewTab } from "@/components/admin/overview-tab"
@@ -10,6 +10,8 @@ import { SettingsTab } from "@/components/admin/settings-tab"
 import { LeadsTab } from "@/components/admin/leads-tab"
 import { AnalyticsTab } from "@/components/admin/analytics-tab"
 import { MarketDataTab } from "@/components/admin/market-data-tab"
+import { ArchiveTab } from "@/components/admin/archive-tab"
+import { FeedbackTab } from "@/components/admin/feedback-tab"
 import { cn } from "@/lib/utils"
 
 export interface Deal {
@@ -28,12 +30,14 @@ interface AdminDashboardProps {
 }
 
 const tabs = [
-  { id: "overview", label: "Overview", icon: BarChart3 },
-  { id: "analytics", label: "Analytics", icon: TrendingUp },
-  { id: "leads", label: "Leads", icon: Users },
-  { id: "horizon", label: "Horizon Pipeline", icon: FolderKanban },
-  { id: "market-data", label: "Market Data", icon: BarChart2 },
-  { id: "settings", label: "Settings", icon: Settings },
+  { id: "overview",    label: "Overview",         icon: BarChart3 },
+  { id: "analytics",  label: "Analytics",         icon: TrendingUp },
+  { id: "leads",      label: "Leads",             icon: Users },
+  { id: "horizon",    label: "Horizon Pipeline",  icon: FolderKanban },
+  { id: "market-data",label: "Market Data",       icon: BarChart2 },
+  { id: "feedback",   label: "Feedback",          icon: MessageSquare },
+  { id: "archive",    label: "Archive",           icon: Archive },
+  { id: "settings",   label: "Settings",          icon: Settings },
 ] as const
 
 type TabId = (typeof tabs)[number]["id"]
@@ -149,6 +153,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           <HorizonTab deals={deals} onSaveDeal={addDeal} onUpdateDeal={updateDeal} />
         )}
         {activeTab === "market-data" && <MarketDataTab />}
+        {activeTab === "feedback" && <FeedbackTab />}
+        {activeTab === "archive" && <ArchiveTab />}
         {activeTab === "settings" && (
           <SettingsTab onClearAll={clearAllDeals} dealCount={deals.length} />
         )}

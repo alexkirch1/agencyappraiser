@@ -147,7 +147,6 @@ const carriers: { value: CarrierName; label: string; description: string }[] = [
 ]
 
 const comingSoonCarriers: string[] = [
-  "AmTrust",
   "American Modern",
   "Attune",
   "Berkshire Hathaway Homestate",
