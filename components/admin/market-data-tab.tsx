@@ -176,7 +176,7 @@ function Stat({ label, value, sub, icon: Icon, accent, accentBg }: {
   )
 }
 
-// ─── Main tab ─────────────���───────────────────────────────────────────────────
+// ─── Main tab ────────────�����───────────────────────────────────────────────────
 
 export function MarketDataTab() {
   const { data, error, isLoading, mutate } = useSWR<MarketStats>(
@@ -373,6 +373,7 @@ export function MarketDataTab() {
                         {row.medianMultiple.toFixed(2)}x median
                       </span>
                     )}
+                    {/* Percentage display */}
                     <span className="w-10 text-right font-mono font-bold text-primary">
                       {hasData && (data.byStructure ?? []).length > 0 ? `${pct}%` : "—"}
                     </span>

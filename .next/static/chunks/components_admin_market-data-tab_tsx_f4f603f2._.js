@@ -860,7 +860,7 @@ function MarketDataTab() {
                                                         children: hasData && ((_data_byStructure2 = data.byStructure) !== null && _data_byStructure2 !== void 0 ? _data_byStructure2 : []).length > 0 ? "".concat(pct, "%") : "—"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                        lineNumber: 376,
+                                                        lineNumber: 377,
                                                         columnNumber: 21
                                                     }, this)
                                                 ]
@@ -884,12 +884,12 @@ function MarketDataTab() {
                                             }
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/market-data-tab.tsx",
-                                            lineNumber: 383,
+                                            lineNumber: 384,
                                             columnNumber: 21
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                        lineNumber: 382,
+                                        lineNumber: 383,
                                         columnNumber: 19
                                     }, this),
                                     row.avgEarnoutPct != null && row.avgEarnoutPct > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -901,7 +901,7 @@ function MarketDataTab() {
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                        lineNumber: 387,
+                                        lineNumber: 388,
                                         columnNumber: 19
                                     }, this)
                                 ]
@@ -935,7 +935,7 @@ function MarketDataTab() {
                                         className: "h-5 w-5 text-primary"
                                     }, void 0, false, {
                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                        lineNumber: 399,
+                                        lineNumber: 400,
                                         columnNumber: 13
                                     }, this),
                                     "Retention Rate Impact on Multiple",
@@ -944,13 +944,13 @@ function MarketDataTab() {
                                         fallback: !hasData || ((_data_byRetention1 = data === null || data === void 0 ? void 0 : data.byRetention) !== null && _data_byRetention1 !== void 0 ? _data_byRetention1 : []).length === 0
                                     }, void 0, false, {
                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                        lineNumber: 401,
+                                        lineNumber: 402,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/admin/market-data-tab.tsx",
-                                lineNumber: 398,
+                                lineNumber: 399,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -961,13 +961,13 @@ function MarketDataTab() {
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/admin/market-data-tab.tsx",
-                                lineNumber: 406,
+                                lineNumber: 407,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                        lineNumber: 397,
+                        lineNumber: 398,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardContent"], {
@@ -985,7 +985,7 @@ function MarketDataTab() {
                                                     children: "Retention Rate"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                    lineNumber: 416,
+                                                    lineNumber: 417,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -993,7 +993,7 @@ function MarketDataTab() {
                                                     children: retentionRows ? "Median Multiple (Live)" : "Multiple Adjustment"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                    lineNumber: 417,
+                                                    lineNumber: 418,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1001,7 +1001,7 @@ function MarketDataTab() {
                                                     children: "Risk Level"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                    lineNumber: 420,
+                                                    lineNumber: 421,
                                                     columnNumber: 19
                                                 }, this),
                                                 retentionRows && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1009,18 +1009,18 @@ function MarketDataTab() {
                                                     children: "Deals"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                    lineNumber: 421,
+                                                    lineNumber: 422,
                                                     columnNumber: 37
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/admin/market-data-tab.tsx",
-                                            lineNumber: 415,
+                                            lineNumber: 416,
                                             columnNumber: 17
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                        lineNumber: 414,
+                                        lineNumber: 415,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("tbody", {
@@ -1032,7 +1032,7 @@ function MarketDataTab() {
                                                         children: row.label
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                        lineNumber: 427,
+                                                        lineNumber: 428,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -1040,7 +1040,7 @@ function MarketDataTab() {
                                                         children: "liveMedian" in row && row.liveMedian != null ? "".concat(row.liveMedian.toFixed(2), "x") : row.medianAdjustment
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                        lineNumber: 428,
+                                                        lineNumber: 429,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -1049,12 +1049,12 @@ function MarketDataTab() {
                                                             risk: row.risk
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                            lineNumber: 433,
+                                                            lineNumber: 434,
                                                             columnNumber: 42
                                                         }, this)
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                        lineNumber: 433,
+                                                        lineNumber: 434,
                                                         columnNumber: 21
                                                     }, this),
                                                     retentionRows && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -1062,40 +1062,40 @@ function MarketDataTab() {
                                                         children: "count" in row ? row.count : 0
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                        lineNumber: 435,
+                                                        lineNumber: 436,
                                                         columnNumber: 23
                                                     }, this)
                                                 ]
                                             }, row.bucket, true, {
                                                 fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                lineNumber: 426,
+                                                lineNumber: 427,
                                                 columnNumber: 19
                                             }, this))
                                     }, void 0, false, {
                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                        lineNumber: 424,
+                                        lineNumber: 425,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/admin/market-data-tab.tsx",
-                                lineNumber: 413,
+                                lineNumber: 414,
                                 columnNumber: 13
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/components/admin/market-data-tab.tsx",
-                            lineNumber: 412,
+                            lineNumber: 413,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                        lineNumber: 411,
+                        lineNumber: 412,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/admin/market-data-tab.tsx",
-                lineNumber: 396,
+                lineNumber: 397,
                 columnNumber: 7
             }, this),
             hasData && data.byPoliciesPerCx.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Card"], {
@@ -1111,7 +1111,7 @@ function MarketDataTab() {
                                         className: "h-5 w-5 text-primary"
                                     }, void 0, false, {
                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                        lineNumber: 452,
+                                        lineNumber: 453,
                                         columnNumber: 15
                                     }, this),
                                     "Policies per Customer vs. Multiple",
@@ -1120,13 +1120,13 @@ function MarketDataTab() {
                                         fallback: false
                                     }, void 0, false, {
                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                        lineNumber: 454,
+                                        lineNumber: 455,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/admin/market-data-tab.tsx",
-                                lineNumber: 451,
+                                lineNumber: 452,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1134,13 +1134,13 @@ function MarketDataTab() {
                                 children: "Multi-line books command meaningfully higher multiples — more policies per customer signals stickier retention."
                             }, void 0, false, {
                                 fileName: "[project]/components/admin/market-data-tab.tsx",
-                                lineNumber: 456,
+                                lineNumber: 457,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                        lineNumber: 450,
+                        lineNumber: 451,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardContent"], {
@@ -1154,7 +1154,7 @@ function MarketDataTab() {
                                             children: policiesBucketLabel(row.bucket)
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/market-data-tab.tsx",
-                                            lineNumber: 464,
+                                            lineNumber: 465,
                                             columnNumber: 19
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1162,7 +1162,7 @@ function MarketDataTab() {
                                             children: row.medianMultiple != null ? "".concat(row.medianMultiple.toFixed(2), "x") : "—"
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/market-data-tab.tsx",
-                                            lineNumber: 465,
+                                            lineNumber: 466,
                                             columnNumber: 19
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1174,29 +1174,29 @@ function MarketDataTab() {
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/admin/market-data-tab.tsx",
-                                            lineNumber: 468,
+                                            lineNumber: 469,
                                             columnNumber: 19
                                         }, this)
                                     ]
                                 }, row.bucket, true, {
                                     fileName: "[project]/components/admin/market-data-tab.tsx",
-                                    lineNumber: 463,
+                                    lineNumber: 464,
                                     columnNumber: 17
                                 }, this))
                         }, void 0, false, {
                             fileName: "[project]/components/admin/market-data-tab.tsx",
-                            lineNumber: 461,
+                            lineNumber: 462,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                        lineNumber: 460,
+                        lineNumber: 461,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/admin/market-data-tab.tsx",
-                lineNumber: 449,
+                lineNumber: 450,
                 columnNumber: 9
             }, this),
             hasData && data.byState.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Card"], {
@@ -1211,7 +1211,7 @@ function MarketDataTab() {
                                     className: "h-5 w-5 text-primary"
                                 }, void 0, false, {
                                     fileName: "[project]/components/admin/market-data-tab.tsx",
-                                    lineNumber: 481,
+                                    lineNumber: 482,
                                     columnNumber: 15
                                 }, this),
                                 "Deals by State",
@@ -1220,18 +1220,18 @@ function MarketDataTab() {
                                     fallback: false
                                 }, void 0, false, {
                                     fileName: "[project]/components/admin/market-data-tab.tsx",
-                                    lineNumber: 483,
+                                    lineNumber: 484,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/admin/market-data-tab.tsx",
-                            lineNumber: 480,
+                            lineNumber: 481,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                        lineNumber: 479,
+                        lineNumber: 480,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardContent"], {
@@ -1249,7 +1249,7 @@ function MarketDataTab() {
                                                     children: "State"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                    lineNumber: 491,
+                                                    lineNumber: 492,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1257,7 +1257,7 @@ function MarketDataTab() {
                                                     children: "Deals"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                    lineNumber: 492,
+                                                    lineNumber: 493,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1265,18 +1265,18 @@ function MarketDataTab() {
                                                     children: "Median Multiple"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                    lineNumber: 493,
+                                                    lineNumber: 494,
                                                     columnNumber: 21
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/admin/market-data-tab.tsx",
-                                            lineNumber: 490,
+                                            lineNumber: 491,
                                             columnNumber: 19
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                        lineNumber: 489,
+                                        lineNumber: 490,
                                         columnNumber: 17
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("tbody", {
@@ -1288,7 +1288,7 @@ function MarketDataTab() {
                                                         children: row.state
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                        lineNumber: 499,
+                                                        lineNumber: 500,
                                                         columnNumber: 23
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -1296,7 +1296,7 @@ function MarketDataTab() {
                                                         children: row.count
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                        lineNumber: 500,
+                                                        lineNumber: 501,
                                                         columnNumber: 23
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -1304,40 +1304,40 @@ function MarketDataTab() {
                                                         children: row.medianMultiple != null ? "".concat(row.medianMultiple.toFixed(2), "x") : "—"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                        lineNumber: 501,
+                                                        lineNumber: 502,
                                                         columnNumber: 23
                                                     }, this)
                                                 ]
                                             }, row.state, true, {
                                                 fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                lineNumber: 498,
+                                                lineNumber: 499,
                                                 columnNumber: 21
                                             }, this))
                                     }, void 0, false, {
                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                        lineNumber: 496,
+                                        lineNumber: 497,
                                         columnNumber: 17
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/admin/market-data-tab.tsx",
-                                lineNumber: 488,
+                                lineNumber: 489,
                                 columnNumber: 15
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/components/admin/market-data-tab.tsx",
-                            lineNumber: 487,
+                            lineNumber: 488,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                        lineNumber: 486,
+                        lineNumber: 487,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/admin/market-data-tab.tsx",
-                lineNumber: 478,
+                lineNumber: 479,
                 columnNumber: 9
             }, this),
             hasData && data.recentDeals.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Card"], {
@@ -1352,19 +1352,19 @@ function MarketDataTab() {
                                     className: "h-5 w-5 text-primary"
                                 }, void 0, false, {
                                     fileName: "[project]/components/admin/market-data-tab.tsx",
-                                    lineNumber: 518,
+                                    lineNumber: 519,
                                     columnNumber: 15
                                 }, this),
                                 "Most Recent Closed Deals"
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/admin/market-data-tab.tsx",
-                            lineNumber: 517,
+                            lineNumber: 518,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                        lineNumber: 516,
+                        lineNumber: 517,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardContent"], {
@@ -1382,7 +1382,7 @@ function MarketDataTab() {
                                                     children: "Deal"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                    lineNumber: 527,
+                                                    lineNumber: 528,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1390,7 +1390,7 @@ function MarketDataTab() {
                                                     children: "Type"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                    lineNumber: 528,
+                                                    lineNumber: 529,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1398,7 +1398,7 @@ function MarketDataTab() {
                                                     children: "Multiple"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                    lineNumber: 529,
+                                                    lineNumber: 530,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1406,7 +1406,7 @@ function MarketDataTab() {
                                                     children: "Final Offer"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                    lineNumber: 530,
+                                                    lineNumber: 531,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1414,7 +1414,7 @@ function MarketDataTab() {
                                                     children: "Structure"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                    lineNumber: 531,
+                                                    lineNumber: 532,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1422,7 +1422,7 @@ function MarketDataTab() {
                                                     children: "State"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                    lineNumber: 532,
+                                                    lineNumber: 533,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -1430,18 +1430,18 @@ function MarketDataTab() {
                                                     children: "Closed"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                    lineNumber: 533,
+                                                    lineNumber: 534,
                                                     columnNumber: 21
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/admin/market-data-tab.tsx",
-                                            lineNumber: 526,
+                                            lineNumber: 527,
                                             columnNumber: 19
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                        lineNumber: 525,
+                                        lineNumber: 526,
                                         columnNumber: 17
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("tbody", {
@@ -1455,7 +1455,7 @@ function MarketDataTab() {
                                                         children: d.dealName
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                        lineNumber: 539,
+                                                        lineNumber: 540,
                                                         columnNumber: 23
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -1463,7 +1463,7 @@ function MarketDataTab() {
                                                         children: d.dealType
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                        lineNumber: 540,
+                                                        lineNumber: 541,
                                                         columnNumber: 23
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -1471,7 +1471,7 @@ function MarketDataTab() {
                                                         children: d.finalMultiple != null ? "".concat(d.finalMultiple.toFixed(2), "x") : "—"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                        lineNumber: 541,
+                                                        lineNumber: 542,
                                                         columnNumber: 23
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -1479,7 +1479,7 @@ function MarketDataTab() {
                                                         children: fmt(d.finalOffer)
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                        lineNumber: 544,
+                                                        lineNumber: 545,
                                                         columnNumber: 23
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -1487,7 +1487,7 @@ function MarketDataTab() {
                                                         children: (_d_dealStructure = d.dealStructure) !== null && _d_dealStructure !== void 0 ? _d_dealStructure : "—"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                        lineNumber: 545,
+                                                        lineNumber: 546,
                                                         columnNumber: 23
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -1495,7 +1495,7 @@ function MarketDataTab() {
                                                         children: (_d_primaryState = d.primaryState) !== null && _d_primaryState !== void 0 ? _d_primaryState : "—"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                        lineNumber: 546,
+                                                        lineNumber: 547,
                                                         columnNumber: 23
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -1506,41 +1506,41 @@ function MarketDataTab() {
                                                         }) : "—"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                        lineNumber: 547,
+                                                        lineNumber: 548,
                                                         columnNumber: 23
                                                     }, this)
                                                 ]
                                             }, i, true, {
                                                 fileName: "[project]/components/admin/market-data-tab.tsx",
-                                                lineNumber: 538,
+                                                lineNumber: 539,
                                                 columnNumber: 21
                                             }, this);
                                         })
                                     }, void 0, false, {
                                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                                        lineNumber: 536,
+                                        lineNumber: 537,
                                         columnNumber: 17
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/admin/market-data-tab.tsx",
-                                lineNumber: 524,
+                                lineNumber: 525,
                                 columnNumber: 15
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/components/admin/market-data-tab.tsx",
-                            lineNumber: 523,
+                            lineNumber: 524,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                        lineNumber: 522,
+                        lineNumber: 523,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/admin/market-data-tab.tsx",
-                lineNumber: 515,
+                lineNumber: 516,
                 columnNumber: 9
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1551,14 +1551,14 @@ function MarketDataTab() {
                         children: "Data Disclaimer:"
                     }, void 0, false, {
                         fileName: "[project]/components/admin/market-data-tab.tsx",
-                        lineNumber: 561,
+                        lineNumber: 562,
                         columnNumber: 9
                     }, this),
                     " Live multiples are derived from deals recorded on this platform. Industry benchmarks (shown when live data is insufficient) are based on publicly available broker reports and industry surveys. These are general benchmarks — not a guarantee of any specific transaction outcome. For educational and planning purposes only."
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/admin/market-data-tab.tsx",
-                lineNumber: 560,
+                lineNumber: 561,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$feedback$2d$widget$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["FeedbackWidget"], {
@@ -1567,7 +1567,7 @@ function MarketDataTab() {
                 category: "market-data"
             }, void 0, false, {
                 fileName: "[project]/components/admin/market-data-tab.tsx",
-                lineNumber: 567,
+                lineNumber: 568,
                 columnNumber: 7
             }, this)
         ]
