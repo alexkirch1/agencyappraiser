@@ -373,7 +373,8 @@ export function MarketDataTab() {
                       </span>
                     )}
                     <span className="w-10 text-right font-mono font-bold text-primary">
-                    {hasData && (data.byStructure ?? []).length > 0 ? `${pct}%` : "—"}
+                      {hasData && (data.byStructure ?? []).length > 0 ? `${pct}%` : "—"}
+                    </span>
                   </div>
                 </div>
                 {hasData && (data.byStructure ?? []).length > 0 && (

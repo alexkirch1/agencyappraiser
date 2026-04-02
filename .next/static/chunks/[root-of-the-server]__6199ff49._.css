@@ -1411,10 +1411,6 @@
     max-height: 420px;
   }
 
-  .max-h-\[500px\] {
-    max-height: 500px;
-  }
-
   .max-h-\[600px\] {
     max-height: 600px;
   }
@@ -2480,10 +2476,6 @@
 
   .bg-red-100 {
     background-color: var(--color-red-100);
-  }
-
-  .bg-red-500 {
-    background-color: var(--color-red-500);
   }
 
   .bg-rose-50 {
@@ -3580,11 +3572,6 @@
   .last\:border-0:last-child {
     border-style: var(--tw-border-style);
     border-width: 0;
-  }
-
-  .last\:border-b-0:last-child {
-    border-bottom-style: var(--tw-border-style);
-    border-bottom-width: 0;
   }
 
   @media (hover: hover) {
