@@ -1,6 +1,7 @@
 "use client"
 
 import useSWR from "swr"
+
 import {
   BarChart2,
   TrendingUp,
@@ -175,7 +176,7 @@ function Stat({ label, value, sub, icon: Icon, accent, accentBg }: {
   )
 }
 
-// ─── Main tab ─────────────────────────────────────────────────────────────────
+// ─── Main tab ─────────────���───────────────────────────────────────────────────
 
 export function MarketDataTab() {
   const { data, error, isLoading, mutate } = useSWR<MarketStats>(
