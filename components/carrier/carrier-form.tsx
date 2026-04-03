@@ -135,11 +135,6 @@ const carriers: { value: CarrierName; label: string; description: string }[] = [
     description: "Auto, Home, Condo, Renters, Umbrella & Landlord",
   },
   {
-    value: "berkshire",
-    label: "BH Guard",
-    description: "WC, BOP, Comm. Auto, Umbrella & Specialty",
-  },
-  {
     value: "libertymutual",
     label: "Liberty Mutual CL",
     description: "Commercial Lines — BOP, WC, GL & Auto",
@@ -147,7 +142,6 @@ const carriers: { value: CarrierName; label: string; description: string }[] = [
 ]
 
 const comingSoonCarriers: string[] = [
-  "Berkshire Hathaway Homestate",
   "BiBERK",
   "Builders & Tradesmen (BTIS)",
   "CNA",
