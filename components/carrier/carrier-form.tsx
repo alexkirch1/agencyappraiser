@@ -147,7 +147,6 @@ const carriers: { value: CarrierName; label: string; description: string }[] = [
 ]
 
 const comingSoonCarriers: string[] = [
-  "Attune",
   "Berkshire Hathaway Homestate",
   "BiBERK",
   "Builders & Tradesmen (BTIS)",
