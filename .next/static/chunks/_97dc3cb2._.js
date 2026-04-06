@@ -2613,22 +2613,67 @@ function calculateCarrierValuation(inputs) {
         const earnedPremium = (_inputs_emp_earned_premium_ytd = inputs.emp_earned_premium_ytd) !== null && _inputs_emp_earned_premium_ytd !== void 0 ? _inputs_emp_earned_premium_ytd : 0;
         var _inputs_emp_policy_count;
         const policyCount = (_inputs_emp_policy_count = inputs.emp_policy_count) !== null && _inputs_emp_policy_count !== void 0 ? _inputs_emp_policy_count : 0;
-        var _inputs_emp_loss_ratio;
-        const lossRatio = (_inputs_emp_loss_ratio = inputs.emp_loss_ratio) !== null && _inputs_emp_loss_ratio !== void 0 ? _inputs_emp_loss_ratio : 0;
-        // Use annual written premium (EAP) as base; fall back to annualized earned premium
+        // Use active EAP as base; fall back to annualized earned premium
         if (writtenPremium > 0) {
             basePremium = writtenPremium;
         } else if (earnedPremium > 0) {
-            // Rough annualization — earned premium YTD × (12 / months elapsed)
-            basePremium = earnedPremium * 2; // Conservative if mid-year
+            basePremium = earnedPremium * 2;
         }
+        var _inputs_emp_written_premium_2025;
+        // Use most recent full calendar year EAP as the primary premium base if available
+        const yr2025Premium = (_inputs_emp_written_premium_2025 = inputs.emp_written_premium_2025) !== null && _inputs_emp_written_premium_2025 !== void 0 ? _inputs_emp_written_premium_2025 : 0;
+        if (yr2025Premium > basePremium) basePremium = yr2025Premium;
         finalMultiple = 1.5; // Commercial WC base
+        // Build weighted multi-year loss ratio — more weight on recent years
+        // Active book (current year) excluded as loss ratio is immature
+        const lossYears = [];
+        if (inputs.emp_loss_ratio_2025 != null) lossYears.push({
+            ratio: inputs.emp_loss_ratio_2025,
+            weight: 4
+        });
+        if (inputs.emp_loss_ratio_2024 != null) lossYears.push({
+            ratio: inputs.emp_loss_ratio_2024,
+            weight: 3
+        });
+        if (inputs.emp_loss_ratio_2023 != null) lossYears.push({
+            ratio: inputs.emp_loss_ratio_2023,
+            weight: 2
+        });
+        if (inputs.emp_loss_ratio_2022 != null) lossYears.push({
+            ratio: inputs.emp_loss_ratio_2022,
+            weight: 1
+        });
+        if (inputs.emp_loss_ratio_2021 != null) lossYears.push({
+            ratio: inputs.emp_loss_ratio_2021,
+            weight: 1
+        });
+        var _inputs_emp_loss_ratio;
+        let lossRatio = (_inputs_emp_loss_ratio = inputs.emp_loss_ratio) !== null && _inputs_emp_loss_ratio !== void 0 ? _inputs_emp_loss_ratio : 0 // Fall back to active book only
+        ;
+        if (lossYears.length > 0) {
+            const totalWeight = lossYears.reduce((s, y)=>s + y.weight, 0);
+            lossRatio = lossYears.reduce((s, y)=>s + y.ratio * y.weight, 0) / totalWeight;
+        }
         // Loss ratio — WC benchmark: <65% excellent, 65–80% solid, >95% concern
-        if (lossRatio < 50) finalMultiple += 0.25; // Exceptional — zero-loss book
+        if (lossRatio < 50) finalMultiple += 0.20; // Very clean — but check maturity
         else if (lossRatio < 65) finalMultiple += 0.15;
         else if (lossRatio < 80) finalMultiple += 0.05;
         else if (lossRatio < 95) finalMultiple -= 0.10;
         else if (lossRatio > 0) finalMultiple -= 0.20; // High claims — significant risk
+        // Bonus for having multiple years of data (buyer confidence)
+        if (lossYears.length >= 3) finalMultiple += 0.08;
+        else if (lossYears.length >= 1) finalMultiple += 0.04;
+        var _inputs_emp_written_premium_20251;
+        // Growth trend bonus — compare 2025 to 2024 written premium
+        const wp2025 = (_inputs_emp_written_premium_20251 = inputs.emp_written_premium_2025) !== null && _inputs_emp_written_premium_20251 !== void 0 ? _inputs_emp_written_premium_20251 : 0;
+        var _inputs_emp_written_premium_2024;
+        const wp2024 = (_inputs_emp_written_premium_2024 = inputs.emp_written_premium_2024) !== null && _inputs_emp_written_premium_2024 !== void 0 ? _inputs_emp_written_premium_2024 : 0;
+        if (wp2025 > 0 && wp2024 > 0) {
+            const growthPct = (wp2025 - wp2024) / wp2024 * 100;
+            if (growthPct >= 20) finalMultiple += 0.08;
+            else if (growthPct >= 10) finalMultiple += 0.04;
+            else if (growthPct < -10) finalMultiple -= 0.06;
+        }
         // Policy count — WC books: more policies = more diversified risk
         if (policyCount >= 100) finalMultiple += 0.10;
         else if (policyCount >= 50) finalMultiple += 0.05;

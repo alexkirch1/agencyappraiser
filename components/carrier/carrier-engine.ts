@@ -86,11 +86,37 @@ export interface CarrierInputs {
   lm_plif_renewal: number | null      // PLIF Renewal count
 
   // ---- Employers Insurance (Workers Comp focused) ----
-  // Source: Agency Summary — Active policies PDF (Agency Summary → Active → PDF)
+  // Source: Agency Summary → Active → PDF  (MANDATORY)
   emp_written_premium: number | null      // Total annual written premium / EAP ($) — "Total EAP" from report footer
   emp_earned_premium_ytd: number | null   // Total earned premium YTD ($) — "Total Earned Premium" from report footer
   emp_policy_count: number | null         // Total active policy count — "Total Accounts" from report footer
-  emp_loss_ratio: number | null           // Overall loss ratio (%) — typically 0% for new/recent books
+  emp_loss_ratio: number | null           // Active book loss ratio (%) — typically 0% for current year
+
+  // Source: Agency Summary → Calendar Year → PDF  (2025 = MANDATORY, 2024-2021 = optional)
+  emp_written_premium_2025: number | null
+  emp_earned_premium_2025:  number | null
+  emp_policy_count_2025:    number | null
+  emp_loss_ratio_2025:      number | null
+
+  emp_written_premium_2024: number | null
+  emp_earned_premium_2024:  number | null
+  emp_policy_count_2024:    number | null
+  emp_loss_ratio_2024:      number | null
+
+  emp_written_premium_2023: number | null
+  emp_earned_premium_2023:  number | null
+  emp_policy_count_2023:    number | null
+  emp_loss_ratio_2023:      number | null
+
+  emp_written_premium_2022: number | null
+  emp_earned_premium_2022:  number | null
+  emp_policy_count_2022:    number | null
+  emp_loss_ratio_2022:      number | null
+
+  emp_written_premium_2021: number | null
+  emp_earned_premium_2021:  number | null
+  emp_policy_count_2021:    number | null
+  emp_loss_ratio_2021:      number | null
 
   // ---- Book Quality (all carriers) — sourced from commission statements / active policy list ----
 
@@ -471,24 +497,55 @@ export function calculateCarrierValuation(inputs: CarrierInputs): CarrierResults
     const writtenPremium = inputs.emp_written_premium   ?? 0
     const earnedPremium  = inputs.emp_earned_premium_ytd ?? 0
     const policyCount    = inputs.emp_policy_count      ?? 0
-    const lossRatio      = inputs.emp_loss_ratio        ?? 0
 
-    // Use annual written premium (EAP) as base; fall back to annualized earned premium
+    // Use active EAP as base; fall back to annualized earned premium
     if (writtenPremium > 0) {
       basePremium = writtenPremium
     } else if (earnedPremium > 0) {
-      // Rough annualization — earned premium YTD × (12 / months elapsed)
-      basePremium = earnedPremium * 2  // Conservative if mid-year
+      basePremium = earnedPremium * 2
     }
+
+    // Use most recent full calendar year EAP as the primary premium base if available
+    const yr2025Premium = inputs.emp_written_premium_2025 ?? 0
+    if (yr2025Premium > basePremium) basePremium = yr2025Premium
 
     finalMultiple = 1.5  // Commercial WC base
 
+    // Build weighted multi-year loss ratio — more weight on recent years
+    // Active book (current year) excluded as loss ratio is immature
+    const lossYears: Array<{ ratio: number; weight: number }> = []
+    if (inputs.emp_loss_ratio_2025 != null) lossYears.push({ ratio: inputs.emp_loss_ratio_2025, weight: 4 })
+    if (inputs.emp_loss_ratio_2024 != null) lossYears.push({ ratio: inputs.emp_loss_ratio_2024, weight: 3 })
+    if (inputs.emp_loss_ratio_2023 != null) lossYears.push({ ratio: inputs.emp_loss_ratio_2023, weight: 2 })
+    if (inputs.emp_loss_ratio_2022 != null) lossYears.push({ ratio: inputs.emp_loss_ratio_2022, weight: 1 })
+    if (inputs.emp_loss_ratio_2021 != null) lossYears.push({ ratio: inputs.emp_loss_ratio_2021, weight: 1 })
+
+    let lossRatio = inputs.emp_loss_ratio ?? 0  // Fall back to active book only
+    if (lossYears.length > 0) {
+      const totalWeight = lossYears.reduce((s, y) => s + y.weight, 0)
+      lossRatio = lossYears.reduce((s, y) => s + y.ratio * y.weight, 0) / totalWeight
+    }
+
     // Loss ratio — WC benchmark: <65% excellent, 65–80% solid, >95% concern
-    if (lossRatio < 50)        finalMultiple += 0.25   // Exceptional — zero-loss book
+    if (lossRatio < 50)        finalMultiple += 0.20   // Very clean — but check maturity
     else if (lossRatio < 65)   finalMultiple += 0.15
     else if (lossRatio < 80)   finalMultiple += 0.05
     else if (lossRatio < 95)   finalMultiple -= 0.10
     else if (lossRatio > 0)    finalMultiple -= 0.20   // High claims — significant risk
+
+    // Bonus for having multiple years of data (buyer confidence)
+    if (lossYears.length >= 3)      finalMultiple += 0.08
+    else if (lossYears.length >= 1) finalMultiple += 0.04
+
+    // Growth trend bonus — compare 2025 to 2024 written premium
+    const wp2025 = inputs.emp_written_premium_2025 ?? 0
+    const wp2024 = inputs.emp_written_premium_2024 ?? 0
+    if (wp2025 > 0 && wp2024 > 0) {
+      const growthPct = ((wp2025 - wp2024) / wp2024) * 100
+      if (growthPct >= 20)      finalMultiple += 0.08
+      else if (growthPct >= 10) finalMultiple += 0.04
+      else if (growthPct < -10) finalMultiple -= 0.06
+    }
 
     // Policy count — WC books: more policies = more diversified risk
     if (policyCount >= 100)    finalMultiple += 0.10
