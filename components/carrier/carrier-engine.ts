@@ -2,7 +2,7 @@
 // Carrier Valuation Engine — Travelers, Progressive, Hartford
 // =====================================================
 
-export type CarrierName = "progressive" | "travelers" | "hartford" | "safeco" | "berkshire" | "libertymutual"
+export type CarrierName = "progressive" | "travelers" | "hartford" | "safeco" | "berkshire" | "libertymutual" | "employers"
 export type BookType = "personal" | "commercial" | "both" | "auto" | "home"
 
 export interface CarrierInputs {
@@ -84,6 +84,13 @@ export interface CarrierInputs {
   lm_loss_ratio_2yr: number | null    // 2 Years + YTD Loss Ratio %
   lm_premium_retention: number | null // Premium Retention % (from Renewal section)
   lm_plif_renewal: number | null      // PLIF Renewal count
+
+  // ---- Employers Insurance (Workers Comp focused) ----
+  // Source: Agency Summary — Active policies PDF (Agency Summary → Active → PDF)
+  emp_written_premium: number | null      // Total annual written premium / EAP ($) — "Total EAP" from report footer
+  emp_earned_premium_ytd: number | null   // Total earned premium YTD ($) — "Total Earned Premium" from report footer
+  emp_policy_count: number | null         // Total active policy count — "Total Accounts" from report footer
+  emp_loss_ratio: number | null           // Overall loss ratio (%) — typically 0% for new/recent books
 
   // ---- Book Quality (all carriers) — sourced from commission statements / active policy list ----
 
@@ -455,6 +462,50 @@ export function calculateCarrierValuation(inputs: CarrierInputs): CarrierResults
     if (basePremium >= 5_000_000)      finalMultiple += 0.10
     else if (basePremium >= 2_000_000) finalMultiple += 0.06
     else if (basePremium >= 500_000)   finalMultiple += 0.02
+  }
+
+  // -------------------------------------------------------
+  // Employers Insurance (WC focused commercial book)
+  // -------------------------------------------------------
+  else if (carrier === "employers") {
+    const writtenPremium = inputs.emp_written_premium   ?? 0
+    const earnedPremium  = inputs.emp_earned_premium_ytd ?? 0
+    const policyCount    = inputs.emp_policy_count      ?? 0
+    const lossRatio      = inputs.emp_loss_ratio        ?? 0
+
+    // Use annual written premium (EAP) as base; fall back to annualized earned premium
+    if (writtenPremium > 0) {
+      basePremium = writtenPremium
+    } else if (earnedPremium > 0) {
+      // Rough annualization — earned premium YTD × (12 / months elapsed)
+      basePremium = earnedPremium * 2  // Conservative if mid-year
+    }
+
+    finalMultiple = 1.5  // Commercial WC base
+
+    // Loss ratio — WC benchmark: <65% excellent, 65–80% solid, >95% concern
+    if (lossRatio < 50)        finalMultiple += 0.25   // Exceptional — zero-loss book
+    else if (lossRatio < 65)   finalMultiple += 0.15
+    else if (lossRatio < 80)   finalMultiple += 0.05
+    else if (lossRatio < 95)   finalMultiple -= 0.10
+    else if (lossRatio > 0)    finalMultiple -= 0.20   // High claims — significant risk
+
+    // Policy count — WC books: more policies = more diversified risk
+    if (policyCount >= 100)    finalMultiple += 0.10
+    else if (policyCount >= 50) finalMultiple += 0.05
+    else if (policyCount < 15)  finalMultiple -= 0.05
+
+    // Avg premium per policy — WC: higher avg = larger employers = stickier
+    if (policyCount > 0 && writtenPremium > 0) {
+      const avgPrem = writtenPremium / policyCount
+      if (avgPrem >= 5000)      finalMultiple += 0.08
+      else if (avgPrem >= 2500) finalMultiple += 0.04
+    }
+
+    // Volume tiers
+    if (basePremium >= 2_000_000)      finalMultiple += 0.10
+    else if (basePremium >= 1_000_000) finalMultiple += 0.06
+    else if (basePremium >= 500_000)   finalMultiple += 0.03
   }
 
   // -------------------------------------------------------

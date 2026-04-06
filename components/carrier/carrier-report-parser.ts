@@ -59,6 +59,7 @@ export function parseCarrierReport(
   if (carrier === "progressive")   return parseProgressive(lines)
   if (carrier === "hartford")      return parseHartford(lines)
   if (carrier === "safeco")        return parseSafeco(lines)
+  if (carrier === "employers")     return parseEmployers(lines)
   return {}
 }
 
@@ -1050,6 +1051,49 @@ function parseBerkshire(lines: string[]): Partial<CarrierInputs> {
 //   The issue: after storing the SUBTOTAL block we need to handle subsequent year blocks
 //   which are NOT preceded by a SUBTOTAL label.
 // The corrected approach uses a different tracking strategy — see parseBerkshireLoss below.
+
+// =====================================================
+// EMPLOYERS — Agency Summary (Active policies PDF)
+// =====================================================
+// Report format: Producer Summary Report
+// Footer totals: "Total Accounts: 65  Total Policies: 65  $177,578.00  $87,464.46  0  $0.00  $0.00  $0.00  0.0%"
+// Columns: Policy | Policy Name | Status | Eff Date | Exp Date | EAP | Earned Premium | Claims | Total Paid | Total Incurred | Net Expense | Loss Ratio
+//
+// Strategy: find the "Total Accounts:" footer line — it has all summary totals
+function parseEmployers(lines: string[]): Partial<CarrierInputs> {
+  const result: Partial<CarrierInputs> = {}
+
+  for (const line of lines) {
+    const lower = line.toLowerCase()
+
+    // Footer line: "Total Accounts: 65Total Policies: 65$177,578.00$87,464.460$0.00$0.00$0.000.0%"
+    // or split across lines. Look for "total accounts"
+    if (lower.includes("total accounts")) {
+      // Extract policy count — "Total Accounts: 65"
+      const countMatch = line.match(/total accounts[:\s]+(\d+)/i)
+      if (countMatch) result.emp_policy_count = parseInt(countMatch[1])
+
+      // Extract all dollar amounts and percentages from this line
+      const allNums = numsFromToks(accountingTok(line))
+      // Pattern from real report footer:
+      // [policy_count, policy_count2, EAP, EarnedPremium, claims_count, total_paid, total_incurred, net_expense, loss_ratio_pct]
+      // We need EAP (index 2) and EarnedPremium (index 3) and loss ratio (last pct)
+      if (allNums.length >= 4) {
+        // EAP is the first large dollar amount — typically index after the counts
+        // Find numbers > 1000 (dollar amounts, not counts)
+        const dollarAmounts = allNums.filter(n => n > 1000)
+        if (dollarAmounts.length >= 1) result.emp_written_premium   = dollarAmounts[0]
+        if (dollarAmounts.length >= 2) result.emp_earned_premium_ytd = dollarAmounts[1]
+      }
+
+      // Loss ratio — last percentage in the line
+      const pctMatch = line.match(/([\d.]+)%\s*$/)
+      if (pctMatch) result.emp_loss_ratio = parseFloat(pctMatch[1])
+    }
+  }
+
+  return result
+}
 
 function parseBerkshireLoss(lines: string[]): Pick<
   Partial<CarrierInputs>,

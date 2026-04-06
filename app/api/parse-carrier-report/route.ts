@@ -67,6 +67,12 @@ const CarrierDataSchema = z.object({
   bh_loss_ratio_ytd: z.number().nullable().describe("BH Guard current year YTD loss ratio (%)"),
   bh_grand_total_loss_ratio: z.number().nullable().describe("BH Guard grand total blended loss ratio (%)"),
 
+  // Employers Insurance
+  emp_written_premium: z.number().nullable().describe("Employers total annual written premium / EAP in dollars — from Total EAP in report footer"),
+  emp_earned_premium_ytd: z.number().nullable().describe("Employers total earned premium YTD in dollars — from Earned Premium total in report footer"),
+  emp_policy_count: z.number().nullable().describe("Employers total active policy count — from Total Accounts in report footer"),
+  emp_loss_ratio: z.number().nullable().describe("Employers overall loss ratio percent — from Loss Ratio in report footer"),
+
   // Liberty Mutual Commercial Lines
   lm_dwp_ytd: z.number().nullable().describe("LM CL YTD Direct Written Premium in actual dollars (not millions)"),
   lm_dwp_pytd: z.number().nullable().describe("LM CL Prior YTD DWP in actual dollars"),
@@ -128,6 +134,7 @@ export async function POST(req: Request) {
       hartford: "This is a Hartford Partner Breakdown Report. Extract PL Auto, PL Home, and Small Commercial written premium, PIF, loss ratio, and retention.",
       safeco: "This is a Safeco Agency Development Profile (ADP). Extract Rolling 12 DWP, PIF, loss ratios, and retention for Auto, Home, and Other lines. Also grab YTD New Business DWP and cross-sell %.",
       berkshire: "This is a Berkshire Hathaway Guard Producer Activity Report (PAR). Extract Written Premium (New YTD policies count, Renewal YTD policies count, Total YTD and Rolling 12 premium), Hit Ratios (New and Renewal %, first column = Current YTD policy basis), Yield Ratio Total, and all Direct Loss Ratio rows by year including subtotals and grand total.",
+      employers: "This is an Employers Insurance Agency Summary report for active Workers Compensation policies. The report is a 'Producer Summary Report' showing individual active policies per insured. Extract the footer totals: Total Accounts (= emp_policy_count), Total EAP (= emp_written_premium), Total Earned Premium (= emp_earned_premium_ytd), and the Loss Ratio % (= emp_loss_ratio). The footer line looks like: 'Total Accounts: 65  Total Policies: 65  $177,578.00  $87,464.46  0  $0.00  $0.00  $0.00  0.0%'. All dollar values are in actual dollars.",
       libertymutual: "This is a Liberty Mutual Commercial Lines ADP or ADP Summary report. BOTH the CL ADP and CL ADP Summary formats are accepted. Extract: YTD DWP, Prior YTD DWP, Rolling 12 DWP, New Business YTD DWP, PIF count, YTD Loss Ratio, 2 Years + YTD Loss Ratio, Premium Retention %, and PLIF Renewal count. If values are in $M format (e.g. $0.11M), convert to actual dollars (110000). If in actual dollars (e.g. $108,119), use as-is.",
     }
 

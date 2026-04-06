@@ -139,11 +139,15 @@ const carriers: { value: CarrierName; label: string; description: string }[] = [
     label: "Liberty Mutual CL",
     description: "Commercial Lines — BOP, WC, GL & Auto",
   },
+  {
+    value: "employers",
+    label: "Employers",
+    description: "Workers Compensation — Agency Summary Report",
+  },
 ]
 
 const comingSoonCarriers: string[] = [
   "Coterie",
-  "Employers",
   "Foremost - Bristol West",
   "Foremost Choice / Specialty",
   "Gainsco",
@@ -302,6 +306,9 @@ export function CarrierForm({ inputs, onChange }: Props) {
               {carrier === "libertymutual" && (
                 <LibertyMutualFields inputs={inputs} update={update} />
               )}
+              {carrier === "employers" && (
+                <EmployersFields inputs={inputs} update={update} />
+              )}
             </CardContent>
           </Card>
 
@@ -407,6 +414,7 @@ const defaultFieldReset: Partial<CarrierInputs> = {
   lm_dwp_ytd: null, lm_dwp_pytd: null, lm_dwp_r12: null, lm_nb_dwp_ytd: null, lm_pif: null,
   lm_loss_ratio_ytd: null, lm_loss_ratio_2yr: null,
   lm_premium_retention: null, lm_plif_renewal: null,
+  emp_written_premium: null, emp_earned_premium_ytd: null, emp_policy_count: null, emp_loss_ratio: null,
   book_preferred_pct: null, book_policies_per_customer: null, book_avg_premium_per_policy: null,
   book_new_business_pct: null, book_monoline_pct: null, book_digital_docs_pct: null,
 }
@@ -441,6 +449,11 @@ function getBookTypeOptions(carrier: string) {
   if (carrier === "libertymutual") {
     return [
       { value: "commercial", label: "Commercial Lines" },
+    ]
+  }
+  if (carrier === "employers") {
+    return [
+      { value: "commercial", label: "Workers Compensation" },
     ]
   }
   // Progressive
@@ -913,6 +926,59 @@ function LibertyMutualFields({
         />
       </div>
     </>
+  )
+}
+
+// -----------------------------------------------------------------------
+// Employers Fields
+// -----------------------------------------------------------------------
+function EmployersFields({
+  inputs, update,
+}: { inputs: CarrierInputs; update: (p: Partial<CarrierInputs>) => void }) {
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+      <p className="text-sm font-semibold text-foreground">Workers Compensation Book</p>
+      <p className="text-xs text-muted-foreground">
+        Source: Employers Agent Login → Agency Summary → Active → PDF
+      </p>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <NumField
+          label="Total Annual Written Premium / EAP ($)"
+          value={inputs.emp_written_premium}
+          onChange={(v) => update({ emp_written_premium: v })}
+          placeholder="e.g. 177,578"
+          type="currency"
+          hint="Total EAP (Estimated Annual Premium) from the report footer — all active policies"
+          benchmark={{ good: 500000, poor: 50000, direction: "higher-better", goodLabel: "Strong Book", poorLabel: "Small Book" }}
+        />
+        <NumField
+          label="Total Earned Premium YTD ($)"
+          value={inputs.emp_earned_premium_ytd}
+          onChange={(v) => update({ emp_earned_premium_ytd: v })}
+          placeholder="e.g. 87,464"
+          type="currency"
+          hint="Earned Premium column total from report footer — portion of premium earned so far this year"
+        />
+        <NumField
+          label="Active Policy Count"
+          value={inputs.emp_policy_count}
+          onChange={(v) => update({ emp_policy_count: v })}
+          placeholder="e.g. 65"
+          type="number"
+          hint="Total Accounts / Total Policies from the report footer"
+          benchmark={{ good: 100, poor: 15, direction: "higher-better", goodLabel: "Established", poorLabel: "Small" }}
+        />
+        <NumField
+          label="Loss Ratio (%)"
+          value={inputs.emp_loss_ratio}
+          onChange={(v) => update({ emp_loss_ratio: v })}
+          placeholder="e.g. 0"
+          type="percent"
+          hint="Overall loss ratio from report footer — 0% is common for newer/clean books"
+          benchmark={{ good: 65, poor: 95, direction: "lower-better", goodLabel: "Clean", poorLabel: "Elevated" }}
+        />
+      </div>
+    </div>
   )
 }
 
