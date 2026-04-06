@@ -936,11 +936,36 @@ function EmployersFields({
   inputs, update,
 }: { inputs: CarrierInputs; update: (p: Partial<CarrierInputs>) => void }) {
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
-      <p className="text-sm font-semibold text-foreground">Workers Compensation Book</p>
-      <p className="text-xs text-muted-foreground">
-        Source: Employers Agent Login → Agency Summary → Active → PDF
-      </p>
+    <div className="flex flex-col gap-4 rounded-lg border border-border p-4">
+      <div>
+        <p className="text-sm font-semibold text-foreground">Workers Compensation Book</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">Upload the report below or enter the figures manually from the report footer.</p>
+      </div>
+
+      {/* Step-by-step instructions */}
+      <div className="rounded-md border border-border bg-muted/40 p-3">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">How to get this report</p>
+        <ol className="flex flex-col gap-1.5">
+          {[
+            "Log in to your Employers agent portal at eaccess.employers.com",
+            "In the top navigation, click \"Agency Summary\"",
+            "In the filter/status dropdown, select \"Active\"",
+            "Click the \"PDF\" button to download the report",
+            "Upload the PDF using the upload button above, or enter the footer totals manually below",
+          ].map((step, i) => (
+            <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+              <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                {i + 1}
+              </span>
+              <span>{step}</span>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-2 text-xs text-muted-foreground">
+          The footer row labeled <span className="font-mono font-medium text-foreground">Total Accounts</span> contains all the figures needed below.
+        </p>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <NumField
           label="Total Annual Written Premium / EAP ($)"

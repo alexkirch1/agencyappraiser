@@ -2619,61 +2619,15 @@ function calculateCarrierValuation(inputs) {
         } else if (earnedPremium > 0) {
             basePremium = earnedPremium * 2;
         }
-        var _inputs_emp_written_premium_2025;
-        // Use most recent full calendar year EAP as the primary premium base if available
-        const yr2025Premium = (_inputs_emp_written_premium_2025 = inputs.emp_written_premium_2025) !== null && _inputs_emp_written_premium_2025 !== void 0 ? _inputs_emp_written_premium_2025 : 0;
-        if (yr2025Premium > basePremium) basePremium = yr2025Premium;
         finalMultiple = 1.5; // Commercial WC base
-        // Build weighted multi-year loss ratio — more weight on recent years
-        // Active book (current year) excluded as loss ratio is immature
-        const lossYears = [];
-        if (inputs.emp_loss_ratio_2025 != null) lossYears.push({
-            ratio: inputs.emp_loss_ratio_2025,
-            weight: 4
-        });
-        if (inputs.emp_loss_ratio_2024 != null) lossYears.push({
-            ratio: inputs.emp_loss_ratio_2024,
-            weight: 3
-        });
-        if (inputs.emp_loss_ratio_2023 != null) lossYears.push({
-            ratio: inputs.emp_loss_ratio_2023,
-            weight: 2
-        });
-        if (inputs.emp_loss_ratio_2022 != null) lossYears.push({
-            ratio: inputs.emp_loss_ratio_2022,
-            weight: 1
-        });
-        if (inputs.emp_loss_ratio_2021 != null) lossYears.push({
-            ratio: inputs.emp_loss_ratio_2021,
-            weight: 1
-        });
         var _inputs_emp_loss_ratio;
-        let lossRatio = (_inputs_emp_loss_ratio = inputs.emp_loss_ratio) !== null && _inputs_emp_loss_ratio !== void 0 ? _inputs_emp_loss_ratio : 0 // Fall back to active book only
-        ;
-        if (lossYears.length > 0) {
-            const totalWeight = lossYears.reduce((s, y)=>s + y.weight, 0);
-            lossRatio = lossYears.reduce((s, y)=>s + y.ratio * y.weight, 0) / totalWeight;
-        }
         // Loss ratio — WC benchmark: <65% excellent, 65–80% solid, >95% concern
-        if (lossRatio < 50) finalMultiple += 0.20; // Very clean — but check maturity
+        const lossRatio = (_inputs_emp_loss_ratio = inputs.emp_loss_ratio) !== null && _inputs_emp_loss_ratio !== void 0 ? _inputs_emp_loss_ratio : 0;
+        if (lossRatio < 50) finalMultiple += 0.20;
         else if (lossRatio < 65) finalMultiple += 0.15;
         else if (lossRatio < 80) finalMultiple += 0.05;
         else if (lossRatio < 95) finalMultiple -= 0.10;
-        else if (lossRatio > 0) finalMultiple -= 0.20; // High claims — significant risk
-        // Bonus for having multiple years of data (buyer confidence)
-        if (lossYears.length >= 3) finalMultiple += 0.08;
-        else if (lossYears.length >= 1) finalMultiple += 0.04;
-        var _inputs_emp_written_premium_20251;
-        // Growth trend bonus — compare 2025 to 2024 written premium
-        const wp2025 = (_inputs_emp_written_premium_20251 = inputs.emp_written_premium_2025) !== null && _inputs_emp_written_premium_20251 !== void 0 ? _inputs_emp_written_premium_20251 : 0;
-        var _inputs_emp_written_premium_2024;
-        const wp2024 = (_inputs_emp_written_premium_2024 = inputs.emp_written_premium_2024) !== null && _inputs_emp_written_premium_2024 !== void 0 ? _inputs_emp_written_premium_2024 : 0;
-        if (wp2025 > 0 && wp2024 > 0) {
-            const growthPct = (wp2025 - wp2024) / wp2024 * 100;
-            if (growthPct >= 20) finalMultiple += 0.08;
-            else if (growthPct >= 10) finalMultiple += 0.04;
-            else if (growthPct < -10) finalMultiple -= 0.06;
-        }
+        else if (lossRatio > 0) finalMultiple -= 0.20;
         // Policy count — WC books: more policies = more diversified risk
         if (policyCount >= 100) finalMultiple += 0.10;
         else if (policyCount >= 50) finalMultiple += 0.05;
@@ -5273,22 +5227,103 @@ _c8 = LibertyMutualFields;
 function EmployersFields(param) {
     let { inputs, update } = param;
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-        className: "flex flex-col gap-3 rounded-lg border border-border p-4",
+        className: "flex flex-col gap-4 rounded-lg border border-border p-4",
         children: [
-            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                className: "text-sm font-semibold text-foreground",
-                children: "Workers Compensation Book"
-            }, void 0, false, {
+            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                children: [
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                        className: "text-sm font-semibold text-foreground",
+                        children: "Workers Compensation Book"
+                    }, void 0, false, {
+                        fileName: "[project]/components/carrier/carrier-form.tsx",
+                        lineNumber: 941,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                        className: "mt-0.5 text-xs text-muted-foreground",
+                        children: "Upload the report below or enter the figures manually from the report footer."
+                    }, void 0, false, {
+                        fileName: "[project]/components/carrier/carrier-form.tsx",
+                        lineNumber: 942,
+                        columnNumber: 9
+                    }, this)
+                ]
+            }, void 0, true, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
                 lineNumber: 940,
                 columnNumber: 7
             }, this),
-            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                className: "text-xs text-muted-foreground",
-                children: "Source: Employers Agent Login → Agency Summary → Active → PDF"
-            }, void 0, false, {
+            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                className: "rounded-md border border-border bg-muted/40 p-3",
+                children: [
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                        className: "mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground",
+                        children: "How to get this report"
+                    }, void 0, false, {
+                        fileName: "[project]/components/carrier/carrier-form.tsx",
+                        lineNumber: 947,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("ol", {
+                        className: "flex flex-col gap-1.5",
+                        children: [
+                            "Log in to your Employers agent portal at eaccess.employers.com",
+                            "In the top navigation, click \"Agency Summary\"",
+                            "In the filter/status dropdown, select \"Active\"",
+                            "Click the \"PDF\" button to download the report",
+                            "Upload the PDF using the upload button above, or enter the footer totals manually below"
+                        ].map((step, i)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("li", {
+                                className: "flex items-start gap-2 text-xs text-muted-foreground",
+                                children: [
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                        className: "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary",
+                                        children: i + 1
+                                    }, void 0, false, {
+                                        fileName: "[project]/components/carrier/carrier-form.tsx",
+                                        lineNumber: 957,
+                                        columnNumber: 15
+                                    }, this),
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                        children: step
+                                    }, void 0, false, {
+                                        fileName: "[project]/components/carrier/carrier-form.tsx",
+                                        lineNumber: 960,
+                                        columnNumber: 15
+                                    }, this)
+                                ]
+                            }, i, true, {
+                                fileName: "[project]/components/carrier/carrier-form.tsx",
+                                lineNumber: 956,
+                                columnNumber: 13
+                            }, this))
+                    }, void 0, false, {
+                        fileName: "[project]/components/carrier/carrier-form.tsx",
+                        lineNumber: 948,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                        className: "mt-2 text-xs text-muted-foreground",
+                        children: [
+                            "The footer row labeled ",
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                className: "font-mono font-medium text-foreground",
+                                children: "Total Accounts"
+                            }, void 0, false, {
+                                fileName: "[project]/components/carrier/carrier-form.tsx",
+                                lineNumber: 965,
+                                columnNumber: 34
+                            }, this),
+                            " contains all the figures needed below."
+                        ]
+                    }, void 0, true, {
+                        fileName: "[project]/components/carrier/carrier-form.tsx",
+                        lineNumber: 964,
+                        columnNumber: 9
+                    }, this)
+                ]
+            }, void 0, true, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 941,
+                lineNumber: 946,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -5312,7 +5347,7 @@ function EmployersFields(param) {
                         }
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 945,
+                        lineNumber: 970,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -5326,7 +5361,7 @@ function EmployersFields(param) {
                         hint: "Earned Premium column total from report footer — portion of premium earned so far this year"
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 954,
+                        lineNumber: 979,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -5347,7 +5382,7 @@ function EmployersFields(param) {
                         }
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 962,
+                        lineNumber: 987,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(NumField, {
@@ -5368,13 +5403,13 @@ function EmployersFields(param) {
                         }
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 971,
+                        lineNumber: 996,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 944,
+                lineNumber: 969,
                 columnNumber: 7
             }, this)
         ]
@@ -5400,7 +5435,7 @@ function NumField(param) {
                         children: label
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 1002,
+                        lineNumber: 1027,
                         columnNumber: 9
                     }, this),
                     benchmark && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(BenchmarkBadge, {
@@ -5408,13 +5443,13 @@ function NumField(param) {
                         config: benchmark
                     }, void 0, false, {
                         fileName: "[project]/components/carrier/carrier-form.tsx",
-                        lineNumber: 1003,
+                        lineNumber: 1028,
                         columnNumber: 23
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 1001,
+                lineNumber: 1026,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$smart$2d$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SmartInput"], {
@@ -5424,7 +5459,7 @@ function NumField(param) {
                 onValueChange: onChange
             }, void 0, false, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 1005,
+                lineNumber: 1030,
                 columnNumber: 7
             }, this),
             hint && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -5432,13 +5467,13 @@ function NumField(param) {
                 children: hint
             }, void 0, false, {
                 fileName: "[project]/components/carrier/carrier-form.tsx",
-                lineNumber: 1011,
+                lineNumber: 1036,
                 columnNumber: 16
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/components/carrier/carrier-form.tsx",
-        lineNumber: 1000,
+        lineNumber: 1025,
         columnNumber: 5
     }, this);
 }
