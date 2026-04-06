@@ -1,6 +1,5 @@
 import { generateText, Output } from "ai"
 import { z } from "zod"
-import { isAdminAuthenticated } from "@/lib/admin-auth"
 
 // Schema covers all carrier field names — null means not found in this report
 const CarrierDataSchema = z.object({
@@ -107,10 +106,6 @@ CRITICAL RULES:
 - For BH Guard PAR: the Written Premium section has rows for New, Renewal, and Total — each with 8 columns (CurrYTD Policies, CurrYTD Premium, CurrR12 Policies, CurrR12 Premium, PrevYTD Policies, PrevYTD Premium, PrevR12 Policies, PrevR12 Premium)`
 
 export async function POST(req: Request) {
-  if (!(await isAdminAuthenticated())) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
   try {
     const formData = await req.formData()
     const file = formData.get("file") as File

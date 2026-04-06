@@ -1,4 +1,6 @@
 {
   "/api/auth/me/route": "app/api/auth/me/route.js",
+  "/api/parse-carrier-report/route": "app/api/parse-carrier-report/route.js",
+  "/carrier/page": "app/carrier/page.js",
   "/page": "app/page.js"
 }
