@@ -142,9 +142,6 @@ const carriers: { value: CarrierName; label: string; description: string }[] = [
 ]
 
 const comingSoonCarriers: string[] = [
-  "BiBERK",
-  "Builders & Tradesmen (BTIS)",
-  "CNA",
   "Cabrillo / Pacific Coastal",
   "Chubb Commercial Lines",
   "Chubb Personal Lines",
