@@ -142,14 +142,7 @@ const carriers: { value: CarrierName; label: string; description: string }[] = [
 ]
 
 const comingSoonCarriers: string[] = [
-  "Cabrillo / Pacific Coastal",
-  "Chubb Commercial Lines",
-  "Chubb Personal Lines",
-  "Clearcover",
-  "Commonwealth Casualty",
   "Coterie",
-  "Crump Life",
-  "Dairyland",
   "Employers",
   "Foremost - Bristol West",
   "Foremost Choice / Specialty",
