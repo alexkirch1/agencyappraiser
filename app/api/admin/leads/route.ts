@@ -79,31 +79,32 @@ export async function GET() {
       LIMIT 200
     `
 
-    // Also fetch summary stats with smarter metrics
+    // Also fetch summary stats with smarter metrics (exclude archived leads from pipeline)
     const stats = await sql`
       SELECT
-        (SELECT COUNT(*) FROM leads)              AS total_leads,
+        (SELECT COUNT(*) FROM leads WHERE archived = false)              AS total_leads,
         (SELECT COUNT(*) FROM full_valuations)    AS full_valuations,
         (SELECT COUNT(*) FROM quick_valuations)   AS quick_valuations,
         (SELECT COUNT(*) FROM quiz_submissions)   AS quiz_submissions,
-        (SELECT AVG(estimated_value) FROM leads WHERE estimated_value IS NOT NULL)::NUMERIC(15,2) AS avg_value,
-        (SELECT SUM(estimated_value) FROM leads WHERE estimated_value IS NOT NULL)::NUMERIC(15,2) AS total_pipeline_value,
-        (SELECT COUNT(*) FROM leads WHERE created_at >= NOW() - INTERVAL '7 days') AS leads_this_week,
-        (SELECT COUNT(*) FROM leads WHERE created_at >= NOW() - INTERVAL '30 days') AS leads_this_month,
-        (SELECT COUNT(*) FROM leads WHERE stage = 'won') AS won_leads,
-        (SELECT COUNT(*) FROM leads WHERE stage = 'lost') AS lost_leads,
-        (SELECT COUNT(*) FROM leads WHERE stage NOT IN ('won', 'lost', 'new')) AS engaged_leads,
-        (SELECT AVG(estimated_value) FROM leads WHERE stage = 'won' AND estimated_value IS NOT NULL)::NUMERIC(15,2) AS avg_won_value,
-        (SELECT SUM(estimated_value) FROM leads WHERE stage = 'won' AND estimated_value IS NOT NULL)::NUMERIC(15,2) AS total_won_value
+        (SELECT AVG(estimated_value) FROM leads WHERE estimated_value IS NOT NULL AND archived = false)::NUMERIC(15,2) AS avg_value,
+        (SELECT SUM(estimated_value) FROM leads WHERE estimated_value IS NOT NULL AND archived = false)::NUMERIC(15,2) AS total_pipeline_value,
+        (SELECT COUNT(*) FROM leads WHERE created_at >= NOW() - INTERVAL '7 days' AND archived = false) AS leads_this_week,
+        (SELECT COUNT(*) FROM leads WHERE created_at >= NOW() - INTERVAL '30 days' AND archived = false) AS leads_this_month,
+        (SELECT COUNT(*) FROM leads WHERE stage = 'won' AND archived = false) AS won_leads,
+        (SELECT COUNT(*) FROM leads WHERE stage = 'lost' AND archived = false) AS lost_leads,
+        (SELECT COUNT(*) FROM leads WHERE stage NOT IN ('won', 'lost', 'new') AND archived = false) AS engaged_leads,
+        (SELECT AVG(estimated_value) FROM leads WHERE stage = 'won' AND estimated_value IS NOT NULL AND archived = false)::NUMERIC(15,2) AS avg_won_value,
+        (SELECT SUM(estimated_value) FROM leads WHERE stage = 'won' AND estimated_value IS NOT NULL AND archived = false)::NUMERIC(15,2) AS total_won_value
     `
 
-    // Stage distribution
+    // Stage distribution (exclude archived)
     const stageStats = await sql`
       SELECT 
         stage,
         COUNT(*) as count,
         SUM(estimated_value)::NUMERIC(15,2) as value
       FROM leads
+      WHERE archived = false
       GROUP BY stage
       ORDER BY 
         CASE stage
@@ -118,25 +119,26 @@ export async function GET() {
         END
     `
 
-    // Lead source breakdown
+    // Lead source breakdown (exclude archived)
     const sourceStats = await sql`
       SELECT 
         COALESCE(tool_used, 'unknown') as source,
         COUNT(*) as count,
         SUM(estimated_value)::NUMERIC(15,2) as value
       FROM leads
+      WHERE archived = false
       GROUP BY tool_used
       ORDER BY count DESC
     `
 
-    // Weekly trend (last 8 weeks)
+    // Weekly trend (last 8 weeks, exclude archived)
     const weeklyTrend = await sql`
       SELECT 
         DATE_TRUNC('week', created_at) as week,
         COUNT(*) as count,
         SUM(estimated_value)::NUMERIC(15,2) as value
       FROM leads
-      WHERE created_at >= NOW() - INTERVAL '8 weeks'
+      WHERE created_at >= NOW() - INTERVAL '8 weeks' AND archived = false
       GROUP BY DATE_TRUNC('week', created_at)
       ORDER BY week ASC
     `
