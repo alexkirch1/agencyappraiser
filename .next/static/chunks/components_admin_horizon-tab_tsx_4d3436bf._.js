@@ -788,7 +788,8 @@ function HorizonTab(param) {
     const statusColors = {
         active: "text-success",
         completed: "text-primary",
-        declined: "text-destructive"
+        declined: "text-destructive",
+        test: "text-muted-foreground"
     };
     const activeDeals = deals.filter((d)=>d.status === "active");
     const completedDeals = deals.filter((d)=>d.status === "completed");
@@ -814,7 +815,7 @@ function HorizonTab(param) {
                             children: "Horizon Pipeline"
                         }, void 0, false, {
                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                            lineNumber: 738,
+                            lineNumber: 739,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -824,20 +825,20 @@ function HorizonTab(param) {
                                     className: "mr-2 h-4 w-4"
                                 }, void 0, false, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 740,
+                                    lineNumber: 741,
                                     columnNumber: 13
                                 }, this),
                                 "New Deal"
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                            lineNumber: 739,
+                            lineNumber: 740,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                    lineNumber: 737,
+                    lineNumber: 738,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -854,7 +855,7 @@ function HorizonTab(param) {
                                         className: "h-4 w-4"
                                     }, void 0, false, {
                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                        lineNumber: 759,
+                                        lineNumber: 760,
                                         columnNumber: 19
                                     }, this),
                                     " Active Pipeline ",
@@ -863,7 +864,7 @@ function HorizonTab(param) {
                                         children: activeDeals.length
                                     }, void 0, false, {
                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                        lineNumber: 759,
+                                        lineNumber: 760,
                                         columnNumber: 72
                                     }, this)
                                 ]
@@ -873,7 +874,7 @@ function HorizonTab(param) {
                                         className: "h-4 w-4"
                                     }, void 0, false, {
                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                        lineNumber: 761,
+                                        lineNumber: 762,
                                         columnNumber: 19
                                     }, this),
                                     " Completed Deals ",
@@ -882,19 +883,19 @@ function HorizonTab(param) {
                                         children: completedDeals.length
                                     }, void 0, false, {
                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                        lineNumber: 761,
+                                        lineNumber: 762,
                                         columnNumber: 66
                                     }, this)
                                 ]
                             }, void 0, true)
                         }, tab, false, {
                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                            lineNumber: 748,
+                            lineNumber: 749,
                             columnNumber: 13
                         }, this))
                 }, void 0, false, {
                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                    lineNumber: 746,
+                    lineNumber: 747,
                     columnNumber: 9
                 }, this),
                 pipelineTab === "completed" && intel.sampleSize > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -905,7 +906,7 @@ function HorizonTab(param) {
                             children: "Market Intel"
                         }, void 0, false, {
                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                            lineNumber: 770,
+                            lineNumber: 771,
                             columnNumber: 13
                         }, this),
                         intel.medianMultiple != null && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -919,13 +920,13 @@ function HorizonTab(param) {
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 772,
+                                    lineNumber: 773,
                                     columnNumber: 66
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                            lineNumber: 772,
+                            lineNumber: 773,
                             columnNumber: 15
                         }, this),
                         intel.earnoutRate != null && intel.earnoutRate > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -939,13 +940,13 @@ function HorizonTab(param) {
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 775,
+                                    lineNumber: 776,
                                     columnNumber: 63
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                            lineNumber: 775,
+                            lineNumber: 776,
                             columnNumber: 15
                         }, this),
                         intel.medianSellerStay != null && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -959,19 +960,19 @@ function HorizonTab(param) {
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 778,
+                                    lineNumber: 779,
                                     columnNumber: 62
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                            lineNumber: 778,
+                            lineNumber: 779,
                             columnNumber: 15
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                    lineNumber: 769,
+                    lineNumber: 770,
                     columnNumber: 11
                 }, this),
                 visibleDeals.length === 0 ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Card"], {
@@ -984,7 +985,7 @@ function HorizonTab(param) {
                                     className: "mx-auto mb-3 h-12 w-12 text-muted-foreground/40"
                                 }, void 0, false, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 788,
+                                    lineNumber: 789,
                                     columnNumber: 19
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -992,7 +993,7 @@ function HorizonTab(param) {
                                     children: 'No active deals. Click "New Deal" to get started.'
                                 }, void 0, false, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 788,
+                                    lineNumber: 789,
                                     columnNumber: 95
                                 }, this)
                             ]
@@ -1002,7 +1003,7 @@ function HorizonTab(param) {
                                     className: "mx-auto mb-3 h-12 w-12 text-muted-foreground/40"
                                 }, void 0, false, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 790,
+                                    lineNumber: 791,
                                     columnNumber: 19
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1010,19 +1011,19 @@ function HorizonTab(param) {
                                     children: "No completed deals yet. Mark a deal as Won to record it here."
                                 }, void 0, false, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 790,
+                                    lineNumber: 791,
                                     columnNumber: 89
                                 }, this)
                             ]
                         }, void 0, true)
                     }, void 0, false, {
                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                        lineNumber: 786,
+                        lineNumber: 787,
                         columnNumber: 13
                     }, this)
                 }, void 0, false, {
                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                    lineNumber: 785,
+                    lineNumber: 786,
                     columnNumber: 11
                 }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                     className: "grid gap-3",
@@ -1045,20 +1046,20 @@ function HorizonTab(param) {
                                                         children: deal.deal_name
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 805,
+                                                        lineNumber: 806,
                                                         columnNumber: 23
                                                     }, this),
                                                     deal.status === "completed" && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$lucide$2d$react$40$0$2e$469$2e$0_react$40$19$2e$2$2e$4$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$trophy$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Trophy$3e$__["Trophy"], {
                                                         className: "h-3.5 w-3.5 shrink-0 text-warning"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 807,
+                                                        lineNumber: 808,
                                                         columnNumber: 25
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                lineNumber: 804,
+                                                lineNumber: 805,
                                                 columnNumber: 21
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1075,13 +1076,13 @@ function HorizonTab(param) {
                                                         children: deal.status.charAt(0).toUpperCase() + deal.status.slice(1)
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 813,
+                                                        lineNumber: 814,
                                                         columnNumber: 23
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                lineNumber: 810,
+                                                lineNumber: 811,
                                                 columnNumber: 21
                                             }, this),
                                             ((_deal_details = deal.details) === null || _deal_details === void 0 ? void 0 : _deal_details.notes) != null && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1089,13 +1090,13 @@ function HorizonTab(param) {
                                                 children: String(deal.details.notes)
                                             }, void 0, false, {
                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                lineNumber: 818,
+                                                lineNumber: 819,
                                                 columnNumber: 23
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                        lineNumber: 803,
+                                        lineNumber: 804,
                                         columnNumber: 19
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1109,7 +1110,7 @@ function HorizonTab(param) {
                                                         children: formatCurrency(deal.valuation)
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 825,
+                                                        lineNumber: 826,
                                                         columnNumber: 23
                                                     }, this),
                                                     deal.premium_base > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1120,13 +1121,13 @@ function HorizonTab(param) {
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 827,
+                                                        lineNumber: 828,
                                                         columnNumber: 25
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                lineNumber: 824,
+                                                lineNumber: 825,
                                                 columnNumber: 21
                                             }, this),
                                             deal.status !== "completed" && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -1143,14 +1144,14 @@ function HorizonTab(param) {
                                                         className: "h-3.5 w-3.5"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 838,
+                                                        lineNumber: 839,
                                                         columnNumber: 25
                                                     }, this),
                                                     "Won"
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                lineNumber: 833,
+                                                lineNumber: 834,
                                                 columnNumber: 23
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -1168,42 +1169,42 @@ function HorizonTab(param) {
                                                     className: "h-3.5 w-3.5"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 849,
+                                                    lineNumber: 850,
                                                     columnNumber: 23
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                lineNumber: 842,
+                                                lineNumber: 843,
                                                 columnNumber: 21
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$lucide$2d$react$40$0$2e$469$2e$0_react$40$19$2e$2$2e$4$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chevron$2d$right$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ChevronRight$3e$__["ChevronRight"], {
                                                 className: "h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                lineNumber: 851,
+                                                lineNumber: 852,
                                                 columnNumber: 21
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                        lineNumber: 823,
+                                        lineNumber: 824,
                                         columnNumber: 19
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                lineNumber: 802,
+                                lineNumber: 803,
                                 columnNumber: 17
                             }, this)
                         }, deal.id, false, {
                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                            lineNumber: 797,
+                            lineNumber: 798,
                             columnNumber: 15
                         }, this);
                     })
                 }, void 0, false, {
                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                    lineNumber: 795,
+                    lineNumber: 796,
                     columnNumber: 11
                 }, this),
                 completingDeal && (()=>{
@@ -1222,7 +1223,7 @@ function HorizonTab(param) {
                         }
                     }, void 0, false, {
                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                        lineNumber: 863,
+                        lineNumber: 864,
                         columnNumber: 13
                     }, this);
                 })(),
@@ -1233,7 +1234,7 @@ function HorizonTab(param) {
                             onClick: ()=>setViewingDeal(null)
                         }, void 0, false, {
                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                            lineNumber: 880,
+                            lineNumber: 881,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1253,20 +1254,20 @@ function HorizonTab(param) {
                                                             children: viewingDeal.deal_name
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 885,
+                                                            lineNumber: 886,
                                                             columnNumber: 21
                                                         }, this),
                                                         viewingDeal.status === "completed" && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$lucide$2d$react$40$0$2e$469$2e$0_react$40$19$2e$2$2e$4$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$trophy$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Trophy$3e$__["Trophy"], {
                                                             className: "h-4 w-4 shrink-0 text-warning"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 886,
+                                                            lineNumber: 887,
                                                             columnNumber: 60
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 884,
+                                                    lineNumber: 885,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1278,13 +1279,13 @@ function HorizonTab(param) {
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 888,
+                                                    lineNumber: 889,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 883,
+                                            lineNumber: 884,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1295,18 +1296,18 @@ function HorizonTab(param) {
                                                 className: "h-5 w-5"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                lineNumber: 893,
+                                                lineNumber: 894,
                                                 columnNumber: 19
                                             }, this)
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 892,
+                                            lineNumber: 893,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 882,
+                                    lineNumber: 883,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1342,7 +1343,7 @@ function HorizonTab(param) {
                                                             children: label
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 907,
+                                                            lineNumber: 908,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1350,19 +1351,19 @@ function HorizonTab(param) {
                                                             children: value
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 908,
+                                                            lineNumber: 909,
                                                             columnNumber: 23
                                                         }, this)
                                                     ]
                                                 }, label, true, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 906,
+                                                    lineNumber: 907,
                                                     columnNumber: 21
                                                 }, this);
                                             })
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 899,
+                                            lineNumber: 900,
                                             columnNumber: 17
                                         }, this),
                                         viewingDeal.details && Object.keys(viewingDeal.details).filter((k)=>viewingDeal.details[k] != null && k !== "notes").length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1372,7 +1373,7 @@ function HorizonTab(param) {
                                                     children: "Deal Details"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 916,
+                                                    lineNumber: 917,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1444,7 +1445,7 @@ function HorizonTab(param) {
                                                                     children: label
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                    lineNumber: 933,
+                                                                    lineNumber: 934,
                                                                     columnNumber: 27
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1455,25 +1456,25 @@ function HorizonTab(param) {
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                    lineNumber: 934,
+                                                                    lineNumber: 935,
                                                                     columnNumber: 27
                                                                 }, this)
                                                             ]
                                                         }, key, true, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 932,
+                                                            lineNumber: 933,
                                                             columnNumber: 25
                                                         }, this);
                                                     })
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 917,
+                                                    lineNumber: 918,
                                                     columnNumber: 21
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 915,
+                                            lineNumber: 916,
                                             columnNumber: 19
                                         }, this),
                                         viewingDeal.status === "completed" && ((_viewingDeal_details = viewingDeal.details) === null || _viewingDeal_details === void 0 ? void 0 : _viewingDeal_details.deal_terms) != null && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1483,7 +1484,7 @@ function HorizonTab(param) {
                                                     children: "Deal Terms"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 946,
+                                                    lineNumber: 947,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1527,7 +1528,7 @@ function HorizonTab(param) {
                                                                     children: label
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                    lineNumber: 956,
+                                                                    lineNumber: 957,
                                                                     columnNumber: 27
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1535,25 +1536,25 @@ function HorizonTab(param) {
                                                                     children: fmtFn ? fmtFn(viewingDeal.details[key]) : "".concat(fmtStat(viewingDeal.details[key])).concat(suffix !== null && suffix !== void 0 ? suffix : "")
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                    lineNumber: 957,
+                                                                    lineNumber: 958,
                                                                     columnNumber: 27
                                                                 }, this)
                                                             ]
                                                         }, key, true, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 955,
+                                                            lineNumber: 956,
                                                             columnNumber: 25
                                                         }, this);
                                                     })
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 947,
+                                                    lineNumber: 948,
                                                     columnNumber: 21
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 945,
+                                            lineNumber: 946,
                                             columnNumber: 19
                                         }, this),
                                         ((_viewingDeal_details1 = viewingDeal.details) === null || _viewingDeal_details1 === void 0 ? void 0 : _viewingDeal_details1.notes) != null && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1563,7 +1564,7 @@ function HorizonTab(param) {
                                                     children: "Notes"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 969,
+                                                    lineNumber: 970,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1571,19 +1572,19 @@ function HorizonTab(param) {
                                                     children: String(viewingDeal.details.notes)
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 970,
+                                                    lineNumber: 971,
                                                     columnNumber: 21
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 968,
+                                            lineNumber: 969,
                                             columnNumber: 19
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 897,
+                                    lineNumber: 898,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1604,14 +1605,14 @@ function HorizonTab(param) {
                                                             className: "mr-2 h-4 w-4"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 984,
+                                                            lineNumber: 985,
                                                             columnNumber: 25
                                                         }, this),
                                                         " Edit"
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 983,
+                                                    lineNumber: 984,
                                                     columnNumber: 23
                                                 }, this),
                                                 d.status !== "completed" && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -1625,14 +1626,14 @@ function HorizonTab(param) {
                                                             className: "h-4 w-4"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 991,
+                                                            lineNumber: 992,
                                                             columnNumber: 27
                                                         }, this),
                                                         " Mark as Won"
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 987,
+                                                    lineNumber: 988,
                                                     columnNumber: 25
                                                 }, this)
                                             ]
@@ -1640,13 +1641,13 @@ function HorizonTab(param) {
                                     })()
                                 }, void 0, false, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 978,
+                                    lineNumber: 979,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                            lineNumber: 881,
+                            lineNumber: 882,
                             columnNumber: 13
                         }, this)
                     ]
@@ -1658,7 +1659,7 @@ function HorizonTab(param) {
                             onClick: ()=>setEditingDeal(null)
                         }, void 0, false, {
                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                            lineNumber: 1006,
+                            lineNumber: 1007,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1672,7 +1673,7 @@ function HorizonTab(param) {
                                             children: "Edit Deal"
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1014,
+                                            lineNumber: 1015,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1683,18 +1684,18 @@ function HorizonTab(param) {
                                                 className: "h-5 w-5"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                lineNumber: 1020,
+                                                lineNumber: 1021,
                                                 columnNumber: 19
                                             }, this)
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1015,
+                                            lineNumber: 1016,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 1013,
+                                    lineNumber: 1014,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1707,7 +1708,7 @@ function HorizonTab(param) {
                                                     children: "Deal Name"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1028,
+                                                    lineNumber: 1029,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -1717,13 +1718,13 @@ function HorizonTab(param) {
                                                     className: "w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1029,
+                                                    lineNumber: 1030,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1027,
+                                            lineNumber: 1028,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1733,7 +1734,7 @@ function HorizonTab(param) {
                                                     children: "Status"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1039,
+                                                    lineNumber: 1040,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
@@ -1746,7 +1747,7 @@ function HorizonTab(param) {
                                                             children: "Active"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 1045,
+                                                            lineNumber: 1046,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -1754,7 +1755,7 @@ function HorizonTab(param) {
                                                             children: "Completed"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 1046,
+                                                            lineNumber: 1047,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
@@ -1762,19 +1763,27 @@ function HorizonTab(param) {
                                                             children: "Declined"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 1047,
+                                                            lineNumber: 1048,
+                                                            columnNumber: 21
+                                                        }, this),
+                                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("option", {
+                                                            value: "test",
+                                                            children: "Test (Excluded from Stats)"
+                                                        }, void 0, false, {
+                                                            fileName: "[project]/components/admin/horizon-tab.tsx",
+                                                            lineNumber: 1049,
                                                             columnNumber: 21
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1040,
+                                                    lineNumber: 1041,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1038,
+                                            lineNumber: 1039,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1784,7 +1793,7 @@ function HorizonTab(param) {
                                                     children: "Valuation ($)"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1053,
+                                                    lineNumber: 1055,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -1794,13 +1803,13 @@ function HorizonTab(param) {
                                                     className: "w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1054,
+                                                    lineNumber: 1056,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1052,
+                                            lineNumber: 1054,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1810,7 +1819,7 @@ function HorizonTab(param) {
                                                     children: "Notes"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1064,
+                                                    lineNumber: 1066,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("textarea", {
@@ -1821,13 +1830,13 @@ function HorizonTab(param) {
                                                     className: "w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1065,
+                                                    lineNumber: 1067,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1063,
+                                            lineNumber: 1065,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1841,7 +1850,7 @@ function HorizonTab(param) {
                                                             children: "Type"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 1077,
+                                                            lineNumber: 1079,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1849,13 +1858,13 @@ function HorizonTab(param) {
                                                             children: editingDeal.deal_type.toUpperCase()
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 1078,
+                                                            lineNumber: 1080,
                                                             columnNumber: 21
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1076,
+                                                    lineNumber: 1078,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1866,7 +1875,7 @@ function HorizonTab(param) {
                                                             children: "Premium Base"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 1081,
+                                                            lineNumber: 1083,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1874,13 +1883,13 @@ function HorizonTab(param) {
                                                             children: formatCurrency(editingDeal.premium_base)
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 1082,
+                                                            lineNumber: 1084,
                                                             columnNumber: 21
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1080,
+                                                    lineNumber: 1082,
                                                     columnNumber: 19
                                                 }, this),
                                                 ((_editingDeal_details = editingDeal.details) === null || _editingDeal_details === void 0 ? void 0 : _editingDeal_details.multiple) != null && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1891,7 +1900,7 @@ function HorizonTab(param) {
                                                             children: "Multiple"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 1086,
+                                                            lineNumber: 1088,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1902,13 +1911,13 @@ function HorizonTab(param) {
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 1087,
+                                                            lineNumber: 1089,
                                                             columnNumber: 23
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1085,
+                                                    lineNumber: 1087,
                                                     columnNumber: 21
                                                 }, this),
                                                 ((_editingDeal_details1 = editingDeal.details) === null || _editingDeal_details1 === void 0 ? void 0 : _editingDeal_details1.policyCount) != null && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1919,7 +1928,7 @@ function HorizonTab(param) {
                                                             children: "Policies"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 1092,
+                                                            lineNumber: 1094,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1927,13 +1936,13 @@ function HorizonTab(param) {
                                                             children: String(editingDeal.details.policyCount)
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 1093,
+                                                            lineNumber: 1095,
                                                             columnNumber: 23
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1091,
+                                                    lineNumber: 1093,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1944,7 +1953,7 @@ function HorizonTab(param) {
                                                             children: "Saved"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 1097,
+                                                            lineNumber: 1099,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1952,25 +1961,25 @@ function HorizonTab(param) {
                                                             children: new Date(editingDeal.date_saved).toLocaleDateString()
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 1098,
+                                                            lineNumber: 1100,
                                                             columnNumber: 21
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1096,
+                                                    lineNumber: 1098,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1075,
+                                            lineNumber: 1077,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 1025,
+                                    lineNumber: 1026,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1983,7 +1992,7 @@ function HorizonTab(param) {
                                             children: "Cancel"
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1105,
+                                            lineNumber: 1107,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -1994,26 +2003,26 @@ function HorizonTab(param) {
                                                     className: "h-4 w-4"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1109,
+                                                    lineNumber: 1111,
                                                     columnNumber: 19
                                                 }, this),
                                                 "Save Changes"
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1108,
+                                            lineNumber: 1110,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 1104,
+                                    lineNumber: 1106,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                            lineNumber: 1011,
+                            lineNumber: 1012,
                             columnNumber: 13
                         }, this)
                     ]
@@ -2021,7 +2030,7 @@ function HorizonTab(param) {
             ]
         }, void 0, true, {
             fileName: "[project]/components/admin/horizon-tab.tsx",
-            lineNumber: 735,
+            lineNumber: 736,
             columnNumber: 7
         }, this);
     }
@@ -2038,14 +2047,14 @@ function HorizonTab(param) {
                         className: "mr-1 h-4 w-4"
                     }, void 0, false, {
                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                        lineNumber: 1129,
+                        lineNumber: 1131,
                         columnNumber: 9
                     }, this),
                     "Back to Pipeline"
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                lineNumber: 1123,
+                lineNumber: 1125,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Card"], {
@@ -2064,7 +2073,7 @@ function HorizonTab(param) {
                                             children: "1"
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1138,
+                                            lineNumber: 1140,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
@@ -2072,13 +2081,13 @@ function HorizonTab(param) {
                                             children: "Deal Information"
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1141,
+                                            lineNumber: 1143,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 1137,
+                                    lineNumber: 1139,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2089,7 +2098,7 @@ function HorizonTab(param) {
                                             children: "Deal Name"
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1145,
+                                            lineNumber: 1147,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Input"], {
@@ -2098,13 +2107,13 @@ function HorizonTab(param) {
                                             placeholder: "e.g., Smith Insurance Agency"
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1146,
+                                            lineNumber: 1148,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 1144,
+                                    lineNumber: 1146,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2119,7 +2128,7 @@ function HorizonTab(param) {
                                                     children: "Full Agency"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1163,
+                                                    lineNumber: 1165,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2127,13 +2136,13 @@ function HorizonTab(param) {
                                                     children: "Complete acquisition"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1164,
+                                                    lineNumber: 1166,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1154,
+                                            lineNumber: 1156,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -2145,7 +2154,7 @@ function HorizonTab(param) {
                                                     children: "Book Only"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1175,
+                                                    lineNumber: 1177,
                                                     columnNumber: 17
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2153,25 +2162,25 @@ function HorizonTab(param) {
                                                     children: "Book of business"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1176,
+                                                    lineNumber: 1178,
                                                     columnNumber: 17
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1166,
+                                            lineNumber: 1168,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 1153,
+                                    lineNumber: 1155,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                            lineNumber: 1136,
+                            lineNumber: 1138,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2185,7 +2194,7 @@ function HorizonTab(param) {
                                             children: "2"
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1184,
+                                            lineNumber: 1186,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
@@ -2193,13 +2202,13 @@ function HorizonTab(param) {
                                             children: "Upload Client / Policy List"
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1187,
+                                            lineNumber: 1189,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 1183,
+                                    lineNumber: 1185,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -2213,7 +2222,7 @@ function HorizonTab(param) {
                                             className: "mx-auto mb-2 h-6 w-6 text-muted-foreground"
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1199,
+                                            lineNumber: 1201,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2221,7 +2230,7 @@ function HorizonTab(param) {
                                             children: policy.loaded ? "Loaded ".concat(policy.data.length, " policies") : "Upload Policy List (Excel / CSV)"
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1200,
+                                            lineNumber: 1202,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2229,13 +2238,13 @@ function HorizonTab(param) {
                                             children: policy.loaded ? "Total Premium: ".concat(formatCurrency(policy.stats.totalPrem)) : "System auto-maps columns"
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1205,
+                                            lineNumber: 1207,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 1190,
+                                    lineNumber: 1192,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -2246,7 +2255,7 @@ function HorizonTab(param) {
                                     onChange: handlePolicyUpload
                                 }, void 0, false, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 1211,
+                                    lineNumber: 1213,
                                     columnNumber: 13
                                 }, this),
                                 policy.loaded && policy.data.length > 0 && (()=>{
@@ -2262,7 +2271,7 @@ function HorizonTab(param) {
                                                         className: "h-4 w-4 text-muted-foreground"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 1226,
+                                                        lineNumber: 1228,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Input"], {
@@ -2275,13 +2284,13 @@ function HorizonTab(param) {
                                                         className: "h-9 text-sm"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 1227,
+                                                        lineNumber: 1229,
                                                         columnNumber: 21
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                lineNumber: 1225,
+                                                lineNumber: 1227,
                                                 columnNumber: 19
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2297,7 +2306,7 @@ function HorizonTab(param) {
                                                                         children: "Use"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                        lineNumber: 1238,
+                                                                        lineNumber: 1240,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     policy.headers.slice(0, 6).map((h, i)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -2305,18 +2314,18 @@ function HorizonTab(param) {
                                                                             children: h
                                                                         }, i, false, {
                                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                            lineNumber: 1242,
+                                                                            lineNumber: 1244,
                                                                             columnNumber: 29
                                                                         }, this))
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1237,
+                                                                lineNumber: 1239,
                                                                 columnNumber: 25
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 1236,
+                                                            lineNumber: 1238,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("tbody", {
@@ -2342,12 +2351,12 @@ function HorizonTab(param) {
                                                                                 }
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                                lineNumber: 1265,
+                                                                                lineNumber: 1267,
                                                                                 columnNumber: 33
                                                                             }, this)
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                            lineNumber: 1264,
+                                                                            lineNumber: 1266,
                                                                             columnNumber: 31
                                                                         }, this),
                                                                         row.slice(0, 6).map((cell, ci)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -2355,30 +2364,30 @@ function HorizonTab(param) {
                                                                                 children: cell || ""
                                                                             }, ci, false, {
                                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                                lineNumber: 1280,
+                                                                                lineNumber: 1282,
                                                                                 columnNumber: 33
                                                                             }, this))
                                                                     ]
                                                                 }, origIdx, true, {
                                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                    lineNumber: 1256,
+                                                                    lineNumber: 1258,
                                                                     columnNumber: 29
                                                                 }, this);
                                                             })
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 1251,
+                                                            lineNumber: 1253,
                                                             columnNumber: 23
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1235,
+                                                    lineNumber: 1237,
                                                     columnNumber: 21
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                lineNumber: 1234,
+                                                lineNumber: 1236,
                                                 columnNumber: 19
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2396,7 +2405,7 @@ function HorizonTab(param) {
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 1295,
+                                                        lineNumber: 1297,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2413,14 +2422,14 @@ function HorizonTab(param) {
                                                                         className: "h-3.5 w-3.5"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                        lineNumber: 1306,
+                                                                        lineNumber: 1308,
                                                                         columnNumber: 25
                                                                     }, this),
                                                                     "Prev"
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1299,
+                                                                lineNumber: 1301,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2432,7 +2441,7 @@ function HorizonTab(param) {
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1309,
+                                                                lineNumber: 1311,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -2447,38 +2456,38 @@ function HorizonTab(param) {
                                                                         className: "h-3.5 w-3.5"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                        lineNumber: 1320,
+                                                                        lineNumber: 1322,
                                                                         columnNumber: 25
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1312,
+                                                                lineNumber: 1314,
                                                                 columnNumber: 23
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 1298,
+                                                        lineNumber: 1300,
                                                         columnNumber: 21
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                lineNumber: 1294,
+                                                lineNumber: 1296,
                                                 columnNumber: 19
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                        lineNumber: 1224,
+                                        lineNumber: 1226,
                                         columnNumber: 17
                                     }, this);
                                 })()
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                            lineNumber: 1182,
+                            lineNumber: 1184,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2492,7 +2501,7 @@ function HorizonTab(param) {
                                             children: "3"
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1332,
+                                            lineNumber: 1334,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
@@ -2500,13 +2509,13 @@ function HorizonTab(param) {
                                             children: "Upload Commission Statements"
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1335,
+                                            lineNumber: 1337,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 1331,
+                                    lineNumber: 1333,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -2520,7 +2529,7 @@ function HorizonTab(param) {
                                             className: "mx-auto mb-2 h-6 w-6 text-muted-foreground"
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1349,
+                                            lineNumber: 1351,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2528,7 +2537,7 @@ function HorizonTab(param) {
                                             children: comm.loaded ? "".concat(Object.keys(comm.files).length, " files uploaded") : "Upload Commission Statements (PDF / Excel)"
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1350,
+                                            lineNumber: 1352,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2536,13 +2545,13 @@ function HorizonTab(param) {
                                             children: comm.loaded ? "".concat(comm.data.length, " records parsed") : "System scans PDFs and auto-detects dates"
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1355,
+                                            lineNumber: 1357,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 1340,
+                                    lineNumber: 1342,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -2554,7 +2563,7 @@ function HorizonTab(param) {
                                     onChange: handleCommUpload
                                 }, void 0, false, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 1361,
+                                    lineNumber: 1363,
                                     columnNumber: 13
                                 }, this),
                                 comm.loaded && comm.data.length > 0 && (()=>{
@@ -2576,7 +2585,7 @@ function HorizonTab(param) {
                                                         children: "Parse Verification"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 1378,
+                                                        lineNumber: 1380,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2587,13 +2596,13 @@ function HorizonTab(param) {
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 1379,
+                                                        lineNumber: 1381,
                                                         columnNumber: 21
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                lineNumber: 1377,
+                                                lineNumber: 1379,
                                                 columnNumber: 19
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2610,7 +2619,7 @@ function HorizonTab(param) {
                                                                         children: "Conf"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                        lineNumber: 1390,
+                                                                        lineNumber: 1392,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -2618,7 +2627,7 @@ function HorizonTab(param) {
                                                                         children: "Policy #"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                        lineNumber: 1391,
+                                                                        lineNumber: 1393,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -2626,7 +2635,7 @@ function HorizonTab(param) {
                                                                         children: "Client"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                        lineNumber: 1392,
+                                                                        lineNumber: 1394,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -2634,7 +2643,7 @@ function HorizonTab(param) {
                                                                         children: "Carrier"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                        lineNumber: 1393,
+                                                                        lineNumber: 1395,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -2642,7 +2651,7 @@ function HorizonTab(param) {
                                                                         children: "LOB"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                        lineNumber: 1394,
+                                                                        lineNumber: 1396,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -2650,7 +2659,7 @@ function HorizonTab(param) {
                                                                         children: "TRX"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                        lineNumber: 1395,
+                                                                        lineNumber: 1397,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -2658,7 +2667,7 @@ function HorizonTab(param) {
                                                                         children: "Premium"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                        lineNumber: 1396,
+                                                                        lineNumber: 1398,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -2666,18 +2675,18 @@ function HorizonTab(param) {
                                                                         children: "Split Comm"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                        lineNumber: 1397,
+                                                                        lineNumber: 1399,
                                                                         columnNumber: 27
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1389,
+                                                                lineNumber: 1391,
                                                                 columnNumber: 25
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 1388,
+                                                            lineNumber: 1390,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("tbody", {
@@ -2696,12 +2705,12 @@ function HorizonTab(param) {
                                                                                 children: (_row_confidence_score = (_row_confidence2 = row.confidence) === null || _row_confidence2 === void 0 ? void 0 : _row_confidence2.score) !== null && _row_confidence_score !== void 0 ? _row_confidence_score : "?"
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                                lineNumber: 1404,
+                                                                                lineNumber: 1406,
                                                                                 columnNumber: 31
                                                                             }, this)
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                            lineNumber: 1403,
+                                                                            lineNumber: 1405,
                                                                             columnNumber: 29
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -2711,12 +2720,12 @@ function HorizonTab(param) {
                                                                                 children: "MISSING"
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                                lineNumber: 1413,
+                                                                                lineNumber: 1415,
                                                                                 columnNumber: 105
                                                                             }, this)
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                            lineNumber: 1413,
+                                                                            lineNumber: 1415,
                                                                             columnNumber: 29
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -2724,7 +2733,7 @@ function HorizonTab(param) {
                                                                             children: row.client_name || "—"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                            lineNumber: 1414,
+                                                                            lineNumber: 1416,
                                                                             columnNumber: 29
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -2732,7 +2741,7 @@ function HorizonTab(param) {
                                                                             children: row.carrier || "—"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                            lineNumber: 1415,
+                                                                            lineNumber: 1417,
                                                                             columnNumber: 29
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -2740,7 +2749,7 @@ function HorizonTab(param) {
                                                                             children: row.lob || "—"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                            lineNumber: 1416,
+                                                                            lineNumber: 1418,
                                                                             columnNumber: 29
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -2748,7 +2757,7 @@ function HorizonTab(param) {
                                                                             children: row.trans_type || "—"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                            lineNumber: 1417,
+                                                                            lineNumber: 1419,
                                                                             columnNumber: 29
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -2756,7 +2765,7 @@ function HorizonTab(param) {
                                                                             children: row.premium > 0 ? formatCurrency(row.premium) : "—"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                            lineNumber: 1418,
+                                                                            lineNumber: 1420,
                                                                             columnNumber: 29
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -2764,30 +2773,30 @@ function HorizonTab(param) {
                                                                             children: formatCurrency(row.commission)
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                            lineNumber: 1419,
+                                                                            lineNumber: 1421,
                                                                             columnNumber: 29
                                                                         }, this)
                                                                     ]
                                                                 }, row.id, true, {
                                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                    lineNumber: 1402,
+                                                                    lineNumber: 1404,
                                                                     columnNumber: 27
                                                                 }, this);
                                                             })
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 1400,
+                                                            lineNumber: 1402,
                                                             columnNumber: 23
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1387,
+                                                    lineNumber: 1389,
                                                     columnNumber: 21
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                lineNumber: 1386,
+                                                lineNumber: 1388,
                                                 columnNumber: 19
                                             }, this),
                                             comm.data.length > 8 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2805,19 +2814,19 @@ function HorizonTab(param) {
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 1434,
+                                                        lineNumber: 1436,
                                                         columnNumber: 25
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                lineNumber: 1431,
+                                                lineNumber: 1433,
                                                 columnNumber: 21
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                        lineNumber: 1376,
+                                        lineNumber: 1378,
                                         columnNumber: 17
                                     }, this);
                                 })(),
@@ -2829,7 +2838,7 @@ function HorizonTab(param) {
                                             children: "Uploaded Commission Files (click to filter):"
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1445,
+                                            lineNumber: 1447,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -2843,7 +2852,7 @@ function HorizonTab(param) {
                                                     children: "All Files"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1455,
+                                                    lineNumber: 1457,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2851,13 +2860,13 @@ function HorizonTab(param) {
                                                     children: formatCurrency(Object.values(comm.files).reduce((s, t)=>s + t, 0))
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1456,
+                                                    lineNumber: 1458,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1448,
+                                            lineNumber: 1450,
                                             columnNumber: 17
                                         }, this),
                                         Object.entries(comm.files).map((param)=>{
@@ -2874,7 +2883,7 @@ function HorizonTab(param) {
                                                         children: fname
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 1467,
+                                                        lineNumber: 1469,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2882,20 +2891,20 @@ function HorizonTab(param) {
                                                         children: formatCurrency(total)
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 1468,
+                                                        lineNumber: 1470,
                                                         columnNumber: 21
                                                     }, this)
                                                 ]
                                             }, fname, true, {
                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                lineNumber: 1459,
+                                                lineNumber: 1461,
                                                 columnNumber: 19
                                             }, this);
                                         })
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 1444,
+                                    lineNumber: 1446,
                                     columnNumber: 15
                                 }, this),
                                 comm.loaded && comm.data.length > 0 && policy.loaded && (()=>{
@@ -2965,7 +2974,7 @@ function HorizonTab(param) {
                                                         className: "h-4 w-4 text-primary"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 1537,
+                                                        lineNumber: 1539,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2973,13 +2982,13 @@ function HorizonTab(param) {
                                                         children: "Book Analytics"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 1538,
+                                                        lineNumber: 1540,
                                                         columnNumber: 21
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                lineNumber: 1536,
+                                                lineNumber: 1538,
                                                 columnNumber: 19
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2993,7 +3002,7 @@ function HorizonTab(param) {
                                                                 children: matchedPolicies
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1542,
+                                                                lineNumber: 1544,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3001,13 +3010,13 @@ function HorizonTab(param) {
                                                                 children: "Matched Policies"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1543,
+                                                                lineNumber: 1545,
                                                                 columnNumber: 23
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 1541,
+                                                        lineNumber: 1543,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3018,7 +3027,7 @@ function HorizonTab(param) {
                                                                 children: unmatchedPolicies
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1546,
+                                                                lineNumber: 1548,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3026,13 +3035,13 @@ function HorizonTab(param) {
                                                                 children: "Unmatched Policies"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1547,
+                                                                lineNumber: 1549,
                                                                 columnNumber: 23
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 1545,
+                                                        lineNumber: 1547,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3046,7 +3055,7 @@ function HorizonTab(param) {
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1550,
+                                                                lineNumber: 1552,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3054,13 +3063,13 @@ function HorizonTab(param) {
                                                                 children: "Match Rate"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1551,
+                                                                lineNumber: 1553,
                                                                 columnNumber: 23
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 1549,
+                                                        lineNumber: 1551,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3072,7 +3081,7 @@ function HorizonTab(param) {
                                                                 children: retentionRate > 0 ? retentionRate.toFixed(1) + "%" : "N/A"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1554,
+                                                                lineNumber: 1556,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3080,13 +3089,13 @@ function HorizonTab(param) {
                                                                 children: "Retention Rate"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1555,
+                                                                lineNumber: 1557,
                                                                 columnNumber: 23
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 1553,
+                                                        lineNumber: 1555,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3098,7 +3107,7 @@ function HorizonTab(param) {
                                                                 children: newPolicyRate > 0 ? newPolicyRate.toFixed(1) + "%" : "N/A"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1558,
+                                                                lineNumber: 1560,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3106,13 +3115,13 @@ function HorizonTab(param) {
                                                                 children: "New Policy Rate"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1559,
+                                                                lineNumber: 1561,
                                                                 columnNumber: 23
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 1557,
+                                                        lineNumber: 1559,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3123,7 +3132,7 @@ function HorizonTab(param) {
                                                                 children: formatCurrency(matchedCommTotal)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1562,
+                                                                lineNumber: 1564,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3131,19 +3140,19 @@ function HorizonTab(param) {
                                                                 children: "Matched Comm $"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1563,
+                                                                lineNumber: 1565,
                                                                 columnNumber: 23
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 1561,
+                                                        lineNumber: 1563,
                                                         columnNumber: 21
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                lineNumber: 1540,
+                                                lineNumber: 1542,
                                                 columnNumber: 19
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3157,7 +3166,7 @@ function HorizonTab(param) {
                                                                 children: formatCurrency(totalCommission)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1568,
+                                                                lineNumber: 1570,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3165,13 +3174,13 @@ function HorizonTab(param) {
                                                                 children: "Total Commission"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1569,
+                                                                lineNumber: 1571,
                                                                 columnNumber: 23
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 1567,
+                                                        lineNumber: 1569,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3182,7 +3191,7 @@ function HorizonTab(param) {
                                                                 children: formatCurrency(unmatchedCommTotal)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1572,
+                                                                lineNumber: 1574,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3190,13 +3199,13 @@ function HorizonTab(param) {
                                                                 children: "Unmatched Comm $"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1573,
+                                                                lineNumber: 1575,
                                                                 columnNumber: 23
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 1571,
+                                                        lineNumber: 1573,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3207,7 +3216,7 @@ function HorizonTab(param) {
                                                                 children: formatCurrency(totalPrem)
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1576,
+                                                                lineNumber: 1578,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3215,13 +3224,13 @@ function HorizonTab(param) {
                                                                 children: "Total Premium"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1577,
+                                                                lineNumber: 1579,
                                                                 columnNumber: 23
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 1575,
+                                                        lineNumber: 1577,
                                                         columnNumber: 21
                                                     }, this),
                                                     (()=>{
@@ -3242,7 +3251,7 @@ function HorizonTab(param) {
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                    lineNumber: 1586,
+                                                                    lineNumber: 1588,
                                                                     columnNumber: 27
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3250,26 +3259,26 @@ function HorizonTab(param) {
                                                                     children: "Avg Parse Confidence"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                    lineNumber: 1587,
+                                                                    lineNumber: 1589,
                                                                     columnNumber: 27
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 1585,
+                                                            lineNumber: 1587,
                                                             columnNumber: 25
                                                         }, this);
                                                     })()
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                lineNumber: 1566,
+                                                lineNumber: 1568,
                                                 columnNumber: 19
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                        lineNumber: 1535,
+                                        lineNumber: 1537,
                                         columnNumber: 17
                                     }, this);
                                 })(),
@@ -3304,12 +3313,12 @@ function HorizonTab(param) {
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1619,
+                                                    lineNumber: 1621,
                                                     columnNumber: 21
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                lineNumber: 1618,
+                                                lineNumber: 1620,
                                                 columnNumber: 19
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3325,7 +3334,7 @@ function HorizonTab(param) {
                                                                         children: "Match"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                        lineNumber: 1628,
+                                                                        lineNumber: 1630,
                                                                         columnNumber: 29
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -3333,7 +3342,7 @@ function HorizonTab(param) {
                                                                         children: "Conf"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                        lineNumber: 1630,
+                                                                        lineNumber: 1632,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -3341,7 +3350,7 @@ function HorizonTab(param) {
                                                                         children: "Policy #"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                        lineNumber: 1631,
+                                                                        lineNumber: 1633,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -3349,7 +3358,7 @@ function HorizonTab(param) {
                                                                         children: "Client"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                        lineNumber: 1632,
+                                                                        lineNumber: 1634,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -3357,7 +3366,7 @@ function HorizonTab(param) {
                                                                         children: "Commission"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                        lineNumber: 1633,
+                                                                        lineNumber: 1635,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -3365,7 +3374,7 @@ function HorizonTab(param) {
                                                                         children: "Premium"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                        lineNumber: 1634,
+                                                                        lineNumber: 1636,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -3373,7 +3382,7 @@ function HorizonTab(param) {
                                                                         children: "Month"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                        lineNumber: 1635,
+                                                                        lineNumber: 1637,
                                                                         columnNumber: 27
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("th", {
@@ -3381,18 +3390,18 @@ function HorizonTab(param) {
                                                                         children: "File"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                        lineNumber: 1636,
+                                                                        lineNumber: 1638,
                                                                         columnNumber: 27
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1626,
+                                                                lineNumber: 1628,
                                                                 columnNumber: 25
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 1625,
+                                                            lineNumber: 1627,
                                                             columnNumber: 23
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("tbody", {
@@ -3410,19 +3419,19 @@ function HorizonTab(param) {
                                                                                 children: "Yes"
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                                lineNumber: 1650,
+                                                                                lineNumber: 1652,
                                                                                 columnNumber: 39
                                                                             }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                                                 className: "text-muted-foreground",
                                                                                 children: "No"
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                                lineNumber: 1651,
+                                                                                lineNumber: 1653,
                                                                                 columnNumber: 39
                                                                             }, this)
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                            lineNumber: 1648,
+                                                                            lineNumber: 1650,
                                                                             columnNumber: 33
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -3433,12 +3442,12 @@ function HorizonTab(param) {
                                                                                 children: (_c_confidence_score = (_c_confidence3 = c.confidence) === null || _c_confidence3 === void 0 ? void 0 : _c_confidence3.score) !== null && _c_confidence_score !== void 0 ? _c_confidence_score : "?"
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                                lineNumber: 1656,
+                                                                                lineNumber: 1658,
                                                                                 columnNumber: 33
                                                                             }, this)
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                            lineNumber: 1655,
+                                                                            lineNumber: 1657,
                                                                             columnNumber: 31
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -3446,7 +3455,7 @@ function HorizonTab(param) {
                                                                             children: c.policy_number
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                            lineNumber: 1665,
+                                                                            lineNumber: 1667,
                                                                             columnNumber: 31
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -3454,7 +3463,7 @@ function HorizonTab(param) {
                                                                             children: c.client_name || "-"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                            lineNumber: 1666,
+                                                                            lineNumber: 1668,
                                                                             columnNumber: 31
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -3462,7 +3471,7 @@ function HorizonTab(param) {
                                                                             children: formatCurrency(c.commission)
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                            lineNumber: 1667,
+                                                                            lineNumber: 1669,
                                                                             columnNumber: 31
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -3470,7 +3479,7 @@ function HorizonTab(param) {
                                                                             children: c.premium > 0 ? formatCurrency(c.premium) : "-"
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                            lineNumber: 1670,
+                                                                            lineNumber: 1672,
                                                                             columnNumber: 31
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -3478,7 +3487,7 @@ function HorizonTab(param) {
                                                                             children: c.month
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                            lineNumber: 1673,
+                                                                            lineNumber: 1675,
                                                                             columnNumber: 31
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("td", {
@@ -3486,30 +3495,30 @@ function HorizonTab(param) {
                                                                             children: c.file
                                                                         }, void 0, false, {
                                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                            lineNumber: 1674,
+                                                                            lineNumber: 1676,
                                                                             columnNumber: 31
                                                                         }, this)
                                                                     ]
                                                                 }, c.id, true, {
                                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                    lineNumber: 1643,
+                                                                    lineNumber: 1645,
                                                                     columnNumber: 29
                                                                 }, this);
                                                             })
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                            lineNumber: 1639,
+                                                            lineNumber: 1641,
                                                             columnNumber: 23
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1624,
+                                                    lineNumber: 1626,
                                                     columnNumber: 21
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                lineNumber: 1623,
+                                                lineNumber: 1625,
                                                 columnNumber: 19
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3527,7 +3536,7 @@ function HorizonTab(param) {
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 1683,
+                                                        lineNumber: 1685,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3544,14 +3553,14 @@ function HorizonTab(param) {
                                                                         className: "h-3.5 w-3.5"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                        lineNumber: 1694,
+                                                                        lineNumber: 1696,
                                                                         columnNumber: 25
                                                                     }, this),
                                                                     "Prev"
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1687,
+                                                                lineNumber: 1689,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -3563,7 +3572,7 @@ function HorizonTab(param) {
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1697,
+                                                                lineNumber: 1699,
                                                                 columnNumber: 23
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -3578,31 +3587,31 @@ function HorizonTab(param) {
                                                                         className: "h-3.5 w-3.5"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                        lineNumber: 1708,
+                                                                        lineNumber: 1710,
                                                                         columnNumber: 25
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                                lineNumber: 1700,
+                                                                lineNumber: 1702,
                                                                 columnNumber: 23
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                        lineNumber: 1686,
+                                                        lineNumber: 1688,
                                                         columnNumber: 21
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                lineNumber: 1682,
+                                                lineNumber: 1684,
                                                 columnNumber: 19
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/admin/horizon-tab.tsx",
-                                        lineNumber: 1617,
+                                        lineNumber: 1619,
                                         columnNumber: 17
                                     }, this);
                                 })(),
@@ -3612,18 +3621,18 @@ function HorizonTab(param) {
                                             children: msg
                                         }, i, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1719,
+                                            lineNumber: 1721,
                                             columnNumber: 17
                                         }, this))
                                 }, void 0, false, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 1717,
+                                    lineNumber: 1719,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                            lineNumber: 1330,
+                            lineNumber: 1332,
                             columnNumber: 11
                         }, this),
                         dealType === "full" && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3637,7 +3646,7 @@ function HorizonTab(param) {
                                             children: "4"
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1728,
+                                            lineNumber: 1730,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
@@ -3645,13 +3654,13 @@ function HorizonTab(param) {
                                             children: "Financials & EBITDA"
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1731,
+                                            lineNumber: 1733,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 1727,
+                                    lineNumber: 1729,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3659,7 +3668,7 @@ function HorizonTab(param) {
                                     children: "Enter T12 financial data. Revenue field auto-fills from verified data."
                                 }, void 0, false, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 1733,
+                                    lineNumber: 1735,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3672,7 +3681,7 @@ function HorizonTab(param) {
                                                     children: "Base Revenue ($)"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1739,
+                                                    lineNumber: 1741,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$smart$2d$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SmartInput"], {
@@ -3682,7 +3691,7 @@ function HorizonTab(param) {
                                                     placeholder: "0.00"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1742,
+                                                    lineNumber: 1744,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3690,13 +3699,13 @@ function HorizonTab(param) {
                                                     children: "Auto-filled from files, can edit."
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1748,
+                                                    lineNumber: 1750,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1738,
+                                            lineNumber: 1740,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3706,7 +3715,7 @@ function HorizonTab(param) {
                                                     children: "Annual Operating Expenses"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1753,
+                                                    lineNumber: 1755,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$smart$2d$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SmartInput"], {
@@ -3716,13 +3725,13 @@ function HorizonTab(param) {
                                                     placeholder: "0.00"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1756,
+                                                    lineNumber: 1758,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1752,
+                                            lineNumber: 1754,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3732,7 +3741,7 @@ function HorizonTab(param) {
                                                     children: "Owner's Compensation (Add-back)"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1764,
+                                                    lineNumber: 1766,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$smart$2d$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SmartInput"], {
@@ -3742,13 +3751,13 @@ function HorizonTab(param) {
                                                     placeholder: "0.00"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1767,
+                                                    lineNumber: 1769,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1763,
+                                            lineNumber: 1765,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3758,7 +3767,7 @@ function HorizonTab(param) {
                                                     children: "One-Time / Non-Recurring (Add-back)"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1775,
+                                                    lineNumber: 1777,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$smart$2d$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SmartInput"], {
@@ -3768,19 +3777,19 @@ function HorizonTab(param) {
                                                     placeholder: "0.00"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                                    lineNumber: 1778,
+                                                    lineNumber: 1780,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1774,
+                                            lineNumber: 1776,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 1737,
+                                    lineNumber: 1739,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3791,7 +3800,7 @@ function HorizonTab(param) {
                                             children: "Adjusted EBITDA (T12)"
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1788,
+                                            lineNumber: 1790,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3799,19 +3808,19 @@ function HorizonTab(param) {
                                             children: formatCurrency(ebitda)
                                         }, void 0, false, {
                                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                                            lineNumber: 1791,
+                                            lineNumber: 1793,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 1787,
+                                    lineNumber: 1789,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                            lineNumber: 1726,
+                            lineNumber: 1728,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$admin$2f$valuation$2d$report$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ValuationReport"], {
@@ -3825,7 +3834,7 @@ function HorizonTab(param) {
                             onFactorCarrierChange: setFactorCarrier
                         }, void 0, false, {
                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                            lineNumber: 1804,
+                            lineNumber: 1806,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3838,7 +3847,7 @@ function HorizonTab(param) {
                                     children: saving ? "Saving..." : "Save Valuation"
                                 }, void 0, false, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 1817,
+                                    lineNumber: 1819,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -3847,30 +3856,30 @@ function HorizonTab(param) {
                                     children: "Cancel"
                                 }, void 0, false, {
                                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                                    lineNumber: 1820,
+                                    lineNumber: 1822,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/admin/horizon-tab.tsx",
-                            lineNumber: 1816,
+                            lineNumber: 1818,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/components/admin/horizon-tab.tsx",
-                    lineNumber: 1134,
+                    lineNumber: 1136,
                     columnNumber: 9
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/components/admin/horizon-tab.tsx",
-                lineNumber: 1133,
+                lineNumber: 1135,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/components/admin/horizon-tab.tsx",
-        lineNumber: 1122,
+        lineNumber: 1124,
         columnNumber: 5
     }, this);
 }

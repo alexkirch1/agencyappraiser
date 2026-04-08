@@ -5,7 +5,7 @@
   "/api/admin/overview/route": "app/api/admin/overview/route.js",
   "/api/auth/me/route": "app/api/auth/me/route.js",
   "/api/completed-deal/route": "app/api/completed-deal/route.js",
-  "/api/parse-carrier-report/route": "app/api/parse-carrier-report/route.js",
+  "/api/market-data/stats/route": "app/api/market-data/stats/route.js",
   "/carrier/page": "app/carrier/page.js",
   "/page": "app/page.js"
 }

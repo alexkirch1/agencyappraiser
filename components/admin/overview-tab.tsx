@@ -179,6 +179,7 @@ function Skeleton({ className }: { className?: string }) {
 function getNextStatus(current: Deal["status"]): Deal["status"] {
   if (current === "active") return "completed"
   if (current === "completed") return "declined"
+  if (current === "declined") return "test"
   return "active"
 }
 
@@ -186,6 +187,7 @@ const STATUS_STYLE: Record<Deal["status"], string> = {
   active: "bg-secondary text-muted-foreground",
   completed: "bg-emerald-100 text-emerald-700 border border-emerald-300 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800",
   declined: "bg-red-100 text-red-700 border border-red-300 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800",
+  test: "bg-slate-100 text-slate-600 border border-slate-300 dark:bg-slate-900/20 dark:text-slate-400 dark:border-slate-700",
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -200,8 +202,11 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
   const funnelMax = funnel?.leads ?? 1
 
   // Horizon pipeline stats (localStorage)
+  // Only "active" deals count in pipeline - completed/declined/test are history
   const activeDeals = deals.filter((d) => d.status === "active")
   const completedDeals = deals.filter((d) => d.status === "completed")
+  const testDeals = deals.filter((d) => d.status === "test")
+  const totalSubmissions = deals.filter((d) => d.status !== "test").length
   const pipelineValue = activeDeals.reduce((sum, d) => sum + d.valuation, 0)
 
   return (
@@ -427,6 +432,7 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span><span className="font-bold text-foreground">{activeDeals.length}</span> active</span>
             <span><span className="font-bold text-emerald-500">{completedDeals.length}</span> closed</span>
+            <span><span className="font-bold text-muted-foreground">{totalSubmissions}</span> submissions</span>
             <span className="font-bold text-primary">{fmtDollars(pipelineValue)}</span>
           </div>
         </div>
