@@ -459,7 +459,16 @@ export default function QuickValuePage() {
                         of your agency than this estimate alone can show.
                       </p>
                       <Button asChild size="sm" variant="outline" className="w-full mt-2 gap-1.5 text-xs">
-                        <Link href={`/calculator${revenue ? `?rev=${revenue}` : ""}`}>
+                        <Link href={(() => {
+                          const params = new URLSearchParams()
+                          if (revenue) params.set("rev", revenue.toString())
+                          if (retention) params.set("retention", retention)
+                          if (bookType) params.set("bookType", bookType)
+                          if (growth) params.set("growth", growth)
+                          if (customers) params.set("customers", customers.toString())
+                          if (policies) params.set("policies", policies.toString())
+                          return `/calculator?${params.toString()}`
+                        })()}>
                           Run Full Valuation <ArrowRight className="h-3 w-3" />
                         </Link>
                       </Button>
@@ -535,7 +544,16 @@ export default function QuickValuePage() {
                       </p>
                     </div>
                     <Button asChild className="w-full gap-2" size="sm">
-                      <Link href={`/calculator${revenue ? `?rev=${revenue}` : ""}`}>
+                      <Link href={(() => {
+                        const params = new URLSearchParams()
+                        if (revenue) params.set("rev", revenue.toString())
+                        if (retention) params.set("retention", retention)
+                        if (bookType) params.set("bookType", bookType)
+                        if (growth) params.set("growth", growth)
+                        if (customers) params.set("customers", customers.toString())
+                        if (policies) params.set("policies", policies.toString())
+                        return `/calculator?${params.toString()}`
+                      })()}>
                         Detailed Valuation <ArrowRight className="h-4 w-4" />
                       </Link>
                     </Button>
