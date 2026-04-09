@@ -529,8 +529,11 @@ export function calculateCarrierValuation(inputs: CarrierInputs): CarrierResults
     const renewalCount    = inputs.hoa_renewal_count      ?? 0
     const cancelCount     = inputs.hoa_cancel_count       ?? 0
 
-    // Use total written premium as base
-    basePremium = totalPremium > 0 ? totalPremium : (newPremium + renewalPremium - cancelPremium)
+    // Convert written premium to agency revenue (commission)
+    // Homeowners commission typically 8-14%, use 10% conservative estimate
+    const commissionRate = 0.10
+    const totalPremiumBase = totalPremium > 0 ? totalPremium : (newPremium + renewalPremium - cancelPremium)
+    basePremium = totalPremiumBase * commissionRate
 
     finalMultiple = 1.4  // Personal lines homeowners base
 
@@ -556,10 +559,10 @@ export function calculateCarrierValuation(inputs: CarrierInputs): CarrierResults
     else if (totalPolicies >= 250)  finalMultiple += 0.05
     else if (totalPolicies < 50)    finalMultiple -= 0.05
 
-    // Premium volume
-    if (basePremium >= 2_000_000)      finalMultiple += 0.10
-    else if (basePremium >= 1_000_000) finalMultiple += 0.06
-    else if (basePremium >= 500_000)   finalMultiple += 0.03
+    // Agency revenue volume tiers (basePremium is now commission revenue, ~10% of written premium)
+    if (basePremium >= 200_000)      finalMultiple += 0.10  // $2M+ written premium
+    else if (basePremium >= 100_000) finalMultiple += 0.06  // $1M+ written premium
+    else if (basePremium >= 50_000)  finalMultiple += 0.03  // $500k+ written premium
   }
 
   // -------------------------------------------------------
