@@ -147,12 +147,6 @@ const carriers: { value: CarrierName; label: string; description: string }[] = [
 ]
 
 const comingSoonCarriers: string[] = [
-  "Coterie",
-  "Foremost - Bristol West",
-  "Foremost Choice / Specialty",
-  "Gainsco",
-  "Geico",
-  "Hagerty",
   "Homeowners of America",
   "Johnson & Johnson",
   "Kemper Infinity",
