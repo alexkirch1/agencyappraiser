@@ -2,7 +2,7 @@
 // Carrier Valuation Engine — Travelers, Progressive, Hartford
 // =====================================================
 
-export type CarrierName = "progressive" | "travelers" | "hartford" | "safeco" | "berkshire" | "libertymutual" | "employers"
+export type CarrierName = "progressive" | "travelers" | "hartford" | "safeco" | "berkshire" | "libertymutual" | "employers" | "hoa"
 export type BookType = "personal" | "commercial" | "both" | "auto" | "home"
 
 export interface CarrierInputs {
@@ -91,6 +91,16 @@ export interface CarrierInputs {
   emp_earned_premium_ytd: number | null   // Total earned premium YTD ($)
   emp_policy_count: number | null         // Total active policy count
   emp_loss_ratio: number | null           // Active book loss ratio (%)
+
+  // ---- Homeowners of America (Personal Lines Homeowners) ----
+  // Source: Producer Production Report (last 12 months)
+  hoa_new_policy_count: number | null       // New Policy count
+  hoa_new_policy_premium: number | null     // New Policy premium ($)
+  hoa_renewal_count: number | null          // Renewal Policy count
+  hoa_renewal_premium: number | null        // Renewal Policy premium ($)
+  hoa_cancel_count: number | null           // Cancel count
+  hoa_cancel_premium: number | null         // Cancel premium (negative $)
+  hoa_total_premium: number | null          // Total written premium ($) — sum of all rows
 
   // ---- Book Quality (all carriers) — sourced from commission statements / active policy list ----
 
@@ -502,6 +512,51 @@ export function calculateCarrierValuation(inputs: CarrierInputs): CarrierResults
     }
 
     // Volume tiers
+    if (basePremium >= 2_000_000)      finalMultiple += 0.10
+    else if (basePremium >= 1_000_000) finalMultiple += 0.06
+    else if (basePremium >= 500_000)   finalMultiple += 0.03
+  }
+
+  // -------------------------------------------------------
+  // Homeowners of America (Personal Lines Homeowners)
+  // -------------------------------------------------------
+  else if (carrier === "hoa") {
+    const totalPremium    = inputs.hoa_total_premium      ?? 0
+    const newPremium      = inputs.hoa_new_policy_premium ?? 0
+    const renewalPremium  = inputs.hoa_renewal_premium    ?? 0
+    const cancelPremium   = Math.abs(inputs.hoa_cancel_premium ?? 0)
+    const newCount        = inputs.hoa_new_policy_count   ?? 0
+    const renewalCount    = inputs.hoa_renewal_count      ?? 0
+    const cancelCount     = inputs.hoa_cancel_count       ?? 0
+
+    // Use total written premium as base
+    basePremium = totalPremium > 0 ? totalPremium : (newPremium + renewalPremium - cancelPremium)
+
+    finalMultiple = 1.4  // Personal lines homeowners base
+
+    // Retention proxy — renewal vs cancel ratio
+    const totalPolicies = newCount + renewalCount
+    if (totalPolicies > 0 && renewalCount > 0) {
+      const retentionProxy = renewalCount / (renewalCount + cancelCount)
+      if (retentionProxy >= 0.85)      finalMultiple += 0.15
+      else if (retentionProxy >= 0.75) finalMultiple += 0.08
+      else if (retentionProxy < 0.60)  finalMultiple -= 0.10
+    }
+
+    // New business growth indicator
+    if (newCount > 0 && renewalCount > 0) {
+      const newBizRatio = newCount / totalPolicies
+      if (newBizRatio >= 0.40)      finalMultiple += 0.08  // Strong growth
+      else if (newBizRatio >= 0.25) finalMultiple += 0.04
+      else if (newBizRatio < 0.15)  finalMultiple -= 0.05  // Stagnant
+    }
+
+    // Book size tiers
+    if (totalPolicies >= 500)       finalMultiple += 0.10
+    else if (totalPolicies >= 250)  finalMultiple += 0.05
+    else if (totalPolicies < 50)    finalMultiple -= 0.05
+
+    // Premium volume
     if (basePremium >= 2_000_000)      finalMultiple += 0.10
     else if (basePremium >= 1_000_000) finalMultiple += 0.06
     else if (basePremium >= 500_000)   finalMultiple += 0.03

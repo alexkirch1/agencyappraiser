@@ -144,10 +144,14 @@ const carriers: { value: CarrierName; label: string; description: string }[] = [
     label: "Employers",
     description: "Workers Compensation — Agency Summary Report",
   },
+  {
+    value: "hoa",
+    label: "Homeowners of America",
+    description: "Homeowners — Producer Production Report",
+  },
 ]
 
 const comingSoonCarriers: string[] = [
-  "Homeowners of America",
   "Johnson & Johnson",
   "Kemper Infinity",
   "Kemper Personal",
@@ -303,6 +307,9 @@ export function CarrierForm({ inputs, onChange }: Props) {
               {carrier === "employers" && (
                 <EmployersFields inputs={inputs} update={update} />
               )}
+              {carrier === "hoa" && (
+                <HOAFields inputs={inputs} update={update} />
+              )}
             </CardContent>
           </Card>
 
@@ -409,6 +416,8 @@ const defaultFieldReset: Partial<CarrierInputs> = {
   lm_loss_ratio_ytd: null, lm_loss_ratio_2yr: null,
   lm_premium_retention: null, lm_plif_renewal: null,
   emp_written_premium: null, emp_earned_premium_ytd: null, emp_policy_count: null, emp_loss_ratio: null,
+  hoa_new_policy_count: null, hoa_new_policy_premium: null, hoa_renewal_count: null, hoa_renewal_premium: null,
+  hoa_cancel_count: null, hoa_cancel_premium: null, hoa_total_premium: null,
   book_preferred_pct: null, book_policies_per_customer: null, book_avg_premium_per_policy: null,
   book_new_business_pct: null, book_monoline_pct: null, book_digital_docs_pct: null,
 }
@@ -448,6 +457,11 @@ function getBookTypeOptions(carrier: string) {
   if (carrier === "employers") {
     return [
       { value: "commercial", label: "Workers Compensation" },
+    ]
+  }
+  if (carrier === "hoa") {
+    return [
+      { value: "personal", label: "Homeowners" },
     ]
   }
   // Progressive
@@ -995,6 +1009,107 @@ function EmployersFields({
           type="percent"
           hint="Overall loss ratio from report footer — 0% is common for newer/clean books"
           benchmark={{ good: 65, poor: 95, direction: "lower-better", goodLabel: "Clean", poorLabel: "Elevated" }}
+        />
+      </div>
+    </div>
+  )
+}
+
+// -----------------------------------------------------------------------
+// Homeowners of America Fields
+// -----------------------------------------------------------------------
+function HOAFields({
+  inputs, update,
+}: { inputs: CarrierInputs; update: (p: Partial<CarrierInputs>) => void }) {
+  return (
+    <div className="flex flex-col gap-4 rounded-lg border border-border p-4">
+      <div>
+        <p className="text-sm font-semibold text-foreground">Producer Production Report (Last 12 Months)</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">Upload the report below or enter the figures manually from the report.</p>
+      </div>
+
+      {/* Step-by-step instructions */}
+      <div className="rounded-md border border-border bg-muted/40 p-3">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">How to get this report</p>
+        <ol className="flex flex-col gap-1.5">
+          {[
+            "Log in to your Homeowners of America agent portal",
+            "Navigate to Reports → Producer Production",
+            "Set the end date to today's date (current day)",
+            "Set the start date to exactly one year ago (same day, prior year)",
+            "Click \"PDF\" to download the report",
+            "Upload the PDF using the upload button above, or enter the totals manually below",
+          ].map((step, i) => (
+            <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+              <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                {i + 1}
+              </span>
+              <span>{step}</span>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-2 text-xs text-muted-foreground">
+          The <span className="font-mono font-medium text-foreground">Totals</span> row at the bottom contains the summary figures needed below.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <NumField
+          label="New Policy Count"
+          value={inputs.hoa_new_policy_count}
+          onChange={(v) => update({ hoa_new_policy_count: v })}
+          placeholder="e.g. 305"
+          type="number"
+          hint="Count from the 'New Policy' row"
+        />
+        <NumField
+          label="New Policy Premium ($)"
+          value={inputs.hoa_new_policy_premium}
+          onChange={(v) => update({ hoa_new_policy_premium: v })}
+          placeholder="e.g. 524,481"
+          type="currency"
+          hint="Premium from the 'New Policy' row"
+        />
+        <NumField
+          label="Renewal Policy Count"
+          value={inputs.hoa_renewal_count}
+          onChange={(v) => update({ hoa_renewal_count: v })}
+          placeholder="e.g. 259"
+          type="number"
+          hint="Count from the 'Renewal Policy' row"
+        />
+        <NumField
+          label="Renewal Policy Premium ($)"
+          value={inputs.hoa_renewal_premium}
+          onChange={(v) => update({ hoa_renewal_premium: v })}
+          placeholder="e.g. 654,671"
+          type="currency"
+          hint="Premium from the 'Renewal Policy' row"
+        />
+        <NumField
+          label="Cancel Count"
+          value={inputs.hoa_cancel_count}
+          onChange={(v) => update({ hoa_cancel_count: v })}
+          placeholder="e.g. 134"
+          type="number"
+          hint="Count from the 'Cancel' row"
+        />
+        <NumField
+          label="Cancel Premium ($)"
+          value={inputs.hoa_cancel_premium}
+          onChange={(v) => update({ hoa_cancel_premium: v })}
+          placeholder="e.g. -294,104"
+          type="currency"
+          hint="Premium from the 'Cancel' row (typically negative)"
+        />
+        <NumField
+          label="Total Written Premium ($)"
+          value={inputs.hoa_total_premium}
+          onChange={(v) => update({ hoa_total_premium: v })}
+          placeholder="e.g. 909,080"
+          type="currency"
+          hint="Total from the 'Totals' row — net written premium for the 12-month period"
+          benchmark={{ good: 1000000, poor: 100000, direction: "higher-better", goodLabel: "Strong Book", poorLabel: "Small Book" }}
         />
       </div>
     </div>

@@ -60,6 +60,7 @@ export function parseCarrierReport(
   if (carrier === "hartford")      return parseHartford(lines)
   if (carrier === "safeco")        return parseSafeco(lines)
   if (carrier === "employers")     return parseEmployers(lines)
+  if (carrier === "hoa")           return parseHOA(lines)
   return {}
 }
 
@@ -1089,6 +1090,58 @@ function parseEmployers(lines: string[]): Partial<CarrierInputs> {
       // Loss ratio — last percentage in the line
       const pctMatch = line.match(/([\d.]+)%\s*$/)
       if (pctMatch) result.emp_loss_ratio = parseFloat(pctMatch[1])
+    }
+  }
+
+  return result
+}
+
+// =====================================================
+// HOMEOWNERS OF AMERICA — Producer Production Report
+// =====================================================
+// Report format: Producer Production Report (last 12 months)
+// Rows: New Policy, Renewal Policy, Cancel, Reinstate, Pos Endorse, Neg Endorse
+// Columns: Change Type | Count | Premium
+// Totals row at bottom: "Totals | 802 | 909,080.00"
+function parseHOA(lines: string[]): Partial<CarrierInputs> {
+  const result: Partial<CarrierInputs> = {}
+
+  for (const line of lines) {
+    const lower = line.toLowerCase()
+
+    // New Policy row: "New Policy 305 524,481.00"
+    if (lower.includes("new policy") && !lower.includes("renewal")) {
+      const nums = numsFromToks(accountingTok(line))
+      if (nums.length >= 2) {
+        result.hoa_new_policy_count = nums[0]
+        result.hoa_new_policy_premium = nums[1]
+      }
+    }
+
+    // Renewal Policy row: "Renewal Policy 259 654,671.00"
+    if (lower.includes("renewal policy") || lower.includes("renewal")) {
+      const nums = numsFromToks(accountingTok(line))
+      if (nums.length >= 2) {
+        result.hoa_renewal_count = nums[0]
+        result.hoa_renewal_premium = nums[1]
+      }
+    }
+
+    // Cancel row: "Cancel 134 -294,104.00"
+    if (lower.includes("cancel") && !lower.includes("reinstate")) {
+      const nums = numsFromToks(accountingTok(line))
+      if (nums.length >= 2) {
+        result.hoa_cancel_count = nums[0]
+        result.hoa_cancel_premium = nums[1]  // Will be negative
+      }
+    }
+
+    // Totals row: "Totals 802 909,080.00"
+    if (lower.startsWith("totals") || lower === "totals") {
+      const nums = numsFromToks(accountingTok(line))
+      if (nums.length >= 2) {
+        result.hoa_total_premium = nums[nums.length - 1]  // Last number is total premium
+      }
     }
   }
 
