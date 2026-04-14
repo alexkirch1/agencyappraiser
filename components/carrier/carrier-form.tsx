@@ -152,17 +152,6 @@ const carriers: { value: CarrierName; label: string; description: string }[] = [
 ]
 
 const comingSoonCarriers: string[] = [
-  "Johnson & Johnson",
-  "Kemper Infinity",
-  "Kemper Personal",
-  "Kemper Specialty",
-  "Lemonade",
-
-  "Local Edge",
-  "Markel",
-  "Mendota",
-  "Mercury",
-  "Mile Auto",
   "National General (P&C)",
   "Nationwide",
   "Neptune Flood",
