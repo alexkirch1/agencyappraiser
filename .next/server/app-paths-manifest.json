@@ -1,4 +1,5 @@
 {
+  "/_not-found/page": "app/_not-found/page.js",
   "/api/admin/analytics/route": "app/api/admin/analytics/route.js",
   "/api/admin/auth/route": "app/api/admin/auth/route.js",
   "/api/admin/leads/route": "app/api/admin/leads/route.js",
@@ -6,7 +7,6 @@
   "/api/auth/login/route": "app/api/auth/login/route.js",
   "/api/auth/logout/route": "app/api/auth/logout/route.js",
   "/api/auth/me/route": "app/api/auth/me/route.js",
-  "/_not-found/page": "app/_not-found/page.js",
   "/api/auth/register/route": "app/api/auth/register/route.js",
   "/api/completed-deal/route": "app/api/completed-deal/route.js",
   "/api/market-data/stats/route": "app/api/market-data/stats/route.js",
@@ -19,8 +19,8 @@
   "/api/submit-lead/route": "app/api/submit-lead/route.js",
   "/api/valuations/route": "app/api/valuations/route.js",
   "/api/admin/archived-carriers/route": "app/api/admin/archived-carriers/route.js",
-  "/api/admin/site-archive/route": "app/api/admin/site-archive/route.js",
   "/api/admin/feedback/route": "app/api/admin/feedback/route.js",
+  "/api/admin/site-archive/route": "app/api/admin/site-archive/route.js",
   "/api/feedback/route": "app/api/feedback/route.js",
   "/admin/page": "app/admin/page.js",
   "/calculator/page": "app/calculator/page.js",
@@ -28,8 +28,8 @@
   "/market-data/page": "app/market-data/page.js",
   "/my-valuations/page": "app/my-valuations/page.js",
   "/page": "app/page.js",
-  "/quick-value/page": "app/quick-value/page.js",
   "/quiz/page": "app/quiz/page.js",
+  "/quick-value/page": "app/quick-value/page.js",
   "/readiness/page": "app/readiness/page.js",
   "/methodology/page": "app/methodology/page.js"
 }

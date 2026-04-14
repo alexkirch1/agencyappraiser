@@ -5,7 +5,7 @@ import { isAdminAuthenticated } from "@/lib/admin-auth"
 
 // GET — list all feedback
 export async function GET(req: Request) {
-  if (!(await isAdminAuthenticated(req))) {
+  if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   try {
@@ -24,7 +24,7 @@ export async function GET(req: Request) {
 
 // PATCH — add admin response and/or update status
 export async function PATCH(req: Request) {
-  if (!(await isAdminAuthenticated(req))) {
+  if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   try {
@@ -51,7 +51,7 @@ export async function PATCH(req: Request) {
 
 // DELETE — remove a feedback entry
 export async function DELETE(req: Request) {
-  if (!(await isAdminAuthenticated(req))) {
+  if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   try {

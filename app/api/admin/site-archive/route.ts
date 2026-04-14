@@ -5,7 +5,7 @@ import { isAdminAuthenticated } from "@/lib/admin-auth"
 
 // GET — list all archived items, optionally filtered by section
 export async function GET(req: Request) {
-  if (!(await isAdminAuthenticated(req))) {
+  if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   try {
@@ -35,7 +35,7 @@ export async function GET(req: Request) {
 
 // POST — archive an item
 export async function POST(req: Request) {
-  if (!(await isAdminAuthenticated(req))) {
+  if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   try {
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
 
 // PATCH — update notes on an archived item
 export async function PATCH(req: Request) {
-  if (!(await isAdminAuthenticated(req))) {
+  if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   try {
@@ -79,7 +79,7 @@ export async function PATCH(req: Request) {
 
 // DELETE — restore an item (soft restore)
 export async function DELETE(req: Request) {
-  if (!(await isAdminAuthenticated(req))) {
+  if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   try {
