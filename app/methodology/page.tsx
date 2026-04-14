@@ -201,7 +201,7 @@ export default function MethodologyPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                      <cat.icon className="h-4.5 w-4.5 text-primary" />
+                      <cat.icon className="h-5 w-5 text-primary" />
                     </div>
                     <CardTitle className="text-base font-semibold text-foreground">{cat.title}</CardTitle>
                   </div>

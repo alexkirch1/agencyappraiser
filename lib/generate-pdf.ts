@@ -13,6 +13,8 @@ export async function downloadCarrierPDF(
   results: CarrierPDFResult
 ) {
   const { default: jsPDF } = await import("jspdf")
+  const fmt = (n: number) =>
+    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n)
 
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" })
   const W = doc.internal.pageSize.getWidth()
@@ -65,8 +67,19 @@ export async function downloadCarrierPDF(
     y += 18
   }
 
+  const CARRIER_LABELS: Record<string, string> = {
+    progressive:   "Progressive",
+    travelers:     "Travelers",
+    hartford:      "The Hartford",
+    safeco:        "Safeco / Liberty Mutual",
+    berkshire:     "Berkshire Hathaway",
+    libertymutual: "Liberty Mutual",
+    employers:     "Employers Insurance",
+    hoa:           "Homeowners of America",
+    natgen:        "National General",
+  }
   const carrierLabel = inputs.carrier
-    ? inputs.carrier.charAt(0).toUpperCase() + inputs.carrier.slice(1).replace("natgen", "National General").replace("libertymutual", "Liberty Mutual").replace("hoa", "Homeowners of America").replace("berkshire", "Berkshire Hathaway").replace("safeco", "Safeco / Liberty Mutual")
+    ? (CARRIER_LABELS[inputs.carrier] ?? inputs.carrier.charAt(0).toUpperCase() + inputs.carrier.slice(1))
     : "Unknown"
 
   // Cover header
