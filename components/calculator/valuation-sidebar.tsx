@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Info } from "lucide-react"
 import type { ValuationResults } from "./valuation-engine"
 import { formatCurrency } from "./valuation-engine"
+import { InfoTip } from "@/components/ui/info-tip"
 
 interface Props {
   results: ValuationResults | null
@@ -71,7 +72,10 @@ export function ValuationSidebar({ results, riskAudit }: Props) {
             <span className="text-3xl font-bold text-primary">
               {results.calculatedMultiple.toFixed(2)}x
             </span>
-            <p className="mt-2 text-xs font-semibold text-foreground">Final Multiple</p>
+            <div className="mt-2 flex items-center gap-0.5">
+              <p className="text-xs font-semibold text-foreground">Final Multiple</p>
+              <InfoTip text="The Final Multiple is applied to your SDE/EBITDA to produce the valuation range. It starts from a base of 2.0x–3.0x for independent agencies and is adjusted up or down based on 7 factors: retention rate, book composition (commercial vs. personal), client concentration, carrier diversification, revenue growth trend, operational health, and transition risk. Industry benchmark: 1.5x–3.5x for independent agencies." />
+            </div>
             <p className="mt-0.5 text-xs text-muted-foreground">
               <span className={results.riskLevel.color}>{results.riskLevel.text}</span>
             </p>
@@ -89,9 +93,21 @@ export function ValuationSidebar({ results, riskAudit }: Props) {
         <CardContent className="pt-0">
           {/* Primary metrics */}
           <div className="flex flex-col divide-y divide-border">
-            <MetricRow label="Core Score" value={`${results.coreScore.toFixed(2)}x`} />
-            <MetricRow label="Transaction Multiplier" value={`${results.transactionMultiplier.toFixed(2)}x`} />
-            <MetricRow label="Final Multiple" value={<span className="font-bold text-primary">{results.calculatedMultiple.toFixed(2)}x</span>} />
+            <MetricRow
+              label="Core Score"
+              value={`${results.coreScore.toFixed(2)}x`}
+              tip="Your weighted score across 7 risk categories before deal-structure adjustments are applied."
+            />
+            <MetricRow
+              label="Transaction Multiplier"
+              value={`${results.transactionMultiplier.toFixed(2)}x`}
+              tip="Adjusts the core score based on deal type (full agency vs. book purchase), closing timeline, and seller transition length."
+            />
+            <MetricRow
+              label="Final Multiple"
+              value={<span className="font-bold text-primary">{results.calculatedMultiple.toFixed(2)}x</span>}
+              tip="The Final Multiple is applied to your SDE/EBITDA to calculate the offer range. Higher retention, strong growth, and commercial-heavy books push this up."
+            />
           </div>
 
           {/* Secondary metrics */}
@@ -134,10 +150,13 @@ function gradeColorBorder(grade: string) {
   }
 }
 
-function MetricRow({ label, value, small }: { label: string; value: React.ReactNode; small?: boolean }) {
+function MetricRow({ label, value, small, tip }: { label: string; value: React.ReactNode; small?: boolean; tip?: string }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className={`${small ? "text-xs" : "text-sm"} text-muted-foreground`}>{label}</span>
+    <div className="flex items-center justify-between py-0.5">
+      <span className={`${small ? "text-xs" : "text-sm"} text-muted-foreground flex items-center`}>
+        {label}
+        {tip && <InfoTip text={tip} />}
+      </span>
       <span className={`${small ? "text-xs" : "text-sm"} font-medium text-foreground`}>{value}</span>
     </div>
   )
