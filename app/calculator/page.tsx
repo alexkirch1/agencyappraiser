@@ -11,7 +11,7 @@ import { RiskAudit } from "@/components/calculator/risk-audit"
 import { calculateValuation, runRiskAudit, type ValuationInputs } from "@/components/calculator/valuation-engine"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Lock, Unlock, AlertCircle, ClipboardCheck, ArrowRight, Pencil, Download } from "lucide-react"
+import { Lock, Unlock, AlertCircle, ClipboardCheck, ArrowRight, Pencil, Download, ShieldCheck } from "lucide-react"
 import Link from "next/link"
 import { downloadValuationPDF } from "@/lib/generate-pdf"
 import { MarketIntelPanel } from "@/components/market-intel-panel"
@@ -351,6 +351,10 @@ function CalculatorContent() {
                   You will be asked for your name and email to view results.
                 </p>
               )}
+              <div className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-success" />
+                <span>Your data is confidential and never sold or shared with third parties.</span>
+              </div>
             </div>
           )}
         </div>

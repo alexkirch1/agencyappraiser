@@ -1,4 +1,130 @@
 import type { ValuationInputs, ValuationResults, RiskAuditResult } from "@/components/calculator/valuation-engine"
+import type { CarrierInputs } from "@/components/carrier/carrier-engine"
+
+export interface CarrierPDFResult {
+  lowOffer: number
+  highOffer: number
+  premium: number
+  finalMultiple: number
+}
+
+export async function downloadCarrierPDF(
+  inputs: CarrierInputs,
+  results: CarrierPDFResult
+) {
+  const { default: jsPDF } = await import("jspdf")
+
+  const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" })
+  const W = doc.internal.pageSize.getWidth()
+  const margin = 48
+  const col = W - margin * 2
+  let y = margin
+
+  const checkPage = (needed: number) => {
+    if (y + needed > doc.internal.pageSize.getHeight() - margin) {
+      doc.addPage()
+      y = margin
+    }
+  }
+
+  const drawHRule = (color = "#e2e8f0") => {
+    doc.setDrawColor(color)
+    doc.setLineWidth(0.5)
+    doc.line(margin, y, W - margin, y)
+    y += 12
+  }
+
+  const heading = (text: string, size = 14) => {
+    checkPage(size + 20)
+    doc.setFontSize(size)
+    doc.setFont("helvetica", "bold")
+    doc.setTextColor("#0f172a")
+    doc.text(text, margin, y)
+    y += size + 6
+  }
+
+  const body = (text: string, size = 10, color = "#334155") => {
+    checkPage(size + 8)
+    doc.setFontSize(size)
+    doc.setFont("helvetica", "normal")
+    doc.setTextColor(color)
+    const lines = doc.splitTextToSize(text, col) as string[]
+    doc.text(lines, margin, y)
+    y += lines.length * (size + 4) + 4
+  }
+
+  const row = (label: string, value: string) => {
+    checkPage(18)
+    doc.setFontSize(10)
+    doc.setFont("helvetica", "normal")
+    doc.setTextColor("#64748b")
+    doc.text(label, margin, y)
+    doc.setFont("helvetica", "bold")
+    doc.setTextColor("#0f172a")
+    doc.text(value, W - margin, y, { align: "right" })
+    y += 18
+  }
+
+  const carrierLabel = inputs.carrier
+    ? inputs.carrier.charAt(0).toUpperCase() + inputs.carrier.slice(1).replace("natgen", "National General").replace("libertymutual", "Liberty Mutual").replace("hoa", "Homeowners of America").replace("berkshire", "Berkshire Hathaway").replace("safeco", "Safeco / Liberty Mutual")
+    : "Unknown"
+
+  // Cover header
+  doc.setFillColor("#0ea5e9")
+  doc.rect(0, 0, W, 80, "F")
+  doc.setFontSize(22)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor("#ffffff")
+  doc.text("Carrier Book Valuation Report", margin, 38)
+  doc.setFontSize(10)
+  doc.setFont("helvetica", "normal")
+  doc.text(
+    "Prepared by Agency Appraiser  •  " +
+      new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+    margin,
+    58
+  )
+  y = 104
+
+  // Value range
+  heading("Estimated Carrier Book Value", 16)
+  doc.setFontSize(26)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor("#16a34a")
+  doc.text(`${fmt(results.lowOffer)}  –  ${fmt(results.highOffer)}`, margin, y)
+  y += 36
+
+  row("Carrier", carrierLabel)
+  row("Book Type", inputs.bookType ? inputs.bookType.charAt(0).toUpperCase() + inputs.bookType.slice(1) : "—")
+  row("Premium Base", fmt(results.premium))
+  row("Final Multiple", `${results.finalMultiple.toFixed(2)}x`)
+  y += 8
+  drawHRule()
+
+  // How the value was calculated
+  heading("How This Value Was Calculated")
+  body(
+    `The carrier book value is calculated by applying a market multiple (${results.finalMultiple.toFixed(2)}x) to the ` +
+      `premium base (${fmt(results.premium)}). For personal lines carriers, the premium base uses an estimated ` +
+      `commission rate of ~10% of written premium since the agency earns commission, not the full premium amount. ` +
+      `The multiple starts at 1.5x for commercial WC and 1.4x for personal lines, then adjusts based on loss ratio, ` +
+      `retention rate, policy count, and book growth.`
+  )
+  y += 8
+  drawHRule()
+
+  // Disclaimer
+  checkPage(40)
+  doc.setFontSize(8)
+  doc.setFont("helvetica", "italic")
+  doc.setTextColor("#94a3b8")
+  doc.text(
+    "This report is a preliminary estimate for educational purposes only. It is not a binding offer or formal appraisal. Agency Appraiser.",
+    margin, y, { maxWidth: col }
+  )
+
+  doc.save(`carrier-book-valuation-${inputs.carrier ?? "report"}-${Date.now()}.pdf`)
+}
 
 export interface QuickValueInputs {
   revenue: number

@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Upload, FileText, CheckCircle2, AlertCircle, X, Loader2, Sparkles } from "lucide-react"
+import { Upload, FileText, CheckCircle2, AlertCircle, X, Loader2, Sparkles, ShieldCheck } from "lucide-react"
 import type { CarrierName, CarrierInputs } from "./carrier-engine"
 
 interface Props {
@@ -174,6 +174,11 @@ export function ReportUpload({ carrier, onParsed }: Props) {
                   : "Drag and drop a PDF or click to browse. AI will auto-fill the fields."}
               </p>
             </div>
+          </div>
+          {/* Privacy assurance */}
+          <div className="mt-2 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+            <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-success" />
+            <span>Your report is processed securely and never stored or shared.</span>
           </div>
         )}
 

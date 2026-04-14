@@ -6,7 +6,7 @@ import { CarrierForm } from "@/components/carrier/carrier-form"
 import { LeadCaptureModal } from "@/components/lead-capture-modal"
 import { ValuationDisclaimerModal } from "@/components/valuation-disclaimer-modal"
 import { Button } from "@/components/ui/button"
-import { Lock, Unlock, AlertCircle } from "lucide-react"
+import { Lock, Unlock, AlertCircle, ShieldCheck, Download } from "lucide-react"
 import {
   calculateCarrierValuation,
   formatCurrency,
@@ -15,6 +15,7 @@ import {
 } from "@/components/carrier/carrier-engine"
 import { FeedbackWidget } from "@/components/feedback-widget"
 import { MarketIntelPanel } from "@/components/market-intel-panel"
+import { downloadCarrierPDF } from "@/lib/generate-pdf"
 
 export default function CarrierPage() {
   const [inputs, setInputs] = useState<CarrierInputs>(defaultCarrierInputs)
@@ -29,6 +30,7 @@ export default function CarrierPage() {
   }, [inputs, submitted])
 
   const [validationError, setValidationError] = useState("")
+  const [pdfLoading, setPdfLoading] = useState(false)
 
   const handleSubmit = () => {
     if (!inputs.carrier) {
@@ -107,6 +109,10 @@ export default function CarrierPage() {
                 You will be asked for your name and email to view results.
               </p>
             )}
+            <div className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+              <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-success" />
+              <span>Your data is confidential and never sold or shared with third parties.</span>
+            </div>
           </div>
         </div>
 
@@ -137,6 +143,26 @@ export default function CarrierPage() {
                       <span className="text-2xl font-bold text-success">
                         {formatCurrency(results.highOffer)}
                       </span>
+                    </div>
+                    <div className="mt-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full gap-2"
+                        disabled={pdfLoading}
+                        onClick={async () => {
+                          if (!results) return
+                          setPdfLoading(true)
+                          try {
+                            await downloadCarrierPDF(inputs, results)
+                          } finally {
+                            setPdfLoading(false)
+                          }
+                        }}
+                      >
+                        <Download className="h-4 w-4" />
+                        {pdfLoading ? "Generating..." : "Download PDF Report"}
+                      </Button>
                     </div>
                     <div className="mt-4 flex flex-col gap-2">
                       <div className="flex items-center justify-between">
