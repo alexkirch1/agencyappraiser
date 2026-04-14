@@ -2,7 +2,7 @@
 // Carrier Valuation Engine — Travelers, Progressive, Hartford
 // =====================================================
 
-export type CarrierName = "progressive" | "travelers" | "hartford" | "safeco" | "berkshire" | "libertymutual"
+export type CarrierName = "progressive" | "travelers" | "hartford" | "safeco" | "berkshire" | "libertymutual" | "employers" | "hoa" | "natgen"
 export type BookType = "personal" | "commercial" | "both" | "auto" | "home"
 
 export interface CarrierInputs {
@@ -84,6 +84,32 @@ export interface CarrierInputs {
   lm_loss_ratio_2yr: number | null    // 2 Years + YTD Loss Ratio %
   lm_premium_retention: number | null // Premium Retention % (from Renewal section)
   lm_plif_renewal: number | null      // PLIF Renewal count
+
+  // ---- Employers Insurance (Workers Comp focused) ----
+  // Source: Agency Summary → Active → PDF
+  emp_written_premium: number | null      // Total annual written premium / EAP ($)
+  emp_earned_premium_ytd: number | null   // Total earned premium YTD ($)
+  emp_policy_count: number | null         // Total active policy count
+  emp_loss_ratio: number | null           // Active book loss ratio (%)
+
+  // ---- Homeowners of America (Personal Lines Homeowners) ----
+  // Source: Producer Production Report (last 12 months)
+  hoa_new_policy_count: number | null       // New Policy count
+  hoa_new_policy_premium: number | null     // New Policy premium ($)
+  hoa_renewal_count: number | null          // Renewal Policy count
+  hoa_renewal_premium: number | null        // Renewal Policy premium ($)
+  hoa_cancel_count: number | null           // Cancel count
+  hoa_cancel_premium: number | null         // Cancel premium (negative $)
+  hoa_total_premium: number | null          // Total written premium ($) — sum of all rows
+
+  // ---- National General (P&C) — Agency Production Report CSV ----
+  // Source: Agency Production Report CSV — use Combined Total section, PYYE timeframe
+  natgen_pif: number | null                // Policies in Force (Combined Total, Total, PYYE)
+  natgen_written_premium: number | null    // Written Premium ($) — Combined Total, Total, PYYE
+  natgen_net_written_premium: number | null // Net Written Premium ($) — Combined Total, Total, PYYE
+  natgen_loss_ratio: number | null         // Net Loss Ratio (%) — Combined Total, Total, PYYE
+  natgen_renewal_rate: number | null       // Renewal Rate (%) — Combined Total, Total, PYYE
+  natgen_new_policies_ytd: number | null   // New Bound Policies YTD — Combined Total, Total, YTD
 
   // ---- Book Quality (all carriers) — sourced from commission statements / active policy list ----
 
@@ -455,6 +481,148 @@ export function calculateCarrierValuation(inputs: CarrierInputs): CarrierResults
     if (basePremium >= 5_000_000)      finalMultiple += 0.10
     else if (basePremium >= 2_000_000) finalMultiple += 0.06
     else if (basePremium >= 500_000)   finalMultiple += 0.02
+  }
+
+  // -------------------------------------------------------
+  // Employers Insurance (WC focused commercial book)
+  // -------------------------------------------------------
+  else if (carrier === "employers") {
+    const writtenPremium = inputs.emp_written_premium   ?? 0
+    const earnedPremium  = inputs.emp_earned_premium_ytd ?? 0
+    const policyCount    = inputs.emp_policy_count      ?? 0
+
+    // Use active EAP as base; fall back to annualized earned premium
+    if (writtenPremium > 0) {
+      basePremium = writtenPremium
+    } else if (earnedPremium > 0) {
+      basePremium = earnedPremium * 2
+    }
+
+    finalMultiple = 1.5  // Commercial WC base
+
+    // Loss ratio — WC benchmark: <65% excellent, 65–80% solid, >95% concern
+    const lossRatio = inputs.emp_loss_ratio ?? 0
+    if (lossRatio < 50)        finalMultiple += 0.20
+    else if (lossRatio < 65)   finalMultiple += 0.15
+    else if (lossRatio < 80)   finalMultiple += 0.05
+    else if (lossRatio < 95)   finalMultiple -= 0.10
+    else if (lossRatio > 0)    finalMultiple -= 0.20
+
+    // Policy count — WC books: more policies = more diversified risk
+    if (policyCount >= 100)    finalMultiple += 0.10
+    else if (policyCount >= 50) finalMultiple += 0.05
+    else if (policyCount < 15)  finalMultiple -= 0.05
+
+    // Avg premium per policy — WC: higher avg = larger employers = stickier
+    if (policyCount > 0 && writtenPremium > 0) {
+      const avgPrem = writtenPremium / policyCount
+      if (avgPrem >= 5000)      finalMultiple += 0.08
+      else if (avgPrem >= 2500) finalMultiple += 0.04
+    }
+
+    // Volume tiers
+    if (basePremium >= 2_000_000)      finalMultiple += 0.10
+    else if (basePremium >= 1_000_000) finalMultiple += 0.06
+    else if (basePremium >= 500_000)   finalMultiple += 0.03
+  }
+
+  // -------------------------------------------------------
+  // Homeowners of America (Personal Lines Homeowners)
+  // -------------------------------------------------------
+  else if (carrier === "hoa") {
+    const totalPremium    = inputs.hoa_total_premium      ?? 0
+    const newPremium      = inputs.hoa_new_policy_premium ?? 0
+    const renewalPremium  = inputs.hoa_renewal_premium    ?? 0
+    const cancelPremium   = Math.abs(inputs.hoa_cancel_premium ?? 0)
+    const newCount        = inputs.hoa_new_policy_count   ?? 0
+    const renewalCount    = inputs.hoa_renewal_count      ?? 0
+    const cancelCount     = inputs.hoa_cancel_count       ?? 0
+
+    // Convert written premium to agency revenue (commission)
+    // Homeowners commission typically 8-14%, use 10% conservative estimate
+    const commissionRate = 0.10
+    const totalPremiumBase = totalPremium > 0 ? totalPremium : (newPremium + renewalPremium - cancelPremium)
+    basePremium = totalPremiumBase * commissionRate
+
+    finalMultiple = 1.4  // Personal lines homeowners base
+
+    // Retention proxy — renewal vs cancel ratio
+    const totalPolicies = newCount + renewalCount
+    if (totalPolicies > 0 && renewalCount > 0) {
+      const retentionProxy = renewalCount / (renewalCount + cancelCount)
+      if (retentionProxy >= 0.85)      finalMultiple += 0.15
+      else if (retentionProxy >= 0.75) finalMultiple += 0.08
+      else if (retentionProxy < 0.60)  finalMultiple -= 0.10
+    }
+
+    // New business growth indicator
+    if (newCount > 0 && renewalCount > 0) {
+      const newBizRatio = newCount / totalPolicies
+      if (newBizRatio >= 0.40)      finalMultiple += 0.08  // Strong growth
+      else if (newBizRatio >= 0.25) finalMultiple += 0.04
+      else if (newBizRatio < 0.15)  finalMultiple -= 0.05  // Stagnant
+    }
+
+    // Book size tiers
+    if (totalPolicies >= 500)       finalMultiple += 0.10
+    else if (totalPolicies >= 250)  finalMultiple += 0.05
+    else if (totalPolicies < 50)    finalMultiple -= 0.05
+
+    // Agency revenue volume tiers (basePremium is now commission revenue, ~10% of written premium)
+    if (basePremium >= 200_000)      finalMultiple += 0.10  // $2M+ written premium
+    else if (basePremium >= 100_000) finalMultiple += 0.06  // $1M+ written premium
+    else if (basePremium >= 50_000)  finalMultiple += 0.03  // $500k+ written premium
+  }
+
+  // -------------------------------------------------------
+  // National General (P&C) — Personal Lines Auto, Home, Specialty Vehicle
+  // -------------------------------------------------------
+  else if (carrier === "natgen") {
+    const writtenPremium    = inputs.natgen_written_premium     ?? 0
+    const netWrittenPremium = inputs.natgen_net_written_premium ?? 0
+    const pif               = inputs.natgen_pif                 ?? 0
+    const lossRatio         = inputs.natgen_loss_ratio          ?? 0
+    const renewalRate       = inputs.natgen_renewal_rate        ?? 0
+    const newPoliciesYtd    = inputs.natgen_new_policies_ytd    ?? 0
+
+    // National General is personal lines P&C — commission ~10% of written premium
+    const commissionRate = 0.10
+    const premBase = netWrittenPremium > 0 ? netWrittenPremium : writtenPremium
+    basePremium = premBase * commissionRate
+
+    finalMultiple = 1.4  // Personal lines P&C base
+
+    // Loss ratio — standard personal lines benchmarks
+    if (lossRatio > 0) {
+      if (lossRatio < 55)        finalMultiple += 0.20
+      else if (lossRatio < 65)   finalMultiple += 0.12
+      else if (lossRatio < 75)   finalMultiple += 0.05
+      else if (lossRatio < 90)   finalMultiple -= 0.08
+      else                       finalMultiple -= 0.18
+    }
+
+    // Renewal rate — retention is key for personal lines valuation
+    if (renewalRate >= 88)       finalMultiple += 0.18
+    else if (renewalRate >= 82)  finalMultiple += 0.10
+    else if (renewalRate >= 75)  finalMultiple += 0.04
+    else if (renewalRate < 65)   finalMultiple -= 0.12
+
+    // PIF size — diversification and scale
+    if (pif >= 1000)             finalMultiple += 0.10
+    else if (pif >= 500)         finalMultiple += 0.05
+    else if (pif < 100)          finalMultiple -= 0.05
+
+    // New business growth signal
+    if (newPoliciesYtd > 0 && pif > 0) {
+      const growthPct = (newPoliciesYtd / pif) * 100
+      if (growthPct >= 20)       finalMultiple += 0.08
+      else if (growthPct >= 10)  finalMultiple += 0.04
+    }
+
+    // Agency revenue volume tiers (~10% commission on written premium)
+    if (basePremium >= 200_000)      finalMultiple += 0.10
+    else if (basePremium >= 100_000) finalMultiple += 0.06
+    else if (basePremium >= 50_000)  finalMultiple += 0.03
   }
 
   // -------------------------------------------------------

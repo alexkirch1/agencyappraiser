@@ -1,6 +1,5 @@
 import { generateText, Output } from "ai"
 import { z } from "zod"
-import { isAdminAuthenticated } from "@/lib/admin-auth"
 
 // Schema covers all carrier field names — null means not found in this report
 const CarrierDataSchema = z.object({
@@ -67,6 +66,29 @@ const CarrierDataSchema = z.object({
   bh_loss_ratio_ytd: z.number().nullable().describe("BH Guard current year YTD loss ratio (%)"),
   bh_grand_total_loss_ratio: z.number().nullable().describe("BH Guard grand total blended loss ratio (%)"),
 
+  // Employers Insurance
+  emp_written_premium: z.number().nullable().describe("Employers total annual written premium / EAP in dollars — from Total EAP in report footer"),
+  emp_earned_premium_ytd: z.number().nullable().describe("Employers total earned premium YTD in dollars — from Earned Premium total in report footer"),
+  emp_policy_count: z.number().nullable().describe("Employers total active policy count — from Total Accounts in report footer"),
+  emp_loss_ratio: z.number().nullable().describe("Employers overall loss ratio percent — from Loss Ratio in report footer"),
+
+  // Homeowners of America
+  hoa_new_policy_count: z.number().nullable().describe("HOA new policy count from the 'New Policy' row"),
+  hoa_new_policy_premium: z.number().nullable().describe("HOA new policy premium in dollars from the 'New Policy' row"),
+  hoa_renewal_count: z.number().nullable().describe("HOA renewal policy count from the 'Renewal Policy' row"),
+  hoa_renewal_premium: z.number().nullable().describe("HOA renewal policy premium in dollars from the 'Renewal Policy' row"),
+  hoa_cancel_count: z.number().nullable().describe("HOA cancel count from the 'Cancel' row"),
+  hoa_cancel_premium: z.number().nullable().describe("HOA cancel premium in dollars from the 'Cancel' row (typically negative)"),
+  hoa_total_premium: z.number().nullable().describe("HOA total written premium from the 'Totals' row — net premium for the period"),
+
+  // National General
+  natgen_pif: z.number().nullable().describe("National General Policies in Force — Combined Total, Total, PYYE"),
+  natgen_written_premium: z.number().nullable().describe("National General Written Premium in dollars — Combined Total, Total, PYYE"),
+  natgen_net_written_premium: z.number().nullable().describe("National General Net Written Premium in dollars — Combined Total, Total, PYYE"),
+  natgen_loss_ratio: z.number().nullable().describe("National General Net Loss Ratio percent — Combined Total, Total, PYYE"),
+  natgen_renewal_rate: z.number().nullable().describe("National General Renewal Rate percent — Combined Total, Total, PYYE"),
+  natgen_new_policies_ytd: z.number().nullable().describe("National General New Bound Policies count — Combined Total, Total, YTD"),
+
   // Liberty Mutual Commercial Lines
   lm_dwp_ytd: z.number().nullable().describe("LM CL YTD Direct Written Premium in actual dollars (not millions)"),
   lm_dwp_pytd: z.number().nullable().describe("LM CL Prior YTD DWP in actual dollars"),
@@ -101,10 +123,6 @@ CRITICAL RULES:
 - For BH Guard PAR: the Written Premium section has rows for New, Renewal, and Total — each with 8 columns (CurrYTD Policies, CurrYTD Premium, CurrR12 Policies, CurrR12 Premium, PrevYTD Policies, PrevYTD Premium, PrevR12 Policies, PrevR12 Premium)`
 
 export async function POST(req: Request) {
-  if (!(await isAdminAuthenticated())) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
   try {
     const formData = await req.formData()
     const file = formData.get("file") as File
@@ -128,6 +146,9 @@ export async function POST(req: Request) {
       hartford: "This is a Hartford Partner Breakdown Report. Extract PL Auto, PL Home, and Small Commercial written premium, PIF, loss ratio, and retention.",
       safeco: "This is a Safeco Agency Development Profile (ADP). Extract Rolling 12 DWP, PIF, loss ratios, and retention for Auto, Home, and Other lines. Also grab YTD New Business DWP and cross-sell %.",
       berkshire: "This is a Berkshire Hathaway Guard Producer Activity Report (PAR). Extract Written Premium (New YTD policies count, Renewal YTD policies count, Total YTD and Rolling 12 premium), Hit Ratios (New and Renewal %, first column = Current YTD policy basis), Yield Ratio Total, and all Direct Loss Ratio rows by year including subtotals and grand total.",
+      employers: "This is an Employers Insurance Agency Summary report for active Workers Compensation policies. The report is a 'Producer Summary Report' showing individual active policies per insured. Extract the footer totals: Total Accounts (= emp_policy_count), Total EAP (= emp_written_premium), Total Earned Premium (= emp_earned_premium_ytd), and the Loss Ratio % (= emp_loss_ratio). The footer line looks like: 'Total Accounts: 65  Total Policies: 65  $177,578.00  $87,464.46  0  $0.00  $0.00  $0.00  0.0%'. All dollar values are in actual dollars.",
+      natgen: "This is a National General Agency Production Report CSV. It is a pivot-style CSV with columns: section, newtotalind (New or Total), metricname, timeframe, value. Extract rows where section='Combined Total' and newtotalind='Total'. For each metric use timeframe='PYYE' (Prior Year Year-End) except New Bound Policies which uses 'YTD'. Target metrics: 'Policies in Force' (natgen_pif), 'Written Premium' (natgen_written_premium), 'Net Written Premium' (natgen_net_written_premium), 'Net Loss Ratio' (natgen_loss_ratio), 'Renewal Rate' (natgen_renewal_rate), 'New Bound Policies' YTD (natgen_new_policies_ytd). Dollar values are actual dollars.",
+      hoa: "This is a Homeowners of America Producer Production Report for the last 12 months. The report shows transaction types: New Policy, Renewal Policy, Cancel, Reinstate, Pos Endorse, Neg Endorse. Extract Count and Premium from each row. The 'New Policy' row has new policy count and premium, 'Renewal Policy' row has renewal count and premium, 'Cancel' row has cancel count and premium (typically negative), and 'Totals' row has the net written premium total. Example: 'New Policy 305 524,481.00', 'Renewal Policy 259 654,671.00', 'Cancel 134 -294,104.00', 'Totals 802 909,080.00'.",
       libertymutual: "This is a Liberty Mutual Commercial Lines ADP or ADP Summary report. BOTH the CL ADP and CL ADP Summary formats are accepted. Extract: YTD DWP, Prior YTD DWP, Rolling 12 DWP, New Business YTD DWP, PIF count, YTD Loss Ratio, 2 Years + YTD Loss Ratio, Premium Retention %, and PLIF Renewal count. If values are in $M format (e.g. $0.11M), convert to actual dollars (110000). If in actual dollars (e.g. $108,119), use as-is.",
     }
 

@@ -8148,15 +8148,40 @@ function CalculatorContent() {
     const searchParams = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$navigation$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useSearchParams"])();
     const [inputs, setInputs] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])({
         "CalculatorContent.useState": ()=>{
+            const newInputs = {
+                ...defaultInputs
+            };
+            // Revenue
             const rev = searchParams.get("rev");
             if (rev) {
                 const n = parseFloat(rev);
-                if (!isNaN(n) && n > 0) return {
-                    ...defaultInputs,
-                    revenueLTM: n
-                };
+                if (!isNaN(n) && n > 0) newInputs.revenueLTM = n;
             }
-            return defaultInputs;
+            // Retention: "high" → 92, "average" → 85, "low" → 75
+            const retention = searchParams.get("retention");
+            if (retention === "high") newInputs.retentionRate = 92;
+            else if (retention === "average") newInputs.retentionRate = 85;
+            else if (retention === "low") newInputs.retentionRate = 75;
+            // Book Type: "commercial" → 75, "mixed" → 50, "personal" → 25
+            const bookType = searchParams.get("bookType");
+            if (bookType === "commercial") newInputs.policyMix = 75;
+            else if (bookType === "mixed") newInputs.policyMix = 50;
+            else if (bookType === "personal") newInputs.policyMix = 25;
+            // Growth trend (direct match)
+            const growth = searchParams.get("growth");
+            if (growth) newInputs.revenueGrowthTrend = growth;
+            // Customer and policy counts (direct match)
+            const customers = searchParams.get("customers");
+            if (customers) {
+                const n = parseInt(customers);
+                if (!isNaN(n) && n > 0) newInputs.activeCustomers = n;
+            }
+            const policies = searchParams.get("policies");
+            if (policies) {
+                const n = parseInt(policies);
+                if (!isNaN(n) && n > 0) newInputs.activePolicies = n;
+            }
+            return newInputs;
         }
     }["CalculatorContent.useState"]);
     const [submitted, setSubmitted] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
@@ -8168,21 +8193,47 @@ function CalculatorContent() {
     const [triedSubmit, setTriedSubmit] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
     const [leadId, setLeadId] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(null);
     const [pdfLoading, setPdfLoading] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
-    // Pre-fill revenue from URL param if navigated from quick-value
+    // Pre-fill from URL params if navigated from quick-value (only if not already set)
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
         "CalculatorContent.useEffect": ()=>{
-            const rev = searchParams.get("rev");
-            if (rev) {
-                const n = parseFloat(rev);
-                if (!isNaN(n) && n > 0) {
-                    setInputs({
-                        "CalculatorContent.useEffect": (prev)=>prev.revenueLTM ? prev : {
-                                ...prev,
-                                revenueLTM: n
-                            }
-                    }["CalculatorContent.useEffect"]);
+            setInputs({
+                "CalculatorContent.useEffect": (prev)=>{
+                    const updates = {};
+                    const rev = searchParams.get("rev");
+                    if (rev && !prev.revenueLTM) {
+                        const n = parseFloat(rev);
+                        if (!isNaN(n) && n > 0) updates.revenueLTM = n;
+                    }
+                    const retention = searchParams.get("retention");
+                    if (retention && !prev.retentionRate) {
+                        if (retention === "high") updates.retentionRate = 92;
+                        else if (retention === "average") updates.retentionRate = 85;
+                        else if (retention === "low") updates.retentionRate = 75;
+                    }
+                    const bookType = searchParams.get("bookType");
+                    if (bookType && !prev.policyMix) {
+                        if (bookType === "commercial") updates.policyMix = 75;
+                        else if (bookType === "mixed") updates.policyMix = 50;
+                        else if (bookType === "personal") updates.policyMix = 25;
+                    }
+                    const growth = searchParams.get("growth");
+                    if (growth && !prev.revenueGrowthTrend) updates.revenueGrowthTrend = growth;
+                    const customers = searchParams.get("customers");
+                    if (customers && !prev.activeCustomers) {
+                        const n = parseInt(customers);
+                        if (!isNaN(n) && n > 0) updates.activeCustomers = n;
+                    }
+                    const policies = searchParams.get("policies");
+                    if (policies && !prev.activePolicies) {
+                        const n = parseInt(policies);
+                        if (!isNaN(n) && n > 0) updates.activePolicies = n;
+                    }
+                    return Object.keys(updates).length > 0 ? {
+                        ...prev,
+                        ...updates
+                    } : prev;
                 }
-            }
+            }["CalculatorContent.useEffect"]);
         }
     }["CalculatorContent.useEffect"], [
         searchParams
@@ -8294,7 +8345,7 @@ function CalculatorContent() {
                         children: "Agency Valuation Calculator"
                     }, void 0, false, {
                         fileName: "[project]/app/calculator/page.tsx",
-                        lineNumber: 188,
+                        lineNumber: 253,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -8302,13 +8353,13 @@ function CalculatorContent() {
                         children: "Our weighted scorecard analyzes 7 risk categories to calculate a data-driven valuation multiple. Fill in the required fields and submit to see your results."
                     }, void 0, false, {
                         fileName: "[project]/app/calculator/page.tsx",
-                        lineNumber: 189,
+                        lineNumber: 254,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/app/calculator/page.tsx",
-                lineNumber: 187,
+                lineNumber: 252,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -8325,7 +8376,7 @@ function CalculatorContent() {
                                         children: "Your inputs are locked. Edit to make changes and resubmit."
                                     }, void 0, false, {
                                         fileName: "[project]/app/calculator/page.tsx",
-                                        lineNumber: 202,
+                                        lineNumber: 267,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -8338,20 +8389,20 @@ function CalculatorContent() {
                                                 className: "h-3.5 w-3.5"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/calculator/page.tsx",
-                                                lineNumber: 209,
+                                                lineNumber: 274,
                                                 columnNumber: 17
                                             }, this),
                                             "Edit"
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/calculator/page.tsx",
-                                        lineNumber: 203,
+                                        lineNumber: 268,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/calculator/page.tsx",
-                                lineNumber: 201,
+                                lineNumber: 266,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -8368,12 +8419,12 @@ function CalculatorContent() {
                                     invalidFields: invalidKeys
                                 }, void 0, false, {
                                     fileName: "[project]/app/calculator/page.tsx",
-                                    lineNumber: 216,
+                                    lineNumber: 281,
                                     columnNumber: 13
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/app/calculator/page.tsx",
-                                lineNumber: 215,
+                                lineNumber: 280,
                                 columnNumber: 11
                             }, this),
                             validationErrors.length > 0 && editing && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -8385,7 +8436,7 @@ function CalculatorContent() {
                                             className: "mt-0.5 h-5 w-5 shrink-0 text-destructive"
                                         }, void 0, false, {
                                             fileName: "[project]/app/calculator/page.tsx",
-                                            lineNumber: 233,
+                                            lineNumber: 298,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -8395,7 +8446,7 @@ function CalculatorContent() {
                                                     children: "Please fill in the following required fields:"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/calculator/page.tsx",
-                                                    lineNumber: 235,
+                                                    lineNumber: 300,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("ul", {
@@ -8404,29 +8455,29 @@ function CalculatorContent() {
                                                             children: field
                                                         }, field, false, {
                                                             fileName: "[project]/app/calculator/page.tsx",
-                                                            lineNumber: 238,
+                                                            lineNumber: 303,
                                                             columnNumber: 23
                                                         }, this))
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/calculator/page.tsx",
-                                                    lineNumber: 236,
+                                                    lineNumber: 301,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/calculator/page.tsx",
-                                            lineNumber: 234,
+                                            lineNumber: 299,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/calculator/page.tsx",
-                                    lineNumber: 232,
+                                    lineNumber: 297,
                                     columnNumber: 15
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/app/calculator/page.tsx",
-                                lineNumber: 231,
+                                lineNumber: 296,
                                 columnNumber: 13
                             }, this),
                             validationErrors.length > 0 && !submitted && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -8438,7 +8489,7 @@ function CalculatorContent() {
                                             className: "mt-0.5 h-5 w-5 shrink-0 text-destructive"
                                         }, void 0, false, {
                                             fileName: "[project]/app/calculator/page.tsx",
-                                            lineNumber: 250,
+                                            lineNumber: 315,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -8448,7 +8499,7 @@ function CalculatorContent() {
                                                     children: "Please fill in the following required fields:"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/calculator/page.tsx",
-                                                    lineNumber: 252,
+                                                    lineNumber: 317,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("ul", {
@@ -8457,29 +8508,29 @@ function CalculatorContent() {
                                                             children: field
                                                         }, field, false, {
                                                             fileName: "[project]/app/calculator/page.tsx",
-                                                            lineNumber: 255,
+                                                            lineNumber: 320,
                                                             columnNumber: 23
                                                         }, this))
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/calculator/page.tsx",
-                                                    lineNumber: 253,
+                                                    lineNumber: 318,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/calculator/page.tsx",
-                                            lineNumber: 251,
+                                            lineNumber: 316,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/calculator/page.tsx",
-                                    lineNumber: 249,
+                                    lineNumber: 314,
                                     columnNumber: 15
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/app/calculator/page.tsx",
-                                lineNumber: 248,
+                                lineNumber: 313,
                                 columnNumber: 13
                             }, this),
                             (!submitted || editing) && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -8495,7 +8546,7 @@ function CalculatorContent() {
                                                     className: "h-5 w-5"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/calculator/page.tsx",
-                                                    lineNumber: 269,
+                                                    lineNumber: 334,
                                                     columnNumber: 21
                                                 }, this),
                                                 "Resubmit Valuation"
@@ -8506,7 +8557,7 @@ function CalculatorContent() {
                                                     className: "h-5 w-5"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/calculator/page.tsx",
-                                                    lineNumber: 274,
+                                                    lineNumber: 339,
                                                     columnNumber: 21
                                                 }, this),
                                                 "Calculate Valuation"
@@ -8517,7 +8568,7 @@ function CalculatorContent() {
                                                     className: "h-5 w-5"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/calculator/page.tsx",
-                                                    lineNumber: 279,
+                                                    lineNumber: 344,
                                                     columnNumber: 21
                                                 }, this),
                                                 "Submit & Unlock Valuation"
@@ -8525,7 +8576,7 @@ function CalculatorContent() {
                                         }, void 0, true)
                                     }, void 0, false, {
                                         fileName: "[project]/app/calculator/page.tsx",
-                                        lineNumber: 266,
+                                        lineNumber: 331,
                                         columnNumber: 15
                                     }, this),
                                     !unlocked && !editing && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -8533,19 +8584,19 @@ function CalculatorContent() {
                                         children: "You will be asked for your name and email to view results."
                                     }, void 0, false, {
                                         fileName: "[project]/app/calculator/page.tsx",
-                                        lineNumber: 285,
+                                        lineNumber: 350,
                                         columnNumber: 17
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/calculator/page.tsx",
-                                lineNumber: 265,
+                                lineNumber: 330,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/calculator/page.tsx",
-                        lineNumber: 197,
+                        lineNumber: 262,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -8555,18 +8606,18 @@ function CalculatorContent() {
                             riskAudit: riskAudit
                         }, void 0, false, {
                             fileName: "[project]/app/calculator/page.tsx",
-                            lineNumber: 295,
+                            lineNumber: 360,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/app/calculator/page.tsx",
-                        lineNumber: 294,
+                        lineNumber: 359,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/app/calculator/page.tsx",
-                lineNumber: 195,
+                lineNumber: 260,
                 columnNumber: 7
             }, this),
             results && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -8580,7 +8631,7 @@ function CalculatorContent() {
                                 className: "mt-0.5 h-5 w-5 shrink-0 text-warning"
                             }, void 0, false, {
                                 fileName: "[project]/app/calculator/page.tsx",
-                                lineNumber: 304,
+                                lineNumber: 369,
                                 columnNumber: 15
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -8590,7 +8641,7 @@ function CalculatorContent() {
                                         children: "Captive Agent — Limited Transferability"
                                     }, void 0, false, {
                                         fileName: "[project]/app/calculator/page.tsx",
-                                        lineNumber: 306,
+                                        lineNumber: 371,
                                         columnNumber: 17
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -8598,19 +8649,19 @@ function CalculatorContent() {
                                         children: "Because you are a captive agent, this valuation is shown for informational purposes only. Captive books of business cannot be sold independently — the carrier owns the policies. Valuation is capped at 1.0–1.5x revenue. Please contact us to discuss your specific options."
                                     }, void 0, false, {
                                         fileName: "[project]/app/calculator/page.tsx",
-                                        lineNumber: 307,
+                                        lineNumber: 372,
                                         columnNumber: 17
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/calculator/page.tsx",
-                                lineNumber: 305,
+                                lineNumber: 370,
                                 columnNumber: 15
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/calculator/page.tsx",
-                        lineNumber: 303,
+                        lineNumber: 368,
                         columnNumber: 13
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -8621,7 +8672,7 @@ function CalculatorContent() {
                                 children: "Deep Dive: Deal Simulator & Risk Audit"
                             }, void 0, false, {
                                 fileName: "[project]/app/calculator/page.tsx",
-                                lineNumber: 314,
+                                lineNumber: 379,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -8643,20 +8694,20 @@ function CalculatorContent() {
                                         className: "h-4 w-4"
                                     }, void 0, false, {
                                         fileName: "[project]/app/calculator/page.tsx",
-                                        lineNumber: 332,
+                                        lineNumber: 397,
                                         columnNumber: 15
                                     }, this),
                                     pdfLoading ? "Generating..." : "Download PDF Report"
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/calculator/page.tsx",
-                                lineNumber: 317,
+                                lineNumber: 382,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/calculator/page.tsx",
-                        lineNumber: 313,
+                        lineNumber: 378,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -8666,12 +8717,12 @@ function CalculatorContent() {
                             dealType: "full"
                         }, void 0, false, {
                             fileName: "[project]/app/calculator/page.tsx",
-                            lineNumber: 338,
+                            lineNumber: 403,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/app/calculator/page.tsx",
-                        lineNumber: 337,
+                        lineNumber: 402,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -8688,7 +8739,7 @@ function CalculatorContent() {
                                                 children: "Deal Structure Simulator"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/calculator/page.tsx",
-                                                lineNumber: 348,
+                                                lineNumber: 413,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -8696,13 +8747,13 @@ function CalculatorContent() {
                                                 children: "Compare deal structures and see how cash vs. earnout affects your total payout."
                                             }, void 0, false, {
                                                 fileName: "[project]/app/calculator/page.tsx",
-                                                lineNumber: 349,
+                                                lineNumber: 414,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/calculator/page.tsx",
-                                        lineNumber: 347,
+                                        lineNumber: 412,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardContent"], {
@@ -8715,18 +8766,18 @@ function CalculatorContent() {
                                             revenueGrowthTrend: inputs.revenueGrowthTrend
                                         }, void 0, false, {
                                             fileName: "[project]/app/calculator/page.tsx",
-                                            lineNumber: 354,
+                                            lineNumber: 419,
                                             columnNumber: 17
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/app/calculator/page.tsx",
-                                        lineNumber: 353,
+                                        lineNumber: 418,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/calculator/page.tsx",
-                                lineNumber: 346,
+                                lineNumber: 411,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Card"], {
@@ -8740,7 +8791,7 @@ function CalculatorContent() {
                                                 children: "Risk Audit Report"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/calculator/page.tsx",
-                                                lineNumber: 367,
+                                                lineNumber: 432,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -8748,13 +8799,13 @@ function CalculatorContent() {
                                                 children: "A detailed breakdown of risks and strengths identified from your inputs."
                                             }, void 0, false, {
                                                 fileName: "[project]/app/calculator/page.tsx",
-                                                lineNumber: 368,
+                                                lineNumber: 433,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/calculator/page.tsx",
-                                        lineNumber: 366,
+                                        lineNumber: 431,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CardContent"], {
@@ -8762,24 +8813,24 @@ function CalculatorContent() {
                                             data: riskAudit
                                         }, void 0, false, {
                                             fileName: "[project]/app/calculator/page.tsx",
-                                            lineNumber: 373,
+                                            lineNumber: 438,
                                             columnNumber: 17
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/app/calculator/page.tsx",
-                                        lineNumber: 372,
+                                        lineNumber: 437,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/calculator/page.tsx",
-                                lineNumber: 365,
+                                lineNumber: 430,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/calculator/page.tsx",
-                        lineNumber: 345,
+                        lineNumber: 410,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$calculator$2f$benchmark$2d$comparison$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["BenchmarkComparison"], {
@@ -8787,13 +8838,13 @@ function CalculatorContent() {
                         className: "w-full"
                     }, void 0, false, {
                         fileName: "[project]/app/calculator/page.tsx",
-                        lineNumber: 379,
+                        lineNumber: 444,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/app/calculator/page.tsx",
-                lineNumber: 301,
+                lineNumber: 366,
                 columnNumber: 9
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$feedback$2d$widget$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["FeedbackWidget"], {
@@ -8802,7 +8853,7 @@ function CalculatorContent() {
                 category: "calculator-feedback"
             }, void 0, false, {
                 fileName: "[project]/app/calculator/page.tsx",
-                lineNumber: 385,
+                lineNumber: 450,
                 columnNumber: 7
             }, this),
             showLeadCapture && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$lead$2d$capture$2d$modal$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["LeadCaptureModal"], {
@@ -8827,24 +8878,24 @@ function CalculatorContent() {
                 }
             }, void 0, false, {
                 fileName: "[project]/app/calculator/page.tsx",
-                lineNumber: 393,
+                lineNumber: 458,
                 columnNumber: 9
             }, this),
             showDisclaimer && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$valuation$2d$disclaimer$2d$modal$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ValuationDisclaimerModal"], {
                 onContinue: handleDisclaimerContinue
             }, void 0, false, {
                 fileName: "[project]/app/calculator/page.tsx",
-                lineNumber: 416,
+                lineNumber: 481,
                 columnNumber: 9
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/app/calculator/page.tsx",
-        lineNumber: 186,
+        lineNumber: 251,
         columnNumber: 5
     }, this);
 }
-_s(CalculatorContent, "EUr5lVwDhIGP5T/Pw2ZEVwaEhV0=", false, function() {
+_s(CalculatorContent, "kiVx7TpUm22NdPillAKyB5U4GoY=", false, function() {
     return [
         __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$navigation$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useSearchParams"]
     ];
@@ -8859,22 +8910,22 @@ function CalculatorPage() {
                 children: "Loading calculator..."
             }, void 0, false, {
                 fileName: "[project]/app/calculator/page.tsx",
-                lineNumber: 424,
+                lineNumber: 489,
                 columnNumber: 78
             }, void 0)
         }, void 0, false, {
             fileName: "[project]/app/calculator/page.tsx",
-            lineNumber: 424,
+            lineNumber: 489,
             columnNumber: 25
         }, void 0),
         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$5$2e$12_$40$opentelemetry$2b$api$40$1$2e$9$2e$0_react$2d$dom$40$19$2e$2$2e$4_react$40$19$2e$2$2e$4_$5f$react$40$19$2e$2$2e$4$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(CalculatorContent, {}, void 0, false, {
             fileName: "[project]/app/calculator/page.tsx",
-            lineNumber: 425,
+            lineNumber: 490,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/app/calculator/page.tsx",
-        lineNumber: 424,
+        lineNumber: 489,
         columnNumber: 5
     }, this);
 }

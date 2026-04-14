@@ -79,12 +79,44 @@ function getInvalidFieldKeys(inputs: ValuationInputs): string[] {
 function CalculatorContent() {
   const searchParams = useSearchParams()
   const [inputs, setInputs] = useState<ValuationInputs>(() => {
+    const newInputs = { ...defaultInputs }
+    
+    // Revenue
     const rev = searchParams.get("rev")
     if (rev) {
       const n = parseFloat(rev)
-      if (!isNaN(n) && n > 0) return { ...defaultInputs, revenueLTM: n }
+      if (!isNaN(n) && n > 0) newInputs.revenueLTM = n
     }
-    return defaultInputs
+    
+    // Retention: "high" → 92, "average" → 85, "low" → 75
+    const retention = searchParams.get("retention")
+    if (retention === "high") newInputs.retentionRate = 92
+    else if (retention === "average") newInputs.retentionRate = 85
+    else if (retention === "low") newInputs.retentionRate = 75
+    
+    // Book Type: "commercial" → 75, "mixed" → 50, "personal" → 25
+    const bookType = searchParams.get("bookType")
+    if (bookType === "commercial") newInputs.policyMix = 75
+    else if (bookType === "mixed") newInputs.policyMix = 50
+    else if (bookType === "personal") newInputs.policyMix = 25
+    
+    // Growth trend (direct match)
+    const growth = searchParams.get("growth")
+    if (growth) newInputs.revenueGrowthTrend = growth
+    
+    // Customer and policy counts (direct match)
+    const customers = searchParams.get("customers")
+    if (customers) {
+      const n = parseInt(customers)
+      if (!isNaN(n) && n > 0) newInputs.activeCustomers = n
+    }
+    const policies = searchParams.get("policies")
+    if (policies) {
+      const n = parseInt(policies)
+      if (!isNaN(n) && n > 0) newInputs.activePolicies = n
+    }
+    
+    return newInputs
   })
   const [submitted, setSubmitted] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -96,15 +128,48 @@ function CalculatorContent() {
   const [leadId, setLeadId] = useState<number | null>(null)
   const [pdfLoading, setPdfLoading] = useState(false)
 
-  // Pre-fill revenue from URL param if navigated from quick-value
+  // Pre-fill from URL params if navigated from quick-value (only if not already set)
   useEffect(() => {
-    const rev = searchParams.get("rev")
-    if (rev) {
-      const n = parseFloat(rev)
-      if (!isNaN(n) && n > 0) {
-        setInputs(prev => prev.revenueLTM ? prev : { ...prev, revenueLTM: n })
+    setInputs(prev => {
+      const updates: Partial<ValuationInputs> = {}
+      
+      const rev = searchParams.get("rev")
+      if (rev && !prev.revenueLTM) {
+        const n = parseFloat(rev)
+        if (!isNaN(n) && n > 0) updates.revenueLTM = n
       }
-    }
+      
+      const retention = searchParams.get("retention")
+      if (retention && !prev.retentionRate) {
+        if (retention === "high") updates.retentionRate = 92
+        else if (retention === "average") updates.retentionRate = 85
+        else if (retention === "low") updates.retentionRate = 75
+      }
+      
+      const bookType = searchParams.get("bookType")
+      if (bookType && !prev.policyMix) {
+        if (bookType === "commercial") updates.policyMix = 75
+        else if (bookType === "mixed") updates.policyMix = 50
+        else if (bookType === "personal") updates.policyMix = 25
+      }
+      
+      const growth = searchParams.get("growth")
+      if (growth && !prev.revenueGrowthTrend) updates.revenueGrowthTrend = growth
+      
+      const customers = searchParams.get("customers")
+      if (customers && !prev.activeCustomers) {
+        const n = parseInt(customers)
+        if (!isNaN(n) && n > 0) updates.activeCustomers = n
+      }
+      
+      const policies = searchParams.get("policies")
+      if (policies && !prev.activePolicies) {
+        const n = parseInt(policies)
+        if (!isNaN(n) && n > 0) updates.activePolicies = n
+      }
+      
+      return Object.keys(updates).length > 0 ? { ...prev, ...updates } : prev
+    })
   }, [searchParams])
 
   const results = useMemo(() => {

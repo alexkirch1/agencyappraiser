@@ -716,6 +716,7 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
     active: "text-success",
     completed: "text-primary",
     declined: "text-destructive",
+    test: "text-muted-foreground",
   }
 
   const activeDeals = deals.filter((d) => d.status === "active")
@@ -1045,6 +1046,7 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
                     <option value="active">Active</option>
                     <option value="completed">Completed</option>
                     <option value="declined">Declined</option>
+                    <option value="test">Test (Excluded from Stats)</option>
                   </select>
                 </div>
 

@@ -20,7 +20,7 @@ export interface Deal {
   deal_type: "full" | "book"
   valuation: number
   premium_base: number
-  status: "active" | "completed" | "declined"
+  status: "active" | "completed" | "declined" | "test"
   date_saved: string
   details?: Record<string, unknown>
 }
