@@ -247,12 +247,12 @@ export function DealSimulator({
       </div>
 
       {/* Strategy tabs */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         {strategies.map((s) => (
           <button
             key={s.key}
             onClick={() => setActiveStrategy(s.key)}
-            className={`rounded-md border px-2 py-2 text-xs font-medium transition-colors ${
+            className={`rounded-md border px-3 py-2.5 text-sm font-medium transition-colors sm:px-2 sm:py-2 sm:text-xs ${
               activeStrategy === s.key
                 ? "border-primary bg-primary text-primary-foreground"
                 : "border-border bg-card text-foreground hover:bg-secondary"

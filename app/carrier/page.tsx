@@ -116,8 +116,8 @@ export default function CarrierPage() {
           </div>
         </div>
 
-        {/* Sidebar */}
-        <div className="w-full lg:sticky lg:top-24 lg:w-[40%] lg:self-start">
+        {/* Sidebar — moves above form on mobile once results exist */}
+        <div className={`w-full lg:sticky lg:top-24 lg:w-[40%] lg:self-start ${results && results.premium > 0 ? "order-first lg:order-last" : ""}`}>
           <div className="flex flex-col gap-4">
             {results && results.premium > 0 && (
               <MarketIntelPanel
