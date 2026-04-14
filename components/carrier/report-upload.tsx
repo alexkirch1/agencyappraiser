@@ -153,33 +153,35 @@ export function ReportUpload({ carrier, onParsed }: Props) {
         />
 
         {status === "idle" && (
-          <div
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={handleDrop}
-            onClick={() => inputRef.current?.click()}
-            className="flex cursor-pointer flex-col items-center gap-3 rounded-lg border border-dashed border-border p-6 transition-colors hover:border-primary/50 hover:bg-secondary/30"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-              <Upload className="h-6 w-6 text-primary" />
+          <>
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
+              onClick={() => inputRef.current?.click()}
+              className="flex cursor-pointer flex-col items-center gap-3 rounded-lg border border-dashed border-border p-6 transition-colors hover:border-primary/50 hover:bg-secondary/30"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                <Upload className="h-6 w-6 text-primary" />
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-medium text-foreground">
+                  Upload {carrierReportNames[carrier]}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {carrier === "libertymutual"
+                    ? "Upload your CL ADP Summary first, then upload your CL ADP for more detail. AI will read both."
+                    : carrier === "natgen"
+                    ? "Drag and drop the CSV export or click to browse. AI will auto-fill the fields."
+                    : "Drag and drop a PDF or click to browse. AI will auto-fill the fields."}
+                </p>
+              </div>
             </div>
-            <div className="text-center">
-              <p className="text-sm font-medium text-foreground">
-                Upload {carrierReportNames[carrier]}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {carrier === "libertymutual"
-                  ? "Upload your CL ADP Summary first, then upload your CL ADP for more detail. AI will read both."
-                  : carrier === "natgen"
-                  ? "Drag and drop the CSV export or click to browse. AI will auto-fill the fields."
-                  : "Drag and drop a PDF or click to browse. AI will auto-fill the fields."}
-              </p>
+            {/* Privacy assurance */}
+            <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+              <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-success" />
+              <span>Your report is processed securely and never stored or shared.</span>
             </div>
-          </div>
-          {/* Privacy assurance */}
-          <div className="mt-2 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-            <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-success" />
-            <span>Your report is processed securely and never stored or shared.</span>
-          </div>
+          </>
         )}
 
         {status === "loading" && (
