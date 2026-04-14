@@ -2,7 +2,7 @@
 // Carrier Valuation Engine — Travelers, Progressive, Hartford
 // =====================================================
 
-export type CarrierName = "progressive" | "travelers" | "hartford" | "safeco" | "berkshire" | "libertymutual" | "employers" | "hoa"
+export type CarrierName = "progressive" | "travelers" | "hartford" | "safeco" | "berkshire" | "libertymutual" | "employers" | "hoa" | "natgen"
 export type BookType = "personal" | "commercial" | "both" | "auto" | "home"
 
 export interface CarrierInputs {
@@ -101,6 +101,15 @@ export interface CarrierInputs {
   hoa_cancel_count: number | null           // Cancel count
   hoa_cancel_premium: number | null         // Cancel premium (negative $)
   hoa_total_premium: number | null          // Total written premium ($) — sum of all rows
+
+  // ---- National General (P&C) — Agency Production Report CSV ----
+  // Source: Agency Production Report CSV — use Combined Total section, PYYE timeframe
+  natgen_pif: number | null                // Policies in Force (Combined Total, Total, PYYE)
+  natgen_written_premium: number | null    // Written Premium ($) — Combined Total, Total, PYYE
+  natgen_net_written_premium: number | null // Net Written Premium ($) — Combined Total, Total, PYYE
+  natgen_loss_ratio: number | null         // Net Loss Ratio (%) — Combined Total, Total, PYYE
+  natgen_renewal_rate: number | null       // Renewal Rate (%) — Combined Total, Total, PYYE
+  natgen_new_policies_ytd: number | null   // New Bound Policies YTD — Combined Total, Total, YTD
 
   // ---- Book Quality (all carriers) — sourced from commission statements / active policy list ----
 
@@ -563,6 +572,57 @@ export function calculateCarrierValuation(inputs: CarrierInputs): CarrierResults
     if (basePremium >= 200_000)      finalMultiple += 0.10  // $2M+ written premium
     else if (basePremium >= 100_000) finalMultiple += 0.06  // $1M+ written premium
     else if (basePremium >= 50_000)  finalMultiple += 0.03  // $500k+ written premium
+  }
+
+  // -------------------------------------------------------
+  // National General (P&C) — Personal Lines Auto, Home, Specialty Vehicle
+  // -------------------------------------------------------
+  else if (carrier === "natgen") {
+    const writtenPremium    = inputs.natgen_written_premium     ?? 0
+    const netWrittenPremium = inputs.natgen_net_written_premium ?? 0
+    const pif               = inputs.natgen_pif                 ?? 0
+    const lossRatio         = inputs.natgen_loss_ratio          ?? 0
+    const renewalRate       = inputs.natgen_renewal_rate        ?? 0
+    const newPoliciesYtd    = inputs.natgen_new_policies_ytd    ?? 0
+
+    // National General is personal lines P&C — commission ~10% of written premium
+    const commissionRate = 0.10
+    const premBase = netWrittenPremium > 0 ? netWrittenPremium : writtenPremium
+    basePremium = premBase * commissionRate
+
+    finalMultiple = 1.4  // Personal lines P&C base
+
+    // Loss ratio — standard personal lines benchmarks
+    if (lossRatio > 0) {
+      if (lossRatio < 55)        finalMultiple += 0.20
+      else if (lossRatio < 65)   finalMultiple += 0.12
+      else if (lossRatio < 75)   finalMultiple += 0.05
+      else if (lossRatio < 90)   finalMultiple -= 0.08
+      else                       finalMultiple -= 0.18
+    }
+
+    // Renewal rate — retention is key for personal lines valuation
+    if (renewalRate >= 88)       finalMultiple += 0.18
+    else if (renewalRate >= 82)  finalMultiple += 0.10
+    else if (renewalRate >= 75)  finalMultiple += 0.04
+    else if (renewalRate < 65)   finalMultiple -= 0.12
+
+    // PIF size — diversification and scale
+    if (pif >= 1000)             finalMultiple += 0.10
+    else if (pif >= 500)         finalMultiple += 0.05
+    else if (pif < 100)          finalMultiple -= 0.05
+
+    // New business growth signal
+    if (newPoliciesYtd > 0 && pif > 0) {
+      const growthPct = (newPoliciesYtd / pif) * 100
+      if (growthPct >= 20)       finalMultiple += 0.08
+      else if (growthPct >= 10)  finalMultiple += 0.04
+    }
+
+    // Agency revenue volume tiers (~10% commission on written premium)
+    if (basePremium >= 200_000)      finalMultiple += 0.10
+    else if (basePremium >= 100_000) finalMultiple += 0.06
+    else if (basePremium >= 50_000)  finalMultiple += 0.03
   }
 
   // -------------------------------------------------------

@@ -46,6 +46,7 @@ const carrierReportNames: Record<CarrierName, string> = {
   libertymutual: "CL ADP or CL ADP Summary",
   employers:     "Agency Summary — Active Policies PDF",
   hoa:           "Producer Production Report (Last 12 Months)",
+  natgen:        "Agency Production Report (CSV)",
 }
 
 export function ReportUpload({ carrier, onParsed }: Props) {
@@ -59,7 +60,16 @@ export function ReportUpload({ carrier, onParsed }: Props) {
 
   const handleFile = useCallback(
     async (file: File) => {
-      if (!file.name.toLowerCase().endsWith(".pdf")) {
+      const isPDF = file.name.toLowerCase().endsWith(".pdf")
+      const isCSV = file.name.toLowerCase().endsWith(".csv")
+      const natgenCarrier = carrier === "natgen"
+
+      if (natgenCarrier && !isCSV) {
+        setStatus("error")
+        setErrorMsg("Please upload a CSV file for National General. Export the Agency Production Report as CSV from the portal.")
+        return
+      }
+      if (!natgenCarrier && !isPDF) {
         setStatus("error")
         setErrorMsg("Please upload a PDF file.")
         return
@@ -87,6 +97,7 @@ export function ReportUpload({ carrier, onParsed }: Props) {
             libertymutual: 8,
             employers:     4,
             hoa:           7,
+            natgen:        6,
           }
           const expected = expectedFields[carrier] || 5
           const conf = Math.min(98, Math.round((count / expected) * 78 + 20))
@@ -136,7 +147,7 @@ export function ReportUpload({ carrier, onParsed }: Props) {
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf"
+          accept={carrier === "natgen" ? ".csv" : ".pdf"}
           className="hidden"
           onChange={handleChange}
         />
@@ -158,6 +169,8 @@ export function ReportUpload({ carrier, onParsed }: Props) {
               <p className="mt-1 text-xs text-muted-foreground">
                 {carrier === "libertymutual"
                   ? "Upload your CL ADP Summary first, then upload your CL ADP for more detail. AI will read both."
+                  : carrier === "natgen"
+                  ? "Drag and drop the CSV export or click to browse. AI will auto-fill the fields."
                   : "Drag and drop a PDF or click to browse. AI will auto-fill the fields."}
               </p>
             </div>

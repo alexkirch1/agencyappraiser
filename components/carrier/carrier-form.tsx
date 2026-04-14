@@ -149,10 +149,14 @@ const carriers: { value: CarrierName; label: string; description: string }[] = [
     label: "Homeowners of America",
     description: "Homeowners — Producer Production Report",
   },
+  {
+    value: "natgen",
+    label: "National General (P&C)",
+    description: "Personal Lines — Agency Production Report CSV",
+  },
 ]
 
 const comingSoonCarriers: string[] = [
-  "National General (P&C)",
   "Nationwide",
   "Neptune Flood",
   "Open Road",
@@ -299,6 +303,9 @@ export function CarrierForm({ inputs, onChange }: Props) {
               {carrier === "hoa" && (
                 <HOAFields inputs={inputs} update={update} />
               )}
+              {carrier === "natgen" && (
+                <NatGenFields inputs={inputs} update={update} />
+              )}
             </CardContent>
           </Card>
 
@@ -407,6 +414,8 @@ const defaultFieldReset: Partial<CarrierInputs> = {
   emp_written_premium: null, emp_earned_premium_ytd: null, emp_policy_count: null, emp_loss_ratio: null,
   hoa_new_policy_count: null, hoa_new_policy_premium: null, hoa_renewal_count: null, hoa_renewal_premium: null,
   hoa_cancel_count: null, hoa_cancel_premium: null, hoa_total_premium: null,
+  natgen_pif: null, natgen_written_premium: null, natgen_net_written_premium: null,
+  natgen_loss_ratio: null, natgen_renewal_rate: null, natgen_new_policies_ytd: null,
   book_preferred_pct: null, book_policies_per_customer: null, book_avg_premium_per_policy: null,
   book_new_business_pct: null, book_monoline_pct: null, book_digital_docs_pct: null,
 }
@@ -451,6 +460,11 @@ function getBookTypeOptions(carrier: string) {
   if (carrier === "hoa") {
     return [
       { value: "personal", label: "Homeowners" },
+    ]
+  }
+  if (carrier === "natgen") {
+    return [
+      { value: "personal", label: "Personal Lines (Auto, Home, Specialty)" },
     ]
   }
   // Progressive
@@ -1106,6 +1120,101 @@ function HOAFields({
 }
 
 // -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
+// National General Fields
+// -----------------------------------------------------------------------
+function NatGenFields({
+  inputs, update,
+}: { inputs: CarrierInputs; update: (p: Partial<CarrierInputs>) => void }) {
+  return (
+    <div className="flex flex-col gap-4 rounded-lg border border-border p-4">
+      <div>
+        <p className="text-sm font-semibold text-foreground">Agency Production Report — Combined Total (PYYE)</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">Upload the CSV report below or enter the figures manually. Use the Combined Total section, PYYE (Prior Year Year-End) timeframe for the most accurate full-year snapshot.</p>
+      </div>
+
+      {/* Step-by-step instructions */}
+      <div className="rounded-md border border-border bg-muted/40 p-3">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">How to get this report</p>
+        <ol className="flex flex-col gap-1.5">
+          {[
+            "Log in to your National General agent portal",
+            "Navigate to Reports → Agency Production Report",
+            "Select your agency and set the date range to the last full calendar year",
+            "Click Export or Download as CSV",
+            "Upload the CSV using the upload button above, or enter the Combined Total figures manually below",
+          ].map((step, i) => (
+            <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+              <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                {i + 1}
+              </span>
+              <span>{step}</span>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Find the <span className="font-mono font-medium text-foreground">Combined Total</span> section and use the <span className="font-mono font-medium text-foreground">PYYE</span> (Prior Year Year-End) values for each metric below.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <NumField
+          label="Policies in Force (PIF)"
+          value={inputs.natgen_pif}
+          onChange={(v) => update({ natgen_pif: v })}
+          placeholder="e.g. 450"
+          type="number"
+          hint="Combined Total → Policies in Force → PYYE"
+          benchmark={{ good: 500, poor: 100, direction: "higher-better", goodLabel: "Established", poorLabel: "Small" }}
+        />
+        <NumField
+          label="New Bound Policies YTD"
+          value={inputs.natgen_new_policies_ytd}
+          onChange={(v) => update({ natgen_new_policies_ytd: v })}
+          placeholder="e.g. 85"
+          type="number"
+          hint="Combined Total → New Bound Policies → YTD"
+        />
+        <NumField
+          label="Written Premium ($)"
+          value={inputs.natgen_written_premium}
+          onChange={(v) => update({ natgen_written_premium: v })}
+          placeholder="e.g. 850,000"
+          type="currency"
+          hint="Combined Total → Written Premium → PYYE (gross written premium)"
+        />
+        <NumField
+          label="Net Written Premium ($)"
+          value={inputs.natgen_net_written_premium}
+          onChange={(v) => update({ natgen_net_written_premium: v })}
+          placeholder="e.g. 820,000"
+          type="currency"
+          hint="Combined Total → Net Written Premium → PYYE (preferred for valuation)"
+          benchmark={{ good: 500000, poor: 50000, direction: "higher-better", goodLabel: "Strong Book", poorLabel: "Small Book" }}
+        />
+        <NumField
+          label="Net Loss Ratio (%)"
+          value={inputs.natgen_loss_ratio}
+          onChange={(v) => update({ natgen_loss_ratio: v })}
+          placeholder="e.g. 62"
+          type="percent"
+          hint="Combined Total → Net Loss Ratio → PYYE"
+          benchmark={{ good: 65, poor: 90, direction: "lower-better", goodLabel: "Clean", poorLabel: "Elevated" }}
+        />
+        <NumField
+          label="Renewal Rate (%)"
+          value={inputs.natgen_renewal_rate}
+          onChange={(v) => update({ natgen_renewal_rate: v })}
+          placeholder="e.g. 84"
+          type="percent"
+          hint="Combined Total → Renewal Rate → PYYE"
+          benchmark={{ good: 85, poor: 70, direction: "higher-better", goodLabel: "Strong Retention", poorLabel: "High Churn" }}
+        />
+      </div>
+    </div>
+  )
+}
+
 // Shared numeric input
 // -----------------------------------------------------------------------
 function NumField({

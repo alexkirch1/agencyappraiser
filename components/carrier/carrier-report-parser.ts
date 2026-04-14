@@ -61,6 +61,7 @@ export function parseCarrierReport(
   if (carrier === "safeco")        return parseSafeco(lines)
   if (carrier === "employers")     return parseEmployers(lines)
   if (carrier === "hoa")           return parseHOA(lines)
+  if (carrier === "natgen")        return parseNatGen(lines)
   return {}
 }
 
@@ -1236,6 +1237,47 @@ function parseBerkshireLoss(lines: string[]): Pick<
           result.bh_loss_ratio_ytd = lr
         }
       }
+    }
+  }
+
+  return result
+}
+
+// =====================================================
+// NATIONAL GENERAL — Agency Production Report (CSV)
+// =====================================================
+// Format: pivot-style CSV with columns: section, new/total, metric, timeframe, value
+// We target: section="Combined Total", newtotalind="Total", timeframe="PYYE" for full-year figures
+// and timeframe="YTD" for New Bound Policies
+function parseNatGen(lines: string[]): Partial<CarrierInputs> {
+  const result: Partial<CarrierInputs> = {}
+
+  for (const line of lines) {
+    const cols = line.split(",").map(c => c.trim())
+    if (cols.length < 5) continue
+
+    const [section, newTotal, metric, timeframe, rawValue] = cols
+    const sectionLower  = section.toLowerCase()
+    const metricLower   = metric.toLowerCase()
+    const tfLower       = timeframe.toLowerCase()
+    const value         = rawValue ? parseFloat(rawValue.replace(/[^0-9.\-]/g, "")) : NaN
+
+    if (isNaN(value) || value === 0) continue
+    if (!sectionLower.includes("combined total")) continue
+    if (newTotal.toLowerCase() !== "total") continue
+
+    if (metricLower.includes("policies in force") && tfLower === "pyye") {
+      result.natgen_pif = value
+    } else if (metricLower === "written premium" && tfLower === "pyye") {
+      result.natgen_written_premium = value
+    } else if (metricLower.includes("net written premium") && tfLower === "pyye") {
+      result.natgen_net_written_premium = value
+    } else if (metricLower.includes("net loss ratio") && tfLower === "pyye") {
+      result.natgen_loss_ratio = value
+    } else if (metricLower.includes("renewal rate") && tfLower === "pyye") {
+      result.natgen_renewal_rate = value
+    } else if (metricLower.includes("new bound policies") && tfLower === "ytd") {
+      result.natgen_new_policies_ytd = value
     }
   }
 
