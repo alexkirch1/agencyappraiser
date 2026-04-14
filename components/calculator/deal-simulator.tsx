@@ -153,15 +153,18 @@ export function DealSimulator({
   const [activeStrategy, setActiveStrategy] = useState<Strategy>("allcash")
 
   // Cash+Earnout sliders
-  const [blendCashPct, setBlendCashPct] = useState(60)
+  const suggestedBlendCashPct = 60
+  const [blendCashPct, setBlendCashPct] = useState(suggestedBlendCashPct)
   const blendEarnoutPct = 100 - blendCashPct
   // Blend earnout comm% starts at ~80% of full earnout rate (less aggressive since seller gets cash too)
   const blendCommDefault = Math.max(20, Math.round(smartDefaults.commPct * 0.8 / 5) * 5)
-  const [blendCommPct, setBlendCommPct] = useState(blendCommDefault)
+  const suggestedBlendCommPct = blendCommDefault
+  const [blendCommPct, setBlendCommPct] = useState(suggestedBlendCommPct)
   const [blendEarnoutYears, setBlendEarnoutYears] = useState(Math.max(1, smartDefaults.years - 1))
 
   // Full earnout — commission % of LTM revenue paid each year
-  const [fullCommPct, setFullCommPct] = useState(smartDefaults.commPct)
+  const suggestedFullCommPct = smartDefaults.commPct
+  const [fullCommPct, setFullCommPct] = useState(suggestedFullCommPct)
   const [fullEarnoutYears, setFullEarnoutYears] = useState(smartDefaults.years)
 
   // ─── CALCULATIONS ────────────────────────────────────────────────────────
@@ -316,7 +319,12 @@ export function DealSimulator({
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Cash at Close</span>
-              <span className="font-bold font-mono text-foreground">{blendCashPct}%</span>
+              <div className="flex items-center gap-2">
+                {blendCashPct !== suggestedBlendCashPct && (
+                  <span className="text-[10px] text-muted-foreground">Suggested: <span className="font-medium text-foreground">{suggestedBlendCashPct}%</span></span>
+                )}
+                <span className="font-bold font-mono text-foreground">{blendCashPct}%</span>
+              </div>
             </div>
             <Slider
               value={[blendCashPct]}
@@ -327,8 +335,17 @@ export function DealSimulator({
             />
             <div className="flex justify-between text-[11px] text-muted-foreground">
               <span>10% cash</span>
+              <span className="text-[10px] text-primary font-medium">Suggested: {suggestedBlendCashPct}%</span>
               <span>90% cash</span>
             </div>
+            {blendCashPct > suggestedBlendCashPct && (
+              <div className="flex items-start gap-1.5 rounded border border-warning/30 bg-warning/10 px-2.5 py-2">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  <span className="font-semibold text-foreground">Above suggested cash split.</span> A higher upfront cash percentage increases buyer risk — deals with {blendCashPct}%+ cash at close are less common and may be harder to negotiate.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Split visual bar */}
@@ -353,7 +370,12 @@ export function DealSimulator({
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Commission % on Annual Revenue per Year</span>
-              <span className="font-bold font-mono text-foreground">{blendCommPct}%</span>
+              <div className="flex items-center gap-2">
+                {blendCommPct !== suggestedBlendCommPct && (
+                  <span className="text-[10px] text-muted-foreground">Suggested: <span className="font-medium text-foreground">{suggestedBlendCommPct}%</span></span>
+                )}
+                <span className="font-bold font-mono text-foreground">{blendCommPct}%</span>
+              </div>
             </div>
             <Slider
               value={[blendCommPct]}
@@ -364,8 +386,17 @@ export function DealSimulator({
             />
             <div className="flex justify-between text-[11px] text-muted-foreground">
               <span>10% (conservative)</span>
+              <span className="text-[10px] text-primary font-medium">Suggested: {suggestedBlendCommPct}%</span>
               <span>80% (aggressive)</span>
             </div>
+            {blendCommPct > suggestedBlendCommPct && (
+              <div className="flex items-start gap-1.5 rounded border border-warning/30 bg-warning/10 px-2.5 py-2">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  <span className="font-semibold text-foreground">Above suggested commission rate.</span> At {blendCommPct}%, the earnout may be unrealistic to negotiate — buyers typically cap commission overrides in the {suggestedBlendCommPct}%–{Math.min(80, suggestedBlendCommPct + 10)}% range.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Payout period */}
@@ -446,7 +477,12 @@ export function DealSimulator({
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Commission % on Annual Revenue per Year</span>
-              <span className="font-bold font-mono text-foreground">{fullCommPct}%</span>
+              <div className="flex items-center gap-2">
+                {fullCommPct !== suggestedFullCommPct && (
+                  <span className="text-[10px] text-muted-foreground">Suggested: <span className="font-medium text-foreground">{suggestedFullCommPct}%</span></span>
+                )}
+                <span className="font-bold font-mono text-foreground">{fullCommPct}%</span>
+              </div>
             </div>
             <Slider
               value={[fullCommPct]}
@@ -457,8 +493,17 @@ export function DealSimulator({
             />
             <div className="flex justify-between text-[11px] text-muted-foreground">
               <span>10% (conservative)</span>
+              <span className="text-[10px] text-primary font-medium">Suggested: {suggestedFullCommPct}%</span>
               <span className="text-muted-foreground/60">100% (max)</span>
             </div>
+            {fullCommPct > suggestedFullCommPct && (
+              <div className="flex items-start gap-1.5 rounded border border-warning/30 bg-warning/10 px-2.5 py-2">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  <span className="font-semibold text-foreground">Above suggested rate.</span> At {fullCommPct}% commission, this earnout exceeds typical negotiated terms for your agency profile. Buyers may counter at {suggestedFullCommPct}% — use this as a ceiling reference, not a starting point.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Year selector */}
