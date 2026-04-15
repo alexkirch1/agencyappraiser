@@ -71,7 +71,7 @@ function FeedbackCard({ item, onUpdate, onDelete }: {
     if (!response.trim()) return
     setSaving(true)
     try {
-      await onUpdate(item.id, { admin_response: response.trim(), status: "resolved" })
+      await onUpdate(item.id, { response: response.trim(), status: "resolved" })
     } finally {
       setSaving(false)
     }

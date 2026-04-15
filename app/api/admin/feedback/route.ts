@@ -28,7 +28,7 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   try {
-    const { id, admin_response, status } = await req.json()
+    const { id, response, status } = await req.json()
     if (!id) {
       return NextResponse.json({ error: "id required" }, { status: 400 })
     }
@@ -36,8 +36,8 @@ export async function PATCH(req: Request) {
     const rows = await sql`
       UPDATE feedback
       SET
-        response     = COALESCE(${admin_response ?? null}, response),
-        responded_at = CASE WHEN ${admin_response ?? null} IS NOT NULL THEN now() ELSE responded_at END,
+        response     = COALESCE(${response ?? null}, response),
+        responded_at = CASE WHEN ${response ?? null} IS NOT NULL THEN now() ELSE responded_at END,
         status       = COALESCE(${status ?? null}, status)
       WHERE id = ${id}
       RETURNING *
