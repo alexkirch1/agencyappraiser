@@ -10,7 +10,7 @@ export async function GET(req: Request) {
   }
   try {
     const rows = await sql`
-      SELECT id, message, category, admin_response, responded_at, created_at, status
+      SELECT id, message, category, response, responded_at, created_at, status
       FROM feedback
       ORDER BY created_at DESC
       LIMIT 200
@@ -36,9 +36,9 @@ export async function PATCH(req: Request) {
     const rows = await sql`
       UPDATE feedback
       SET
-        admin_response  = COALESCE(${admin_response ?? null}, admin_response),
-        responded_at    = CASE WHEN ${admin_response ?? null} IS NOT NULL THEN now() ELSE responded_at END,
-        status          = COALESCE(${status ?? null}, status)
+        response     = COALESCE(${admin_response ?? null}, response),
+        responded_at = CASE WHEN ${admin_response ?? null} IS NOT NULL THEN now() ELSE responded_at END,
+        status       = COALESCE(${status ?? null}, status)
       WHERE id = ${id}
       RETURNING *
     `
