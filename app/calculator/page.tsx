@@ -359,8 +359,8 @@ function CalculatorContent() {
           )}
         </div>
 
-        {/* Sidebar (right) */}
-        <div className="w-full lg:sticky lg:top-24 lg:w-[40%] lg:self-start">
+        {/* Sidebar (right) — moves above form on mobile once results exist */}
+        <div className={`w-full lg:sticky lg:top-24 lg:w-[40%] lg:self-start ${results ? "order-first lg:order-last" : ""}`}>
           <ValuationSidebar results={results} riskAudit={riskAudit} />
         </div>
       </div>

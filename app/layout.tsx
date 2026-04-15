@@ -18,8 +18,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "Agency Appraiser | Insurance Agency Valuation Tools",
-  description:
-    "Get a data-driven valuation of your insurance agency. Our proprietary calculator analyzes 7 risk categories to determine your agency's true market value.",
+  description: "Get a data-driven valuation of your insurance agency. Our proprietary calculator analyzes 7 risk categories to determine your agency's true market value.",
 }
 
 

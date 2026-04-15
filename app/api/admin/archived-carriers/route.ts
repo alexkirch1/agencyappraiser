@@ -5,7 +5,7 @@ import sql from "@/lib/db"
 import { isAdminAuthenticated } from "@/lib/admin-auth"
 
 export async function GET(req: Request) {
-  if (!(await isAdminAuthenticated(req))) {
+  if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   try {
@@ -23,7 +23,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  if (!(await isAdminAuthenticated(req))) {
+  if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   try {
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  if (!(await isAdminAuthenticated(req))) {
+  if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   try {

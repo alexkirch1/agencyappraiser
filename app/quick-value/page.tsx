@@ -411,9 +411,9 @@ export default function QuickValuePage() {
                   <div className="flex flex-col items-center text-center gap-2">
                     {/* Range is the headline */}
                     <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Estimated Value Range</p>
-                    <p className="text-3xl font-extrabold text-foreground font-mono leading-tight">
+                    <p className="text-2xl font-extrabold text-foreground font-mono leading-tight sm:text-3xl">
                       {formatCurrency(estimate.lowValue)}
-                      <span className="text-muted-foreground/50 mx-1.5">&ndash;</span>
+                      <span className="text-muted-foreground/50 mx-1">&ndash;</span>
                       {formatCurrency(estimate.highValue)}
                     </p>
 

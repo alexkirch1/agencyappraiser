@@ -38,17 +38,17 @@ export function ValuationSidebar({ results, riskAudit }: Props) {
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
-          <div className="flex items-end gap-3">
+          <div className="flex flex-wrap items-end gap-x-3 gap-y-1">
             <div className="flex flex-col">
               <span className="text-xs text-muted-foreground">Low</span>
-              <span className="text-2xl font-bold text-success">
+              <span className="text-xl font-bold text-success sm:text-2xl">
                 {formatCurrency(results.lowOffer)}
               </span>
             </div>
             <span className="mb-1 text-lg text-muted-foreground">—</span>
             <div className="flex flex-col">
               <span className="text-xs text-muted-foreground">High</span>
-              <span className="text-2xl font-bold text-success">
+              <span className="text-xl font-bold text-success sm:text-2xl">
                 {formatCurrency(results.highOffer)}
               </span>
             </div>
@@ -57,7 +57,7 @@ export function ValuationSidebar({ results, riskAudit }: Props) {
       </Card>
 
       {/* Risk Grade + Multiple side by side */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
         <Card className="border-border bg-card">
           <CardContent className="flex flex-col items-center justify-center py-5">
             <div className={`flex h-12 w-12 items-center justify-center rounded-full border-2 ${gradeColorBorder(riskAudit.grade)}`}>
