@@ -28,20 +28,39 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   try {
-    const { id, response, status } = await req.json()
+    const body = await req.json()
+    const { id } = body
+    const newResponse: string | undefined = body.response
+    const newStatus: string | undefined   = body.status
+
     if (!id) {
       return NextResponse.json({ error: "id required" }, { status: 400 })
     }
 
-    const rows = await sql`
-      UPDATE feedback
-      SET
-        response     = COALESCE(${response ?? null}, response),
-        responded_at = CASE WHEN ${response ?? null} IS NOT NULL THEN now() ELSE responded_at END,
-        status       = COALESCE(${status ?? null}, status)
-      WHERE id = ${id}
-      RETURNING *
-    `
+    // Build update conditionally to avoid Postgres type-inference errors with null params
+    let rows
+    if (newResponse !== undefined && newStatus !== undefined) {
+      rows = await sql`
+        UPDATE feedback
+        SET response = ${newResponse}, responded_at = now(), status = ${newStatus}
+        WHERE id = ${id} RETURNING *
+      `
+    } else if (newResponse !== undefined) {
+      rows = await sql`
+        UPDATE feedback
+        SET response = ${newResponse}, responded_at = now()
+        WHERE id = ${id} RETURNING *
+      `
+    } else if (newStatus !== undefined) {
+      rows = await sql`
+        UPDATE feedback
+        SET status = ${newStatus}
+        WHERE id = ${id} RETURNING *
+      `
+    } else {
+      return NextResponse.json({ error: "Nothing to update" }, { status: 400 })
+    }
+
     return NextResponse.json({ feedback: rows[0] })
   } catch (e) {
     console.error("[admin/feedback PATCH]", e)
