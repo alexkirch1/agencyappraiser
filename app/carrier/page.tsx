@@ -207,9 +207,9 @@ export default function CarrierPage() {
             <Card className="border-border bg-card">
               <CardContent className="pt-6">
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                  This tool values individual carrier books of business. Base multiple starts at 1.5x
-                  and adjusts based on loss ratio, retention, premium volume, and carrier-specific factors.
-                  The range is clamped between 0.75x and 3.0x.
+                  This tool values individual carrier books of business. The multiple adjusts based on
+                  loss ratio, retention rate, premium volume, and carrier-specific factors. Your final
+                  multiple and the reasoning behind it are shown in the results above.
                 </p>
               </CardContent>
             </Card>
