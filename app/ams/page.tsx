@@ -17,7 +17,7 @@ import { Database, FileSpreadsheet, PenLine, ChevronDown, ChevronUp } from "luci
 export default function AmsPage() {
   const [inputs, setInputs] = useState<AmsInputs>(defaultAmsInputs)
   const [submitted, setSubmitted] = useState(false)
-  const [showManual, setShowManual] = useState(false)
+  const [showManual, setShowManual] = useState(true)
 
   const results = useMemo(() => {
     if (!submitted) return null
@@ -48,11 +48,11 @@ export default function AmsPage() {
               <Database className="h-5 w-5 text-primary" />
             </div>
             <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
-              AMS Analysis
+              Agency Management System
             </span>
           </div>
           <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
-            Agency Management System Valuation
+            Agency Management System Report
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
             Upload an EZLynx report for automatic data extraction, or fill in your agency metrics

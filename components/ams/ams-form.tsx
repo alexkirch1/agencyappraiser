@@ -10,15 +10,13 @@ interface Props {
   onChange: (patch: Partial<AmsInputs>) => void
 }
 
-interface BenchmarkConfig {
-  good: number
-  poor: number
-  direction: "lower-better" | "higher-better"
-  goodLabel?: string
-  poorLabel?: string
-}
-
-function BenchmarkBadge({ value, config }: { value: number | null; config: BenchmarkConfig }) {
+function BenchmarkBadge({
+  value,
+  config,
+}: {
+  value: number | null
+  config: { good: number; poor: number; direction: "lower-better" | "higher-better"; goodLabel?: string; poorLabel?: string }
+}) {
   if (value === null || value === undefined) return null
   const { good, poor, direction } = config
   let tier: "good" | "caution" | "poor"
@@ -28,9 +26,9 @@ function BenchmarkBadge({ value, config }: { value: number | null; config: Bench
     tier = value >= good ? "good" : value <= poor ? "poor" : "caution"
   }
   const styles = {
-    good:    "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800",
-    caution: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800",
-    poor:    "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800",
+    good:    "bg-success/10 text-success border-success/30",
+    caution: "bg-warning/10 text-warning border-warning/30",
+    poor:    "bg-destructive/10 text-destructive border-destructive/30",
   }
   const labels = {
     good:    config.goodLabel ?? "Strong",
@@ -62,7 +60,7 @@ function Field({
         {badge}
       </div>
       {children}
-      {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
+      {hint && <p className="text-[11px] text-muted-foreground leading-snug">{hint}</p>}
     </div>
   )
 }
@@ -75,24 +73,24 @@ export function AmsForm({ inputs, onChange }: Props) {
 
       {/* Book Overview */}
       <Card className="border-border bg-card">
-        <CardHeader className="pb-3 pt-4 px-4">
+        <CardHeader className="pb-2 pt-4 px-4">
           <CardTitle className="text-sm font-semibold text-foreground">Book Overview</CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4 flex flex-col gap-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Total Policies in Force" hint="All active policies across all lines">
               <SmartInput
-                type="integer"
+                inputType="count"
                 value={inputs.total_pif}
-                onChange={set("total_pif")}
+                onValueChange={set("total_pif")}
                 placeholder="e.g. 1,200"
               />
             </Field>
-            <Field label="Total Written Premium" hint="Gross annual written premium ($)">
+            <Field label="Total Written Premium" hint="Gross annual written premium">
               <SmartInput
-                type="currency"
+                inputType="currency"
                 value={inputs.total_premium}
-                onChange={set("total_premium")}
+                onValueChange={set("total_premium")}
                 placeholder="e.g. $2,400,000"
               />
             </Field>
@@ -109,10 +107,10 @@ export function AmsForm({ inputs, onChange }: Props) {
               }
             >
               <SmartInput
-                type="percent"
+                inputType="percent"
                 value={inputs.personal_lines_pct}
-                onChange={set("personal_lines_pct")}
-                placeholder="e.g. 65%"
+                onValueChange={set("personal_lines_pct")}
+                placeholder="e.g. 65"
               />
             </Field>
             <Field
@@ -126,10 +124,10 @@ export function AmsForm({ inputs, onChange }: Props) {
               }
             >
               <SmartInput
-                type="percent"
+                inputType="percent"
                 value={inputs.commercial_lines_pct}
-                onChange={set("commercial_lines_pct")}
-                placeholder="e.g. 35%"
+                onValueChange={set("commercial_lines_pct")}
+                placeholder="e.g. 35"
               />
             </Field>
           </div>
@@ -138,13 +136,13 @@ export function AmsForm({ inputs, onChange }: Props) {
 
       {/* Retention */}
       <Card className="border-border bg-card">
-        <CardHeader className="pb-3 pt-4 px-4">
+        <CardHeader className="pb-2 pt-4 px-4">
           <CardTitle className="text-sm font-semibold text-foreground">Retention</CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4 flex flex-col gap-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Field
-              label="Overall Retention"
+              label="Overall Retention Rate"
               badge={
                 <BenchmarkBadge
                   value={inputs.overall_retention}
@@ -153,10 +151,10 @@ export function AmsForm({ inputs, onChange }: Props) {
               }
             >
               <SmartInput
-                type="percent"
+                inputType="percent"
                 value={inputs.overall_retention}
-                onChange={set("overall_retention")}
-                placeholder="e.g. 88%"
+                onValueChange={set("overall_retention")}
+                placeholder="e.g. 88"
               />
             </Field>
             <Field
@@ -169,10 +167,10 @@ export function AmsForm({ inputs, onChange }: Props) {
               }
             >
               <SmartInput
-                type="percent"
+                inputType="percent"
                 value={inputs.pl_retention}
-                onChange={set("pl_retention")}
-                placeholder="e.g. 87%"
+                onValueChange={set("pl_retention")}
+                placeholder="e.g. 87"
               />
             </Field>
             <Field
@@ -185,10 +183,10 @@ export function AmsForm({ inputs, onChange }: Props) {
               }
             >
               <SmartInput
-                type="percent"
+                inputType="percent"
                 value={inputs.cl_retention}
-                onChange={set("cl_retention")}
-                placeholder="e.g. 91%"
+                onValueChange={set("cl_retention")}
+                placeholder="e.g. 91"
               />
             </Field>
           </div>
@@ -197,24 +195,24 @@ export function AmsForm({ inputs, onChange }: Props) {
 
       {/* New Business */}
       <Card className="border-border bg-card">
-        <CardHeader className="pb-3 pt-4 px-4">
+        <CardHeader className="pb-2 pt-4 px-4">
           <CardTitle className="text-sm font-semibold text-foreground">New Business</CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4 flex flex-col gap-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="New Business Premium" hint="Annual new business written premium ($)">
+            <Field label="New Business Premium" hint="Annual new business written premium">
               <SmartInput
-                type="currency"
+                inputType="currency"
                 value={inputs.new_business_premium}
-                onChange={set("new_business_premium")}
+                onValueChange={set("new_business_premium")}
                 placeholder="e.g. $320,000"
               />
             </Field>
-            <Field label="New Business Policies" hint="Count of new policies written in period">
+            <Field label="New Policies Written" hint="Count of new policies written in period">
               <SmartInput
-                type="integer"
+                inputType="count"
                 value={inputs.new_business_policies}
-                onChange={set("new_business_policies")}
+                onValueChange={set("new_business_policies")}
                 placeholder="e.g. 145"
               />
             </Field>
@@ -224,7 +222,7 @@ export function AmsForm({ inputs, onChange }: Props) {
 
       {/* Loss Ratios */}
       <Card className="border-border bg-card">
-        <CardHeader className="pb-3 pt-4 px-4">
+        <CardHeader className="pb-2 pt-4 px-4">
           <CardTitle className="text-sm font-semibold text-foreground">Loss Ratios</CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4 flex flex-col gap-4">
@@ -239,14 +237,14 @@ export function AmsForm({ inputs, onChange }: Props) {
               }
             >
               <SmartInput
-                type="percent"
+                inputType="percent"
                 value={inputs.overall_loss_ratio}
-                onChange={set("overall_loss_ratio")}
-                placeholder="e.g. 62%"
+                onValueChange={set("overall_loss_ratio")}
+                placeholder="e.g. 62"
               />
             </Field>
             <Field
-              label="PL Loss Ratio"
+              label="Personal Lines Loss Ratio"
               badge={
                 <BenchmarkBadge
                   value={inputs.pl_loss_ratio}
@@ -255,14 +253,14 @@ export function AmsForm({ inputs, onChange }: Props) {
               }
             >
               <SmartInput
-                type="percent"
+                inputType="percent"
                 value={inputs.pl_loss_ratio}
-                onChange={set("pl_loss_ratio")}
-                placeholder="e.g. 68%"
+                onValueChange={set("pl_loss_ratio")}
+                placeholder="e.g. 68"
               />
             </Field>
             <Field
-              label="CL Loss Ratio"
+              label="Commercial Lines Loss Ratio"
               badge={
                 <BenchmarkBadge
                   value={inputs.cl_loss_ratio}
@@ -271,36 +269,36 @@ export function AmsForm({ inputs, onChange }: Props) {
               }
             >
               <SmartInput
-                type="percent"
+                inputType="percent"
                 value={inputs.cl_loss_ratio}
-                onChange={set("cl_loss_ratio")}
-                placeholder="e.g. 54%"
+                onValueChange={set("cl_loss_ratio")}
+                placeholder="e.g. 54"
               />
             </Field>
           </div>
         </CardContent>
       </Card>
 
-      {/* Revenue */}
+      {/* Agency Revenue */}
       <Card className="border-border bg-card">
-        <CardHeader className="pb-3 pt-4 px-4">
+        <CardHeader className="pb-2 pt-4 px-4">
           <CardTitle className="text-sm font-semibold text-foreground">Agency Revenue</CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4 flex flex-col gap-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Revenue — Last 12 Months" hint="Total agency commissions / fees earned (LTM)">
+            <Field label="Revenue — Last 12 Months" hint="Total commissions and fees earned (LTM)">
               <SmartInput
-                type="currency"
+                inputType="currency"
                 value={inputs.revenue_ltm}
-                onChange={set("revenue_ltm")}
+                onValueChange={set("revenue_ltm")}
                 placeholder="e.g. $480,000"
               />
             </Field>
             <Field label="Revenue — Prior Year" hint="Prior year revenue for growth calculation">
               <SmartInput
-                type="currency"
+                inputType="currency"
                 value={inputs.revenue_prior_year}
-                onChange={set("revenue_prior_year")}
+                onValueChange={set("revenue_prior_year")}
                 placeholder="e.g. $430,000"
               />
             </Field>
@@ -310,24 +308,24 @@ export function AmsForm({ inputs, onChange }: Props) {
 
       {/* Agency Profile */}
       <Card className="border-border bg-card">
-        <CardHeader className="pb-3 pt-4 px-4">
+        <CardHeader className="pb-2 pt-4 px-4">
           <CardTitle className="text-sm font-semibold text-foreground">Agency Profile</CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4 flex flex-col gap-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Producers / CSRs" hint="Total number of revenue-generating staff">
               <SmartInput
-                type="integer"
+                inputType="count"
                 value={inputs.producer_count}
-                onChange={set("producer_count")}
+                onValueChange={set("producer_count")}
                 placeholder="e.g. 4"
               />
             </Field>
-            <Field label="Years in Business" hint="How long the agency has been operating">
+            <Field label="Years in Business">
               <SmartInput
-                type="integer"
+                inputType="count"
                 value={inputs.years_in_business}
-                onChange={set("years_in_business")}
+                onValueChange={set("years_in_business")}
                 placeholder="e.g. 18"
               />
             </Field>

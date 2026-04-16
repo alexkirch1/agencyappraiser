@@ -43,7 +43,7 @@ const tools = [
   {
     href: "/ams",
     icon: LayoutDashboard,
-    title: "AMS Report",
+    title: "Agency Management System",
     description: "Upload an EZLynx report or fill out the manual form to value your agency using data straight from your management system.",
     accent: "text-success",
     accentBg: "bg-success/10",
