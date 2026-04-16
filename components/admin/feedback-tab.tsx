@@ -34,7 +34,7 @@ interface FeedbackItem {
   id: number
   message: string
   category: string | null
-  admin_response: string | null
+  response: string | null
   responded_at: string | null
   created_at: string
   status: FeedbackStatus
@@ -59,7 +59,7 @@ function FeedbackCard({ item, onUpdate, onDelete }: {
   onDelete: (id: number) => Promise<void>
 }) {
   const [expanded, setExpanded] = useState(item.status === "new")
-  const [response, setResponse] = useState(item.admin_response ?? "")
+  const [response, setResponse] = useState(item.response ?? "")
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -71,7 +71,7 @@ function FeedbackCard({ item, onUpdate, onDelete }: {
     if (!response.trim()) return
     setSaving(true)
     try {
-      await onUpdate(item.id, { admin_response: response.trim(), status: "resolved" })
+      await onUpdate(item.id, { response: response.trim(), status: "resolved" })
     } finally {
       setSaving(false)
     }
@@ -141,10 +141,10 @@ function FeedbackCard({ item, onUpdate, onDelete }: {
         {expanded && (
           <>
             {/* Existing response */}
-            {item.admin_response && (
+            {item.response && (
               <div className="rounded-md border border-border bg-secondary/40 p-3">
                 <p className="mb-1 text-xs font-semibold text-muted-foreground">Your response</p>
-                <p className="text-sm text-foreground">{item.admin_response}</p>
+                <p className="text-sm text-foreground">{item.response}</p>
                 {item.responded_at && (
                   <p className="mt-1 text-xs text-muted-foreground">
                     Sent {new Date(item.responded_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
@@ -156,7 +156,7 @@ function FeedbackCard({ item, onUpdate, onDelete }: {
             {/* Response box */}
             <div className="space-y-2">
               <Textarea
-                placeholder={item.admin_response ? "Update your response..." : "Write a response (internal note or reply)..."}
+                  placeholder={item.response ? "Update your response..." : "Write a response (internal note or reply)..."}
                 value={response}
                 onChange={(e) => setResponse(e.target.value)}
                 rows={3}
@@ -188,7 +188,7 @@ function FeedbackCard({ item, onUpdate, onDelete }: {
                   onClick={handleSend}
                 >
                   <Send className="h-3.5 w-3.5" />
-                  {saving ? "Saving..." : item.admin_response ? "Update Response" : "Save Response"}
+                  {saving ? "Saving..." : item.response ? "Update Response" : "Save Response"}
                 </Button>
               </div>
             </div>

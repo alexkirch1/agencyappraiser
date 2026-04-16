@@ -10,7 +10,7 @@ export async function GET(req: Request) {
   }
   try {
     const rows = await sql`
-      SELECT id, message, category, admin_response, responded_at, created_at, status
+      SELECT id, message, category, response, responded_at, created_at, status
       FROM feedback
       ORDER BY created_at DESC
       LIMIT 200
@@ -28,20 +28,39 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   try {
-    const { id, admin_response, status } = await req.json()
+    const body = await req.json()
+    const { id } = body
+    const newResponse: string | undefined = body.response
+    const newStatus: string | undefined   = body.status
+
     if (!id) {
       return NextResponse.json({ error: "id required" }, { status: 400 })
     }
 
-    const rows = await sql`
-      UPDATE feedback
-      SET
-        admin_response  = COALESCE(${admin_response ?? null}, admin_response),
-        responded_at    = CASE WHEN ${admin_response ?? null} IS NOT NULL THEN now() ELSE responded_at END,
-        status          = COALESCE(${status ?? null}, status)
-      WHERE id = ${id}
-      RETURNING *
-    `
+    // Build update conditionally to avoid Postgres type-inference errors with null params
+    let rows
+    if (newResponse !== undefined && newStatus !== undefined) {
+      rows = await sql`
+        UPDATE feedback
+        SET response = ${newResponse}, responded_at = now(), status = ${newStatus}
+        WHERE id = ${id} RETURNING *
+      `
+    } else if (newResponse !== undefined) {
+      rows = await sql`
+        UPDATE feedback
+        SET response = ${newResponse}, responded_at = now()
+        WHERE id = ${id} RETURNING *
+      `
+    } else if (newStatus !== undefined) {
+      rows = await sql`
+        UPDATE feedback
+        SET status = ${newStatus}
+        WHERE id = ${id} RETURNING *
+      `
+    } else {
+      return NextResponse.json({ error: "Nothing to update" }, { status: 400 })
+    }
+
     return NextResponse.json({ feedback: rows[0] })
   } catch (e) {
     console.error("[admin/feedback PATCH]", e)

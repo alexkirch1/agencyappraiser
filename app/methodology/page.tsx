@@ -7,93 +7,93 @@ import { Button } from "@/components/ui/button"
 export const metadata: Metadata = {
   title: "Our Methodology | Agency Appraiser",
   description:
-    "Learn how Agency Appraiser calculates insurance agency valuations using a weighted 7-category scorecard, industry benchmarks, and real M&A transaction data.",
+    "Learn how Agency Appraiser calculates insurance agency valuations — 7 scoring categories, industry benchmark multiples, and real M&A transaction data.",
 }
 
 const CATEGORIES = [
   {
     icon: DollarSign,
     title: "Financial Performance",
-    weight: "30%",
+    impact: "Highest impact",
     description:
       "Revenue (LTM, Y-1, Y-2), SDE / EBITDA, and CAGR form the foundation. We use EBITDA as the base and apply a multiple rather than a simple revenue multiple, because profitability tells buyers how much they actually take home.",
     benchmarks: [
-      "EBITDA margin > 25% — strong",
-      "CAGR 10%+ over 3 years — premium signal",
-      "Revenue > $1M — institutional buyer eligible",
+      "EBITDA margin > 25% — strong buyer signal",
+      "Consistent 3-year CAGR — meaningfully lifts the multiple",
+      "Revenue > $1M — opens institutional buyer pool",
     ],
   },
   {
     icon: Users,
     title: "Client Retention & Concentration",
-    weight: "20%",
+    impact: "High impact",
     description:
-      "Retention rate (85%+ is strong, 90%+ is exceptional) and client concentration are the two most scrutinized metrics in any P&C agency transaction. A single client accounting for more than 10% of revenue is a material risk flag.",
+      "Retention rate and client concentration are the two most scrutinized metrics in any P&C agency transaction. A single client accounting for more than 10% of revenue is a material risk flag that buyers price into their offer.",
     benchmarks: [
-      "Retention > 90% — +0.25x multiplier boost",
-      "Top client < 5% of revenue — ideal",
-      "Retention < 75% — significant discount",
+      "Retention > 90% — notable upward impact on multiple",
+      "Top client < 5% of revenue — ideal concentration",
+      "Retention < 75% — significant downward pressure",
     ],
   },
   {
     icon: Layers,
     title: "Book Composition",
-    weight: "15%",
+    impact: "Meaningful impact",
     description:
-      "Commercial lines books command higher multiples than personal lines because they carry larger average premiums, longer relationships, and lower churn. A 70%+ commercial book is considered premium.",
+      "Commercial lines books command higher multiples than personal lines because they carry larger average premiums, longer relationships, and lower churn. A 70%+ commercial book is considered premium by most acquirers.",
     benchmarks: [
-      "> 70% commercial — +0.30x",
-      "Mixed (40–70% commercial) — neutral",
-      "< 30% commercial — moderate discount",
+      "Commercial-dominant book — strong positive impact",
+      "Mixed book (40–70% commercial) — neutral baseline",
+      "Personal lines-dominant — moderate downward adjustment",
     ],
   },
   {
     icon: BarChart2,
     title: "Revenue Growth Trend",
-    weight: "15%",
+    impact: "Meaningful impact",
     description:
-      "Buyers pay for momentum. Three consecutive years of growth — even moderate growth — meaningfully increase the multiple. Declining revenue is the single biggest red flag in a transaction, often reducing the multiple by 0.5x or more.",
+      "Buyers pay for momentum. Three consecutive years of growth — even moderate growth — meaningfully increases the multiple. Declining revenue is the single biggest red flag in a transaction and applies a material discount.",
     benchmarks: [
-      "Strong growth (10%+ / yr) — +0.20x",
-      "Moderate growth (3–9% / yr) — +0.10x",
+      "Strong growth (10%+ / yr) — significant upward impact",
+      "Moderate growth (3–9% / yr) — positive impact",
       "Flat — neutral",
-      "Declining — -0.25x to -0.50x",
+      "Declining — most significant discount factor in the model",
     ],
   },
   {
     icon: ShieldCheck,
     title: "Operational Health & Risk",
-    weight: "10%",
+    impact: "Moderate impact",
     description:
       "E&O claims history, producer agreement structure, carrier diversification, and staff retention risk all factor in. An agency with documented processes, no E&O history, and strong producer agreements is far easier for a buyer to integrate.",
     benchmarks: [
-      "Zero E&O claims — +0.10x",
-      "No single carrier > 25% of revenue — healthy",
-      "Documented processes + low staff risk — premium",
+      "Zero E&O claims history — positive adjustment",
+      "No single carrier dominating revenue — healthy diversification",
+      "Documented processes + low staff key-person risk — premium profile",
     ],
   },
   {
     icon: Clock,
     title: "Transition & Deal Structure",
-    weight: "5%",
+    impact: "Moderate impact",
     description:
-      "Seller transition length (0–6 months, 6–12 months, 12–24 months), closing urgency, and scope of sale (full agency vs. book-only) all adjust the final multiple. A longer, well-supported transition de-risks the deal for buyers and increases offer value.",
+      "Seller transition length, closing urgency, and scope of sale (full agency vs. book-only) all adjust the final multiple. A longer, well-supported transition de-risks the deal for buyers and increases offer value.",
     benchmarks: [
-      "12–24 month transition — +0.10x",
-      "Full agency sale — scope multiplier 1.0x",
-      "Book-only sale — scope multiplier 0.95x",
+      "Extended transition period — positive impact on confidence",
+      "Full agency sale vs. book-only — scope affects the multiplier",
+      "Seller urgency — can compress the final offer",
     ],
   },
   {
     icon: TrendingUp,
     title: "Market & Longevity",
-    weight: "5%",
+    impact: "Supporting factor",
     description:
-      "Agency age (longevity), primary state market conditions, and employee count signal stability and scalability. Agencies established 10+ years with diversified staff are viewed as durable platforms rather than one-person operations.",
+      "Agency age, primary state market conditions, and employee count signal stability and scalability. Agencies established 10+ years with diversified staff are viewed as durable platforms rather than one-person operations.",
     benchmarks: [
-      "25+ years established — premium tier",
-      "10–24 years — strong",
-      "< 5 years — early stage discount",
+      "25+ years established — premium stability signal",
+      "10–24 years — strong track record",
+      "Under 5 years — early stage profile, modest discount",
     ],
   },
 ]
@@ -119,9 +119,9 @@ export default function MethodologyPage() {
           Our Valuation Methodology
         </h1>
         <p className="mt-4 max-w-2xl text-pretty text-lg leading-relaxed text-muted-foreground">
-          Agency Appraiser uses a weighted 7-category scorecard modeled on real insurance agency M&A
-          transactions. Every multiplier adjustment maps to a factor that buyers and lenders actually
-          underwrite when placing a bid.
+          Agency Appraiser uses a 7-category scoring model built from real insurance agency M&A
+          transaction data. Every adjustment to your multiple maps to a factor that buyers and lenders
+          actually underwrite when placing a bid.
         </p>
       </div>
 
@@ -191,8 +191,8 @@ export default function MethodologyPage() {
       <section className="mb-12">
         <h2 className="mb-2 text-2xl font-bold text-foreground">The 7 Scoring Categories</h2>
         <p className="mb-6 text-sm text-muted-foreground">
-          Each category contributes a weighted adjustment to your final multiple. The weights below reflect
-          how heavily each category is weighted in observed buyer underwriting criteria.
+          Each category drives a directional adjustment to your final multiple — some factors carry more
+          weight than others based on how buyers and lenders actually underwrite agency acquisitions.
         </p>
         <div className="flex flex-col gap-4">
           {CATEGORIES.map((cat) => (
@@ -205,8 +205,8 @@ export default function MethodologyPage() {
                     </div>
                     <CardTitle className="text-base font-semibold text-foreground">{cat.title}</CardTitle>
                   </div>
-                  <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
-                    {cat.weight}
+                  <span className="rounded-full border border-border bg-secondary px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                    {cat.impact}
                   </span>
                 </div>
               </CardHeader>
