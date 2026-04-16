@@ -13,6 +13,7 @@ const navItems = [
   { href: "/quick-value", label: "Quick Value" },
   { href: "/calculator", label: "Full Valuation" },
   { href: "/carrier", label: "Carrier Report" },
+  { href: "/ams", label: "AMS Report" },
   { href: "/methodology", label: "Methodology" },
 ]
 
