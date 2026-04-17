@@ -3,6 +3,7 @@ import {
   ArrowRight,
   Calculator,
   CheckCircle2,
+  LayoutDashboard,
   Shield,
   Target,
   Zap,
@@ -38,6 +39,15 @@ const tools = [
     accent: "text-chart-4",
     accentBg: "bg-chart-4/10",
     tag: null,
+  },
+  {
+    href: "/ams",
+    icon: LayoutDashboard,
+    title: "Agency Management System",
+    description: "Upload an EZLynx report or fill out the manual form to value your agency using data straight from your management system.",
+    accent: "text-success",
+    accentBg: "bg-success/10",
+    tag: "New",
   },
 ]
 
@@ -94,7 +104,7 @@ export default function HomePage() {
         </p>
 
         {/* Even 3-column grid for all tools */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {tools.map((tool) => (
             <Link key={tool.href} href={tool.href} className="group">
               <Card className="h-full border border-border bg-card transition-colors hover:border-primary/50">
