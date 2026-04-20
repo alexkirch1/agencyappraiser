@@ -1,15 +1,17 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useRef } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AmsUpload } from "@/components/ams/ams-upload"
 import { AmsForm } from "@/components/ams/ams-form"
 import { AmsSidebar } from "@/components/ams/ams-sidebar"
 import { FeedbackWidget } from "@/components/feedback-widget"
+import { LeadCaptureModal } from "@/components/lead-capture-modal"
 import {
   calculateAmsValuation,
   defaultAmsInputs,
+  formatCurrency,
   type AmsInputs,
 } from "@/components/ams/ams-engine"
 import { Database, FileSpreadsheet, PenLine, ChevronDown, ChevronUp } from "lucide-react"
@@ -18,11 +20,22 @@ export default function AmsPage() {
   const [inputs, setInputs] = useState<AmsInputs>(defaultAmsInputs)
   const [submitted, setSubmitted] = useState(false)
   const [showManual, setShowManual] = useState(true)
+  const [showLeadCapture, setShowLeadCapture] = useState(false)
+  const [leadCaptured, setLeadCaptured] = useState(false)
+  const hasShownModal = useRef(false)
 
   const results = useMemo(() => {
     if (!submitted) return null
     return calculateAmsValuation(inputs)
   }, [inputs, submitted])
+
+  // Show lead modal the first time results appear
+  useMemo(() => {
+    if (results && !hasShownModal.current && !leadCaptured) {
+      hasShownModal.current = true
+      setShowLeadCapture(true)
+    }
+  }, [results, leadCaptured])
 
   const handleParsed = (fields: Partial<AmsInputs>) => {
     setInputs((prev) => ({ ...prev, ...fields, ams: "ezlynx" }))
@@ -36,6 +49,19 @@ export default function AmsPage() {
   }
 
   const hasRevenue = inputs.revenue_ltm && inputs.revenue_ltm > 0
+
+  const valuationSummary = results
+    ? `AMS System: ${inputs.ams || "Manual Entry"}
+Revenue (LTM): ${formatCurrency(inputs.revenue_ltm ?? 0)}
+Total PIF: ${inputs.total_pif?.toLocaleString() ?? "N/A"}
+Total Premium: ${inputs.total_premium ? formatCurrency(inputs.total_premium) : "N/A"}
+Retention Rate: ${inputs.overall_retention != null ? `${inputs.overall_retention}%` : "N/A"}
+Loss Ratio: ${inputs.overall_loss_ratio != null ? `${inputs.overall_loss_ratio}%` : "N/A"}
+Adjusted Multiple: ${results.adjustedMultiple.toFixed(2)}x
+Low Offer: ${formatCurrency(results.lowOffer)}
+Mid Offer: ${formatCurrency(results.midOffer)}
+High Offer: ${formatCurrency(results.highOffer)}`
+    : ""
 
   return (
     <div className="min-h-screen bg-background">
@@ -147,6 +173,31 @@ export default function AmsPage() {
 
         </div>
       </div>
+
+      {showLeadCapture && (
+        <LeadCaptureModal
+          onClose={() => setShowLeadCapture(false)}
+          onSubmit={(_data, _leadId) => {
+            setLeadCaptured(true)
+            setShowLeadCapture(false)
+          }}
+          title="Get Your Full AMS Valuation"
+          description="Enter your contact info to save your results and have our team follow up with a more detailed breakdown."
+          toolUsed="Agency Management System"
+          valuationSummary={valuationSummary}
+          estimatedValue={results?.midOffer ?? 0}
+          valuationData={{
+            revenueLTM: inputs.revenue_ltm,
+            retentionRate: inputs.overall_retention,
+            policyMix: inputs.commercial_lines_pct,
+            primaryState: inputs.primary_state,
+            employees: inputs.employee_count,
+            totalPIF: inputs.total_pif,
+            totalPremium: inputs.total_premium,
+            lossRatio: inputs.overall_loss_ratio,
+          }}
+        />
+      )}
 
       <FeedbackWidget
         prompt="Missing a metric or AMS system?"
