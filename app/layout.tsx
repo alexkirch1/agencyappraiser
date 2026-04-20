@@ -21,7 +21,6 @@ export const metadata: Metadata = {
   description: "Get a data-driven valuation of your insurance agency. Our proprietary calculator analyzes 7 risk categories to determine your agency's true market value.",
 }
 
-
 export default function RootLayout({
   children,
 }: {
