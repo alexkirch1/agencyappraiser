@@ -31,7 +31,9 @@ export interface AmsInputs {
 
   // Staff & operations
   producer_count: number | null       // Number of producers / CSRs
+  employee_count: number | null       // Total employees
   years_in_business: number | null    // Years agency has been operating
+  primary_state: string | null        // Primary state of operation
 }
 
 export const defaultAmsInputs: AmsInputs = {
@@ -51,7 +53,9 @@ export const defaultAmsInputs: AmsInputs = {
   revenue_ltm: null,
   revenue_prior_year: null,
   producer_count: null,
+  employee_count: null,
   years_in_business: null,
+  primary_state: null,
 }
 
 // ─── Valuation result ─────────────────────────────────────────────────────────
