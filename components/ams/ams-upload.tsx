@@ -12,7 +12,7 @@ interface Props {
 
 const ADMIN_TOKEN_KEY = "admin_session_token"
 
-async function parseWithAI(file: File): Promise<{ parsed: Partial<AmsInputs>; fieldsFound: number }> {
+async function parseWithAI(file: File): Promise<{ parsed: Partial<AmsInputs>; fieldsFound: number; confidence?: number }> {
   const formData = new FormData()
   formData.append("file", file)
 
@@ -53,13 +53,14 @@ export function AmsUpload({ onParsed }: Props) {
     setErrorMsg("")
 
     try {
-      const { parsed, fieldsFound: count } = await parseWithAI(file)
+      const data = await parseWithAI(file)
+      const { parsed, fieldsFound: count } = data
 
       if (count === 0) {
         setStatus("error")
-        setErrorMsg("The AI could not extract any fields from this report. Make sure you are uploading an EZLynx Agency Summary or Production Report. You can fill in the fields manually below.")
+        setErrorMsg("The AI could not extract any fields from this report. Make sure you are uploading an EZLynx Agency Summary, Production Report, or Commission Report. You can fill in the fields manually below.")
       } else {
-        const conf = Math.min(98, Math.round((count / 12) * 78 + 20))
+        const conf = typeof data.confidence === "number" ? Math.min(99, data.confidence) : Math.min(98, Math.round((count / 12) * 78 + 20))
         setFieldsFound(count)
         setConfidence(conf)
         setStatus("success")
