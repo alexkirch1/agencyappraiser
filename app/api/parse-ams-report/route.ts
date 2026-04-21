@@ -49,7 +49,7 @@ function isBookOfBusinessCSV(headers: string[]): boolean {
 }
 
 function computeFromBookOfBusiness(csv: string): Record<string, unknown> | null {
-  const lines = csv.split("\n").filter((l) => l.trim())
+  const lines = csv.replace(/^\uFEFF/, "").replace(/\r/g, "").split("\n").filter((l) => l.trim())
   if (lines.length < 2) return null
 
   // Find header row (first line that matches our signature)
@@ -240,7 +240,11 @@ export async function POST(req: Request) {
 
     // ── CSV: try deterministic parser first ──────────────────────────────────
     if (isCSV) {
+      // Strip BOM and normalize CRLF → LF
       const raw = new TextDecoder().decode(arrayBuffer)
+        .replace(/^\uFEFF/, "")
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n")
       const lines = raw.split("\n").filter((l) => l.trim())
       const firstHeaders = splitCSVRow(lines[0] ?? "")
 
