@@ -156,7 +156,7 @@ function computeFromBookOfBusiness(csv: string): Record<string, unknown> | null 
   )
   const producerCount = producers.size || null
 
-  // ── Revenue estimate ─────────────────────────────────────────────────────
+  // ���─ Revenue estimate ─────────────────────────────────────────────────────
   // Commission rates: PL auto ~10-12%, PL home ~12-15%, CL ~8-10%
   // Use blended 11% PL, 9% CL as conservative estimate
   const estimatedRevenue = Math.round(plAnnual * 0.11 + clAnnual * 0.09)
@@ -244,16 +244,22 @@ export async function POST(req: Request) {
       const lines = raw.split("\n").filter((l) => l.trim())
       const firstHeaders = splitCSVRow(lines[0] ?? "")
 
+      console.log("[v0] CSV lines:", lines.length, "| isBoB:", isBookOfBusinessCSV(firstHeaders), "| first header:", firstHeaders[0])
+
       if (isBookOfBusinessCSV(firstHeaders)) {
         const computed = computeFromBookOfBusiness(raw)
         if (computed) {
-          const { _meta, ...parsed } = computed as Record<string, unknown>
-          const fieldsFound = Object.values(parsed).filter((v) => v !== null && v !== undefined).length
+          const c = computed as Record<string, unknown>
+          console.log("[v0] BoB parsed — total_pif:", c.total_pif, "total_premium:", c.total_premium, "retention:", c.overall_retention, "meta rows:", (c._meta as Record<string,unknown>)?.active_rows)
+          const { _meta, ...parsed } = c
+          // Count a field as found if it's non-null (0 is valid for some fields)
+          const fieldsFound = Object.entries(parsed).filter(([, v]) => v !== null && v !== undefined).length
           const coreFields = ["total_pif", "total_premium", "overall_retention", "commercial_lines_pct"]
           const coreFound = coreFields.filter((f) => parsed[f] != null).length
           const confidence = Math.round((coreFound / coreFields.length) * 75 + Math.min(fieldsFound / 10, 1) * 25)
           return Response.json({ parsed, fieldsFound, confidence, meta: _meta })
         }
+        console.log("[v0] computeFromBookOfBusiness returned null")
       }
 
       // Fallback: send to AI for other CSV report types
