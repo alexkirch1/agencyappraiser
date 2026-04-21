@@ -133,12 +133,12 @@ function computeFromBookOfBusiness(csv: string): Record<string, unknown> | null 
   const commercialPct = totalAnnual > 0 ? Math.round((clAnnual / totalAnnual) * 100) : null
 
   // ── Retention ─────────────────────────────────────────────────────────────
-  // ExpiringPolicies=1 means this policy had a prior term expiring — if it's
-  // still Active, it renewed. Retention = renewed / total that were expiring.
+  // This export only contains ACTIVE policies — lapsed/cancelled policies are
+  // not included. ExpiringPolicies=1 means the policy renewed, but we cannot
+  // know how many lapsed (they won't appear here). Retention is left null so
+  // the user fills it in manually from their EZLynx Retention Report.
   const renewedCount = rows.filter((r) => r.expiring >= 1).length
-  const retention = totalExpiring > 0
-    ? Math.round((renewedCount / totalExpiring) * 1000) / 10
-    : null
+  const retention = null // Cannot compute without lapsed policy count
 
   // ── New business ──────────────────────────────────────────────────────────
   // ExpiringPolicies=0 on an active policy = new business (no prior term)
@@ -156,7 +156,7 @@ function computeFromBookOfBusiness(csv: string): Record<string, unknown> | null 
   )
   const producerCount = producers.size || null
 
-  // ���─ Revenue estimate ─────────────────────────────────────────────────────
+  // �����─ Revenue estimate ─────────────────────────────────────────────────────
   // Commission rates: PL auto ~10-12%, PL home ~12-15%, CL ~8-10%
   // Use blended 11% PL, 9% CL as conservative estimate
   const estimatedRevenue = Math.round(plAnnual * 0.11 + clAnnual * 0.09)
@@ -244,22 +244,16 @@ export async function POST(req: Request) {
       const lines = raw.split("\n").filter((l) => l.trim())
       const firstHeaders = splitCSVRow(lines[0] ?? "")
 
-      console.log("[v0] CSV lines:", lines.length, "| isBoB:", isBookOfBusinessCSV(firstHeaders), "| first header:", firstHeaders[0])
-
       if (isBookOfBusinessCSV(firstHeaders)) {
         const computed = computeFromBookOfBusiness(raw)
         if (computed) {
-          const c = computed as Record<string, unknown>
-          console.log("[v0] BoB parsed — total_pif:", c.total_pif, "total_premium:", c.total_premium, "retention:", c.overall_retention, "meta rows:", (c._meta as Record<string,unknown>)?.active_rows)
-          const { _meta, ...parsed } = c
-          // Count a field as found if it's non-null (0 is valid for some fields)
+          const { _meta, ...parsed } = computed as Record<string, unknown>
           const fieldsFound = Object.entries(parsed).filter(([, v]) => v !== null && v !== undefined).length
-          const coreFields = ["total_pif", "total_premium", "overall_retention", "commercial_lines_pct"]
+          const coreFields = ["total_pif", "total_premium", "commercial_lines_pct"]
           const coreFound = coreFields.filter((f) => parsed[f] != null).length
           const confidence = Math.round((coreFound / coreFields.length) * 75 + Math.min(fieldsFound / 10, 1) * 25)
           return Response.json({ parsed, fieldsFound, confidence, meta: _meta })
         }
-        console.log("[v0] computeFromBookOfBusiness returned null")
       }
 
       // Fallback: send to AI for other CSV report types
