@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useRef } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AmsUpload } from "@/components/ams/ams-upload"
@@ -30,7 +30,7 @@ export default function AmsPage() {
   }, [inputs, submitted])
 
   // Show lead modal the first time results appear
-  useMemo(() => {
+  useEffect(() => {
     if (results && !hasShownModal.current && !leadCaptured) {
       hasShownModal.current = true
       setShowLeadCapture(true)

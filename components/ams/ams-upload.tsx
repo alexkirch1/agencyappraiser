@@ -12,7 +12,7 @@ interface Props {
 
 const ADMIN_TOKEN_KEY = "admin_session_token"
 
-async function parseWithAI(file: File): Promise<{ parsed: Partial<AmsInputs>; fieldsFound: number }> {
+async function parseWithAI(file: File): Promise<{ parsed: Partial<AmsInputs>; fieldsFound: number; confidence?: number }> {
   const formData = new FormData()
   formData.append("file", file)
 
@@ -37,6 +37,7 @@ export function AmsUpload({ onParsed }: Props) {
   const [fieldsFound, setFieldsFound] = useState(0)
   const [confidence, setConfidence] = useState(0)
   const [errorMsg, setErrorMsg] = useState("")
+  const [meta, setMeta] = useState<Record<string, unknown> | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const handleFile = useCallback(async (file: File) => {
@@ -53,15 +54,17 @@ export function AmsUpload({ onParsed }: Props) {
     setErrorMsg("")
 
     try {
-      const { parsed, fieldsFound: count } = await parseWithAI(file)
+      const data = await parseWithAI(file)
+      const { parsed, fieldsFound: count } = data
 
       if (count === 0) {
         setStatus("error")
-        setErrorMsg("The AI could not extract any fields from this report. Make sure you are uploading an EZLynx Agency Summary or Production Report. You can fill in the fields manually below.")
+        setErrorMsg("The AI could not extract any fields from this report. Make sure you are uploading an EZLynx Agency Summary, Production Report, or Commission Report. You can fill in the fields manually below.")
       } else {
-        const conf = Math.min(98, Math.round((count / 12) * 78 + 20))
+        const conf = typeof data.confidence === "number" ? Math.min(99, data.confidence) : Math.min(98, Math.round((count / 12) * 78 + 20))
         setFieldsFound(count)
         setConfidence(conf)
+        setMeta((data as Record<string, unknown>).meta as Record<string, unknown> ?? null)
         setStatus("success")
         onParsed(parsed)
       }
@@ -90,6 +93,7 @@ export function AmsUpload({ onParsed }: Props) {
     setStatus("idle")
     setFileName("")
     setFieldsFound(0)
+    setMeta(null)
     setErrorMsg("")
     if (inputRef.current) inputRef.current.value = ""
   }
@@ -141,31 +145,82 @@ export function AmsUpload({ onParsed }: Props) {
         )}
 
         {status === "success" && (
-          <div className="flex items-center justify-between rounded-lg border border-success/30 bg-success/5 p-4">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-5 w-5 text-success" />
-              <div>
-                <p className="text-sm font-medium text-foreground">
-                  <FileText className="mr-1.5 inline h-4 w-4 text-muted-foreground" />
-                  {fileName}
-                </p>
-                <p className="text-xs text-success">
-                  <Sparkles className="mr-1 inline h-3 w-3" />
-                  {fieldsFound} field{fieldsFound !== 1 ? "s" : ""} auto-filled by AI
-                  <span className={`ml-2 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                    confidence >= 70 ? "bg-success/15 text-success" :
-                    confidence >= 45 ? "bg-warning/15 text-warning" :
-                    "bg-destructive/15 text-destructive"
-                  }`}>
-                    {confidence}% confidence
-                  </span>
-                </p>
+          <div className="flex flex-col gap-3 rounded-lg border border-success/30 bg-success/5 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    <FileText className="mr-1.5 inline h-4 w-4 text-muted-foreground" />
+                    {fileName}
+                  </p>
+                  <p className="text-xs text-success">
+                    <Sparkles className="mr-1 inline h-3 w-3" />
+                    {fieldsFound} field{fieldsFound !== 1 ? "s" : ""} computed from report data
+                    <span className={`ml-2 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                      confidence >= 70 ? "bg-success/15 text-success" :
+                      confidence >= 45 ? "bg-warning/15 text-warning" :
+                      "bg-destructive/15 text-destructive"
+                    }`}>
+                      {confidence}% confidence
+                    </span>
+                  </p>
+                </div>
               </div>
+              <Button variant="ghost" size="sm" onClick={reset} className="h-8 w-8 shrink-0 p-0">
+                <X className="h-4 w-4" />
+                <span className="sr-only">Remove file</span>
+              </Button>
             </div>
-            <Button variant="ghost" size="sm" onClick={reset} className="h-8 w-8 p-0">
-              <X className="h-4 w-4" />
-              <span className="sr-only">Remove file</span>
-            </Button>
+
+            {/* Meta breakdown — only for deterministic Book of Business parses */}
+            {meta && (
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 border-t border-success/20 pt-3 sm:grid-cols-3">
+                {(meta.active_rows as number) > 0 && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Active Policies</p>
+                    <p className="text-sm font-semibold text-foreground">{(meta.active_rows as number).toLocaleString()}</p>
+                  </div>
+                )}
+                {(meta.pl_policies as number) > 0 && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Personal Lines</p>
+                    <p className="text-sm font-semibold text-foreground">{(meta.pl_policies as number).toLocaleString()} policies</p>
+                  </div>
+                )}
+                {(meta.cl_policies as number) > 0 && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Commercial Lines</p>
+                    <p className="text-sm font-semibold text-foreground">{(meta.cl_policies as number).toLocaleString()} policies</p>
+                  </div>
+                )}
+                {(meta.new_biz_count as number) > 0 && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">New Business</p>
+                    <p className="text-sm font-semibold text-foreground">{(meta.new_biz_count as number).toLocaleString()} policies</p>
+                  </div>
+                )}
+                {(meta.renewed_count as number) > 0 && (meta.total_expiring as number) > 0 && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Renewals</p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {(meta.renewed_count as number).toLocaleString()} / {(meta.total_expiring as number).toLocaleString()}
+                    </p>
+                  </div>
+                )}
+                {Array.isArray(meta.top_lobs) && meta.top_lobs.length > 0 && (
+                  <div className="col-span-2 sm:col-span-3">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Top Lines of Business</p>
+                    <p className="text-xs text-foreground">{(meta.top_lobs as string[]).join(" · ")}</p>
+                  </div>
+                )}
+                {meta.revenue_is_estimated && (
+                  <p className="col-span-2 text-[10px] text-muted-foreground sm:col-span-3">
+                    * Revenue is estimated from commission rates — review and adjust in the form below.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
 
