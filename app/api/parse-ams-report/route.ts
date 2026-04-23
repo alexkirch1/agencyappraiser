@@ -267,7 +267,6 @@ export async function POST(req: Request) {
         output: Output.object({ schema: AmsDataSchema }),
         system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: `EZLynx CSV export:\n\n${processed}` }],
-        maxTokens: 1500,
       })
 
       if (!output) return Response.json({ error: "Could not parse this report format" }, { status: 422 })
