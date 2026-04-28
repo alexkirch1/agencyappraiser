@@ -31,7 +31,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('agency-appraiser-theme');if(t==='dark'){document.documentElement.classList.add('dark')}}catch(e){}})()`,
+            __html: `(function(){try{var t=localStorage.getItem('agency-appraiser-theme');if(t==='dark'){document.documentElement.classList.add('dark')}else{document.documentElement.classList.remove('dark');localStorage.setItem('agency-appraiser-theme','light')}}catch(e){}})()`,
           }}
         />
       </head>
