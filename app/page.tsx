@@ -142,7 +142,7 @@ export default function HomePage() {
             {[
               { n: "1", title: "Quick Estimate", desc: "Start with our 60-second Quick Valuation to see a ballpark range." },
               { n: "2", title: "Go Deeper", desc: "Run the full 7-category calculator with risk audit, deal simulator, and downloadable PDF report." },
-              { n: "3", title: "Drill Into Carriers", desc: "Use the Carrier Report to value individual books of business by carrier with upload-and-parse reporting." },
+              { n: "3", title: "Drill Into Detail", desc: "Use the Carrier Report to value individual books of business, or upload an EZLynx export to the AMS Report for a full agency-level breakdown." },
             ].map((step) => (
               <div key={step.n} className="flex flex-col items-center text-center">
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-primary/30 bg-primary/5 text-xl font-bold text-primary">

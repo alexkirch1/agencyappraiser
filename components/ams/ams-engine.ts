@@ -1,6 +1,6 @@
 // ─── AMS Types ────────────────────────────────────────────────────────────────
 
-export type AmsName = "ezlynx" | "manual"
+export type AmsName = "ezlynx" | "applied_epic" | "hawksoft" | "qq_catalyst" | "manual"
 
 export interface AmsInputs {
   ams: AmsName | ""
