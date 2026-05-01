@@ -30,6 +30,7 @@ interface LeadRow {
   agency_name: string | null
   tool_used: string | null
   estimated_value: string | null
+  valuation_summary: string | null
   pipedrive_deal_id: number | null
   created_at: string
   stage: string | null
@@ -230,6 +231,8 @@ function toolBadge(tool: string | null) {
   if (tool.includes("full")) return <Badge className="bg-primary/10 text-primary border border-primary/20 text-[10px]">Full Val</Badge>
   if (tool.includes("quick")) return <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800 text-[10px]">Quick Val</Badge>
   if (tool.includes("quiz")) return <Badge className="bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800 text-[10px]">Quiz</Badge>
+  if (tool.toLowerCase().includes("ams") || tool.toLowerCase().includes("agency management")) return <Badge className="bg-violet-100 text-violet-700 border border-violet-200 dark:bg-violet-900/20 dark:text-violet-400 dark:border-violet-800 text-[10px]">AMS</Badge>
+  if (tool.toLowerCase().includes("carrier")) return <Badge className="bg-sky-100 text-sky-700 border border-sky-200 dark:bg-sky-900/20 dark:text-sky-400 dark:border-sky-800 text-[10px]">Carrier</Badge>
   return <Badge variant="outline" className="text-[10px]">{tool}</Badge>
 }
 
@@ -994,6 +997,14 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
                 <p className="text-sm text-muted-foreground italic border-l-2 border-border pl-3">
                   {viewingLead.agency_description}
                 </p>
+              )}
+
+              {/* Valuation summary (raw text from lead capture) */}
+              {viewingLead.valuation_summary && !viewingLead.low_offer && !viewingLead.quick_low && (
+                <div className="rounded-lg border border-border bg-secondary/30 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Valuation Summary</p>
+                  <p className="text-xs text-foreground whitespace-pre-wrap leading-relaxed">{viewingLead.valuation_summary}</p>
+                </div>
               )}
 
               {/* Valuation offer band — top priority */}
