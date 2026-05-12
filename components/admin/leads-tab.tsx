@@ -498,25 +498,6 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
   const [showArchived, setShowArchived] = useState(false)
   const { mutate: mutateIntel } = useMarketIntel()
 
-  const deleteLead = async (id: number) => {
-    if (!confirm("Permanently delete this lead and all associated data? This cannot be undone.")) return
-    setDeletingId(id)
-    try {
-      const res = await fetch("/api/admin/leads", {
-        method: "DELETE",
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ id }),
-      })
-      if (!res.ok) throw new Error("Failed to delete")
-      setLeads((prev) => prev.filter((l) => l.id !== id))
-      setViewingLead(null)
-    } catch {
-      alert("Failed to delete lead. Please try again.")
-    } finally {
-      setDeletingId(null)
-    }
-  }
-
   const fetchLeads = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -536,10 +517,47 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
     }
   }, [])
 
+  // Background stats refresh — no loading flash, just silently updates counts/values
+  const refreshStats = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/leads", { headers: getAuthHeaders() })
+      if (!res.ok) return
+      const data = await res.json()
+      setStats(data.stats ?? null)
+      setStageStats(data.stageStats ?? [])
+      setSourceStats(data.sourceStats ?? [])
+      setWeeklyTrend(data.weeklyTrend ?? [])
+    } catch {
+      // silently ignore — stats are non-critical
+    }
+  }, [])
+
+  const deleteLead = async (id: number) => {
+    if (!confirm("Permanently delete this lead and all associated data? This cannot be undone.")) return
+    setDeletingId(id)
+    try {
+      const res = await fetch("/api/admin/leads", {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ id }),
+      })
+      if (!res.ok) throw new Error("Failed to delete")
+      setLeads((prev) => prev.filter((l) => l.id !== id))
+      setViewingLead(null)
+      // Refresh stats so counts/totals update immediately
+      refreshStats()
+    } catch {
+      alert("Failed to delete lead. Please try again.")
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   const updateLeadStage = useCallback(async (leadId: number, newStage: string) => {
-    // Optimistic update
+    // Optimistic update on both leads list and detail panel
     setLeads((prev) => prev.map((l) => l.id === leadId ? { ...l, stage: newStage } : l))
-    
+    setViewingLead((prev) => prev?.id === leadId ? { ...prev, stage: newStage } : prev)
+
     try {
       const res = await fetch("/api/admin/leads", {
         method: "PATCH",
@@ -547,12 +565,14 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
         body: JSON.stringify({ id: leadId, stage: newStage }),
       })
       if (!res.ok) throw new Error("Failed to update")
+      // Update stage stats in background
+      refreshStats()
     } catch {
       // Revert on error
       fetchLeads()
       alert("Failed to update lead stage.")
     }
-  }, [fetchLeads])
+  }, [fetchLeads, refreshStats])
 
   const archiveLead = async (lead: LeadRow, reason: string) => {
     setArchiveLoading(true)
@@ -563,9 +583,13 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
         body: JSON.stringify({ id: lead.id, archived: true, archive_reason: reason }),
       })
       if (!res.ok) throw new Error("Failed to archive")
-      setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, archived: true, archive_reason: reason } : l))
+      const now = new Date().toISOString()
+      setLeads((prev) => prev.map((l) =>
+        l.id === lead.id ? { ...l, archived: true, archive_reason: reason, archived_at: now } : l
+      ))
       setArchivingLead(null)
       setViewingLead(null)
+      refreshStats()
     } catch {
       alert("Failed to archive lead. Please try again.")
     } finally {
@@ -581,7 +605,10 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
         body: JSON.stringify({ id, archived: false, archive_reason: null }),
       })
       if (!res.ok) throw new Error("Failed to unarchive")
-      setLeads((prev) => prev.map((l) => l.id === id ? { ...l, archived: false, archive_reason: null } : l))
+      setLeads((prev) => prev.map((l) =>
+        l.id === id ? { ...l, archived: false, archive_reason: null, archived_at: null } : l
+      ))
+      refreshStats()
     } catch {
       alert("Failed to unarchive lead.")
     }
@@ -964,7 +991,6 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
                     key={stage.id}
                     onClick={() => {
                       updateLeadStage(viewingLead.id, stage.id)
-                      setViewingLead((prev) => prev ? { ...prev, stage: stage.id } : prev)
                     }}
                     className={cn(
                       "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors",
@@ -1159,8 +1185,11 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
                 className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
                 onClick={() => {
                   const deal = leadToDeal(viewingLead)
+                  // Optimistically mark as won in local state
+                  setLeads((prev) => prev.map((l) => l.id === viewingLead.id ? { ...l, stage: 'won' } : l))
                   setViewingLead(null)
                   setWonDeal(deal)
+                  refreshStats()
                 }}
               >
                 <Trophy className="h-4 w-4" />
