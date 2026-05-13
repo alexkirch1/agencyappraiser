@@ -273,7 +273,7 @@ export function CommissionUpload({ onParsed }: Props) {
                   : null}
                 {result.detectedCarrier && result.detectedBookType && " · "}
                 {result.detectedBookType
-                  ? <span className="capitalize">{result.detectedBookType === "wc" ? "Workers Comp" : result.detectedBookType} lines</span>
+                  ? <span className="capitalize">{(result.detectedBookType as string) === "wc" ? "Workers Comp" : result.detectedBookType} lines</span>
                   : null}
                 {" — carrier &amp; premium fields pre-filled below"}
               </p>

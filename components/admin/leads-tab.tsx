@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 
 const ADMIN_TOKEN_KEY = "admin_session_token"
 
@@ -284,11 +284,12 @@ function SmartStatCard({
   trendLabel?: string
   highlight?: 'success' | 'warning' | 'primary'
 }) {
-  const highlightClass = {
+  const highlightMap: Record<string, string> = {
     success: 'border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20',
     warning: 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20',
     primary: 'border-primary/30 bg-primary/5',
-  }[highlight ?? ''] ?? 'border-border'
+  }
+  const highlightClass = highlight ? (highlightMap[highlight] ?? 'border-border') : 'border-border'
 
   return (
     <Card className={cn("transition-all hover:shadow-md", highlightClass)}>
@@ -820,7 +821,7 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
           {/* Source breakdown */}
           {Object.keys(derivedStats.sourceMap).length > 0 && (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {Object.entries(derivedStats.sourceMap)
+              {(Object.entries(derivedStats.sourceMap) as [string, { count: number; value: number }][])
                 .sort((a, b) => b[1].count - a[1].count)
                 .slice(0, 4)
                 .map(([source, data]) => {

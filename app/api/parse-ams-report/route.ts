@@ -292,7 +292,6 @@ export async function POST(req: Request) {
           { type: "file", data: base64, mediaType: "application/pdf" },
         ],
       }],
-      maxTokens: 1500,
     })
 
     if (!output) return Response.json({ error: "AI returned no output" }, { status: 500 })
