@@ -226,6 +226,13 @@ function fmtCompact(n: string | null | undefined, prefix = "$") {
   return prefix + num.toFixed(0)
 }
 
+function fmtCompactNum(n: number) {
+  if (!n || isNaN(n)) return "0"
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + "M"
+  if (n >= 1000) return (n / 1000).toFixed(0) + "K"
+  return n.toFixed(0)
+}
+
 function toolBadge(tool: string | null) {
   if (!tool) return <Badge variant="outline" className="text-[10px]">Unknown</Badge>
   if (tool.includes("full")) return <Badge className="bg-primary/10 text-primary border border-primary/20 text-[10px]">Full Val</Badge>
@@ -654,12 +661,62 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
     return isNaN(n) ? v : prefix + n.toLocaleString("en-US", { maximumFractionDigits: 1 })
   }
 
-  // Calculate conversion rate
-  const conversionRate = stats && parseInt(stats.total_leads) > 0 
-    ? ((parseInt(stats.won_leads ?? '0') / parseInt(stats.total_leads)) * 100).toFixed(1)
-    : '0'
+  // Derive all stats directly from local leads array so they update instantly on any mutation
+  const derivedStats = useMemo(() => {
+    const active = leads.filter((l) => !l.archived)
+    const now = new Date()
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
 
-  // Calculate week-over-week trend
+    const totalLeads = active.length
+    const wonLeads = active.filter((l) => l.stage === 'won')
+    const lostLeads = active.filter((l) => l.stage === 'lost')
+    const engagedLeads = active.filter((l) => l.stage && !['won', 'lost', 'new'].includes(l.stage))
+    const thisWeek = active.filter((l) => new Date(l.created_at) >= oneWeekAgo)
+
+    const withValue = active.filter((l) => l.estimated_value && !isNaN(parseFloat(l.estimated_value)))
+    const wonWithValue = wonLeads.filter((l) => l.estimated_value && !isNaN(parseFloat(l.estimated_value)))
+
+    const totalPipeline = withValue.reduce((s, l) => s + parseFloat(l.estimated_value!), 0)
+    const totalWon = wonWithValue.reduce((s, l) => s + parseFloat(l.estimated_value!), 0)
+    const avgValue = withValue.length > 0 ? totalPipeline / withValue.length : 0
+    const avgWon = wonWithValue.length > 0 ? totalWon / wonWithValue.length : 0
+
+    const convRate = totalLeads > 0 ? ((wonLeads.length / totalLeads) * 100).toFixed(1) : '0'
+
+    // Stage distribution from local array
+    const stageMap = PIPELINE_STAGES.reduce((acc, s) => {
+      const inStage = active.filter((l) => (l.stage ?? 'new') === s.id)
+      const stageVal = inStage.filter((l) => l.estimated_value).reduce((sum, l) => sum + parseFloat(l.estimated_value!), 0)
+      acc[s.id] = { count: inStage.length, value: stageVal }
+      return acc
+    }, {} as Record<string, { count: number; value: number }>)
+
+    // Source breakdown from local array
+    const sourceMap: Record<string, { count: number; value: number }> = {}
+    for (const l of active) {
+      const src = l.tool_used ?? 'unknown'
+      if (!sourceMap[src]) sourceMap[src] = { count: 0, value: 0 }
+      sourceMap[src].count++
+      if (l.estimated_value) sourceMap[src].value += parseFloat(l.estimated_value)
+    }
+
+    return {
+      totalLeads,
+      wonCount: wonLeads.length,
+      lostCount: lostLeads.length,
+      engagedCount: engagedLeads.length,
+      thisWeekCount: thisWeek.length,
+      totalPipeline,
+      totalWon,
+      avgValue,
+      avgWon,
+      convRate,
+      stageMap,
+      sourceMap,
+    }
+  }, [leads])
+
+  // Calculate week-over-week trend from server weeklyTrend (still server-side only, fine)
   const weekTrend = weeklyTrend.length >= 2 
     ? parseInt(weeklyTrend[weeklyTrend.length - 1]?.count ?? '0') - parseInt(weeklyTrend[weeklyTrend.length - 2]?.count ?? '0')
     : 0
@@ -710,36 +767,36 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
         </div>
       )}
 
-      {/* Smart Stats Grid */}
-      {stats && (
+      {/* Smart Stats Grid — derived from local leads array, updates instantly */}
+      {leads.length > 0 && (
         <div className="space-y-4">
           {/* Primary metrics */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <SmartStatCard
               label="Total Pipeline"
-              value={fmtCompact(stats.total_pipeline_value)}
-              subValue={`${stats.total_leads} leads`}
+              value={`$${fmtCompactNum(derivedStats.totalPipeline)}`}
+              subValue={`${derivedStats.totalLeads} leads`}
               icon={DollarSign}
               highlight="primary"
             />
             <SmartStatCard
               label="Won Revenue"
-              value={fmtCompact(stats.total_won_value)}
-              subValue={`${stats.won_leads ?? 0} closed`}
+              value={`$${fmtCompactNum(derivedStats.totalWon)}`}
+              subValue={`${derivedStats.wonCount} closed`}
               icon={Trophy}
               highlight="success"
             />
             <SmartStatCard
               label="Conversion Rate"
-              value={`${conversionRate}%`}
-              subValue={`${stats.won_leads ?? 0}/${stats.total_leads}`}
+              value={`${derivedStats.convRate}%`}
+              subValue={`${derivedStats.wonCount}/${derivedStats.totalLeads}`}
               icon={Percent}
-              trend={parseFloat(conversionRate) > 10 ? 'up' : parseFloat(conversionRate) > 5 ? 'neutral' : 'down'}
-              trendLabel={parseFloat(conversionRate) > 10 ? 'Good' : 'Avg'}
+              trend={parseFloat(derivedStats.convRate) > 10 ? 'up' : parseFloat(derivedStats.convRate) > 5 ? 'neutral' : 'down'}
+              trendLabel={parseFloat(derivedStats.convRate) > 10 ? 'Good' : 'Avg'}
             />
             <SmartStatCard
               label="This Week"
-              value={stats.leads_this_week}
+              value={String(derivedStats.thisWeekCount)}
               subValue={weekTrend >= 0 ? `+${weekTrend} vs last` : `${weekTrend} vs last`}
               icon={Calendar}
               trend={weekTrend > 0 ? 'up' : weekTrend < 0 ? 'down' : 'neutral'}
@@ -747,13 +804,13 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
             />
             <SmartStatCard
               label="Avg Deal Size"
-              value={fmtCompact(stats.avg_value)}
-              subValue={stats.avg_won_value ? `Won: ${fmtCompact(stats.avg_won_value)}` : undefined}
+              value={`$${fmtCompactNum(derivedStats.avgValue)}`}
+              subValue={derivedStats.avgWon > 0 ? `Won: $${fmtCompactNum(derivedStats.avgWon)}` : undefined}
               icon={Target}
             />
             <SmartStatCard
               label="Engaged"
-              value={stats.engaged_leads ?? '0'}
+              value={String(derivedStats.engagedCount)}
               subValue="In progress"
               icon={Clock}
               highlight="warning"
@@ -761,22 +818,25 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
           </div>
 
           {/* Source breakdown */}
-          {sourceStats.length > 0 && (
+          {Object.keys(derivedStats.sourceMap).length > 0 && (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {sourceStats.slice(0, 4).map((source) => {
-                const icon = source.source?.includes('full') ? Calculator 
-                  : source.source?.includes('quick') ? TrendingUp 
-                  : source.source?.includes('quiz') ? ClipboardCheck 
+              {Object.entries(derivedStats.sourceMap)
+                .sort((a, b) => b[1].count - a[1].count)
+                .slice(0, 4)
+                .map(([source, data]) => {
+                const icon = source?.includes('full') ? Calculator 
+                  : source?.includes('quick') ? TrendingUp 
+                  : source?.includes('quiz') ? ClipboardCheck 
                   : Users
                 return (
                   <SmartStatCard
-                    key={source.source}
-                    label={source.source?.includes('full') ? 'Full Valuations'
-                      : source.source?.includes('quick') ? 'Quick Valuations'
-                      : source.source?.includes('quiz') ? 'Quiz Leads'
+                    key={source}
+                    label={source?.includes('full') ? 'Full Valuations'
+                      : source?.includes('quick') ? 'Quick Valuations'
+                      : source?.includes('quiz') ? 'Quiz Leads'
                       : 'Other'}
-                    value={source.count}
-                    subValue={source.value ? fmtCompact(source.value) : undefined}
+                    value={String(data.count)}
+                    subValue={data.value > 0 ? `$${fmtCompactNum(data.value)}` : undefined}
                     icon={icon}
                   />
                 )
