@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 
 const ADMIN_TOKEN_KEY = "admin_session_token"
 
@@ -30,6 +30,7 @@ interface LeadRow {
   agency_name: string | null
   tool_used: string | null
   estimated_value: string | null
+  valuation_summary: string | null
   pipedrive_deal_id: number | null
   created_at: string
   stage: string | null
@@ -225,11 +226,20 @@ function fmtCompact(n: string | null | undefined, prefix = "$") {
   return prefix + num.toFixed(0)
 }
 
+function fmtCompactNum(n: number) {
+  if (!n || isNaN(n)) return "0"
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + "M"
+  if (n >= 1000) return (n / 1000).toFixed(0) + "K"
+  return n.toFixed(0)
+}
+
 function toolBadge(tool: string | null) {
   if (!tool) return <Badge variant="outline" className="text-[10px]">Unknown</Badge>
   if (tool.includes("full")) return <Badge className="bg-primary/10 text-primary border border-primary/20 text-[10px]">Full Val</Badge>
   if (tool.includes("quick")) return <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800 text-[10px]">Quick Val</Badge>
   if (tool.includes("quiz")) return <Badge className="bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800 text-[10px]">Quiz</Badge>
+  if (tool.toLowerCase().includes("ams") || tool.toLowerCase().includes("agency management")) return <Badge className="bg-violet-100 text-violet-700 border border-violet-200 dark:bg-violet-900/20 dark:text-violet-400 dark:border-violet-800 text-[10px]">AMS</Badge>
+  if (tool.toLowerCase().includes("carrier")) return <Badge className="bg-sky-100 text-sky-700 border border-sky-200 dark:bg-sky-900/20 dark:text-sky-400 dark:border-sky-800 text-[10px]">Carrier</Badge>
   return <Badge variant="outline" className="text-[10px]">{tool}</Badge>
 }
 
@@ -274,11 +284,12 @@ function SmartStatCard({
   trendLabel?: string
   highlight?: 'success' | 'warning' | 'primary'
 }) {
-  const highlightClass = {
+  const highlightMap: Record<string, string> = {
     success: 'border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20',
     warning: 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20',
     primary: 'border-primary/30 bg-primary/5',
-  }[highlight ?? ''] ?? 'border-border'
+  }
+  const highlightClass = highlight ? (highlightMap[highlight] ?? 'border-border') : 'border-border'
 
   return (
     <Card className={cn("transition-all hover:shadow-md", highlightClass)}>
@@ -495,25 +506,6 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
   const [showArchived, setShowArchived] = useState(false)
   const { mutate: mutateIntel } = useMarketIntel()
 
-  const deleteLead = async (id: number) => {
-    if (!confirm("Permanently delete this lead and all associated data? This cannot be undone.")) return
-    setDeletingId(id)
-    try {
-      const res = await fetch("/api/admin/leads", {
-        method: "DELETE",
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ id }),
-      })
-      if (!res.ok) throw new Error("Failed to delete")
-      setLeads((prev) => prev.filter((l) => l.id !== id))
-      setViewingLead(null)
-    } catch {
-      alert("Failed to delete lead. Please try again.")
-    } finally {
-      setDeletingId(null)
-    }
-  }
-
   const fetchLeads = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -533,10 +525,47 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
     }
   }, [])
 
+  // Background stats refresh — no loading flash, just silently updates counts/values
+  const refreshStats = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/leads", { headers: getAuthHeaders() })
+      if (!res.ok) return
+      const data = await res.json()
+      setStats(data.stats ?? null)
+      setStageStats(data.stageStats ?? [])
+      setSourceStats(data.sourceStats ?? [])
+      setWeeklyTrend(data.weeklyTrend ?? [])
+    } catch {
+      // silently ignore — stats are non-critical
+    }
+  }, [])
+
+  const deleteLead = async (id: number) => {
+    if (!confirm("Permanently delete this lead and all associated data? This cannot be undone.")) return
+    setDeletingId(id)
+    try {
+      const res = await fetch("/api/admin/leads", {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ id }),
+      })
+      if (!res.ok) throw new Error("Failed to delete")
+      setLeads((prev) => prev.filter((l) => l.id !== id))
+      setViewingLead(null)
+      // Refresh stats so counts/totals update immediately
+      refreshStats()
+    } catch {
+      alert("Failed to delete lead. Please try again.")
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   const updateLeadStage = useCallback(async (leadId: number, newStage: string) => {
-    // Optimistic update
+    // Optimistic update on both leads list and detail panel
     setLeads((prev) => prev.map((l) => l.id === leadId ? { ...l, stage: newStage } : l))
-    
+    setViewingLead((prev) => prev?.id === leadId ? { ...prev, stage: newStage } : prev)
+
     try {
       const res = await fetch("/api/admin/leads", {
         method: "PATCH",
@@ -544,12 +573,14 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
         body: JSON.stringify({ id: leadId, stage: newStage }),
       })
       if (!res.ok) throw new Error("Failed to update")
+      // Update stage stats in background
+      refreshStats()
     } catch {
       // Revert on error
       fetchLeads()
       alert("Failed to update lead stage.")
     }
-  }, [fetchLeads])
+  }, [fetchLeads, refreshStats])
 
   const archiveLead = async (lead: LeadRow, reason: string) => {
     setArchiveLoading(true)
@@ -560,9 +591,13 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
         body: JSON.stringify({ id: lead.id, archived: true, archive_reason: reason }),
       })
       if (!res.ok) throw new Error("Failed to archive")
-      setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, archived: true, archive_reason: reason } : l))
+      const now = new Date().toISOString()
+      setLeads((prev) => prev.map((l) =>
+        l.id === lead.id ? { ...l, archived: true, archive_reason: reason, archived_at: now } : l
+      ))
       setArchivingLead(null)
       setViewingLead(null)
+      refreshStats()
     } catch {
       alert("Failed to archive lead. Please try again.")
     } finally {
@@ -578,7 +613,10 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
         body: JSON.stringify({ id, archived: false, archive_reason: null }),
       })
       if (!res.ok) throw new Error("Failed to unarchive")
-      setLeads((prev) => prev.map((l) => l.id === id ? { ...l, archived: false, archive_reason: null } : l))
+      setLeads((prev) => prev.map((l) =>
+        l.id === id ? { ...l, archived: false, archive_reason: null, archived_at: null } : l
+      ))
+      refreshStats()
     } catch {
       alert("Failed to unarchive lead.")
     }
@@ -624,12 +662,62 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
     return isNaN(n) ? v : prefix + n.toLocaleString("en-US", { maximumFractionDigits: 1 })
   }
 
-  // Calculate conversion rate
-  const conversionRate = stats && parseInt(stats.total_leads) > 0 
-    ? ((parseInt(stats.won_leads ?? '0') / parseInt(stats.total_leads)) * 100).toFixed(1)
-    : '0'
+  // Derive all stats directly from local leads array so they update instantly on any mutation
+  const derivedStats = useMemo(() => {
+    const active = leads.filter((l) => !l.archived)
+    const now = new Date()
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
 
-  // Calculate week-over-week trend
+    const totalLeads = active.length
+    const wonLeads = active.filter((l) => l.stage === 'won')
+    const lostLeads = active.filter((l) => l.stage === 'lost')
+    const engagedLeads = active.filter((l) => l.stage && !['won', 'lost', 'new'].includes(l.stage))
+    const thisWeek = active.filter((l) => new Date(l.created_at) >= oneWeekAgo)
+
+    const withValue = active.filter((l) => l.estimated_value && !isNaN(parseFloat(l.estimated_value)))
+    const wonWithValue = wonLeads.filter((l) => l.estimated_value && !isNaN(parseFloat(l.estimated_value)))
+
+    const totalPipeline = withValue.reduce((s, l) => s + parseFloat(l.estimated_value!), 0)
+    const totalWon = wonWithValue.reduce((s, l) => s + parseFloat(l.estimated_value!), 0)
+    const avgValue = withValue.length > 0 ? totalPipeline / withValue.length : 0
+    const avgWon = wonWithValue.length > 0 ? totalWon / wonWithValue.length : 0
+
+    const convRate = totalLeads > 0 ? ((wonLeads.length / totalLeads) * 100).toFixed(1) : '0'
+
+    // Stage distribution from local array
+    const stageMap = PIPELINE_STAGES.reduce((acc, s) => {
+      const inStage = active.filter((l) => (l.stage ?? 'new') === s.id)
+      const stageVal = inStage.filter((l) => l.estimated_value).reduce((sum, l) => sum + parseFloat(l.estimated_value!), 0)
+      acc[s.id] = { count: inStage.length, value: stageVal }
+      return acc
+    }, {} as Record<string, { count: number; value: number }>)
+
+    // Source breakdown from local array
+    const sourceMap: Record<string, { count: number; value: number }> = {}
+    for (const l of active) {
+      const src = l.tool_used ?? 'unknown'
+      if (!sourceMap[src]) sourceMap[src] = { count: 0, value: 0 }
+      sourceMap[src].count++
+      if (l.estimated_value) sourceMap[src].value += parseFloat(l.estimated_value)
+    }
+
+    return {
+      totalLeads,
+      wonCount: wonLeads.length,
+      lostCount: lostLeads.length,
+      engagedCount: engagedLeads.length,
+      thisWeekCount: thisWeek.length,
+      totalPipeline,
+      totalWon,
+      avgValue,
+      avgWon,
+      convRate,
+      stageMap,
+      sourceMap,
+    }
+  }, [leads])
+
+  // Calculate week-over-week trend from server weeklyTrend (still server-side only, fine)
   const weekTrend = weeklyTrend.length >= 2 
     ? parseInt(weeklyTrend[weeklyTrend.length - 1]?.count ?? '0') - parseInt(weeklyTrend[weeklyTrend.length - 2]?.count ?? '0')
     : 0
@@ -680,36 +768,36 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
         </div>
       )}
 
-      {/* Smart Stats Grid */}
-      {stats && (
+      {/* Smart Stats Grid — derived from local leads array, updates instantly */}
+      {leads.length > 0 && (
         <div className="space-y-4">
           {/* Primary metrics */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <SmartStatCard
               label="Total Pipeline"
-              value={fmtCompact(stats.total_pipeline_value)}
-              subValue={`${stats.total_leads} leads`}
+              value={`$${fmtCompactNum(derivedStats.totalPipeline)}`}
+              subValue={`${derivedStats.totalLeads} leads`}
               icon={DollarSign}
               highlight="primary"
             />
             <SmartStatCard
               label="Won Revenue"
-              value={fmtCompact(stats.total_won_value)}
-              subValue={`${stats.won_leads ?? 0} closed`}
+              value={`$${fmtCompactNum(derivedStats.totalWon)}`}
+              subValue={`${derivedStats.wonCount} closed`}
               icon={Trophy}
               highlight="success"
             />
             <SmartStatCard
               label="Conversion Rate"
-              value={`${conversionRate}%`}
-              subValue={`${stats.won_leads ?? 0}/${stats.total_leads}`}
+              value={`${derivedStats.convRate}%`}
+              subValue={`${derivedStats.wonCount}/${derivedStats.totalLeads}`}
               icon={Percent}
-              trend={parseFloat(conversionRate) > 10 ? 'up' : parseFloat(conversionRate) > 5 ? 'neutral' : 'down'}
-              trendLabel={parseFloat(conversionRate) > 10 ? 'Good' : 'Avg'}
+              trend={parseFloat(derivedStats.convRate) > 10 ? 'up' : parseFloat(derivedStats.convRate) > 5 ? 'neutral' : 'down'}
+              trendLabel={parseFloat(derivedStats.convRate) > 10 ? 'Good' : 'Avg'}
             />
             <SmartStatCard
               label="This Week"
-              value={stats.leads_this_week}
+              value={String(derivedStats.thisWeekCount)}
               subValue={weekTrend >= 0 ? `+${weekTrend} vs last` : `${weekTrend} vs last`}
               icon={Calendar}
               trend={weekTrend > 0 ? 'up' : weekTrend < 0 ? 'down' : 'neutral'}
@@ -717,13 +805,13 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
             />
             <SmartStatCard
               label="Avg Deal Size"
-              value={fmtCompact(stats.avg_value)}
-              subValue={stats.avg_won_value ? `Won: ${fmtCompact(stats.avg_won_value)}` : undefined}
+              value={`$${fmtCompactNum(derivedStats.avgValue)}`}
+              subValue={derivedStats.avgWon > 0 ? `Won: $${fmtCompactNum(derivedStats.avgWon)}` : undefined}
               icon={Target}
             />
             <SmartStatCard
               label="Engaged"
-              value={stats.engaged_leads ?? '0'}
+              value={String(derivedStats.engagedCount)}
               subValue="In progress"
               icon={Clock}
               highlight="warning"
@@ -731,22 +819,25 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
           </div>
 
           {/* Source breakdown */}
-          {sourceStats.length > 0 && (
+          {Object.keys(derivedStats.sourceMap).length > 0 && (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {sourceStats.slice(0, 4).map((source) => {
-                const icon = source.source?.includes('full') ? Calculator 
-                  : source.source?.includes('quick') ? TrendingUp 
-                  : source.source?.includes('quiz') ? ClipboardCheck 
+              {(Object.entries(derivedStats.sourceMap) as [string, { count: number; value: number }][])
+                .sort((a, b) => b[1].count - a[1].count)
+                .slice(0, 4)
+                .map(([source, data]) => {
+                const icon = source?.includes('full') ? Calculator 
+                  : source?.includes('quick') ? TrendingUp 
+                  : source?.includes('quiz') ? ClipboardCheck 
                   : Users
                 return (
                   <SmartStatCard
-                    key={source.source}
-                    label={source.source?.includes('full') ? 'Full Valuations'
-                      : source.source?.includes('quick') ? 'Quick Valuations'
-                      : source.source?.includes('quiz') ? 'Quiz Leads'
+                    key={source}
+                    label={source?.includes('full') ? 'Full Valuations'
+                      : source?.includes('quick') ? 'Quick Valuations'
+                      : source?.includes('quiz') ? 'Quiz Leads'
                       : 'Other'}
-                    value={source.count}
-                    subValue={source.value ? fmtCompact(source.value) : undefined}
+                    value={String(data.count)}
+                    subValue={data.value > 0 ? `$${fmtCompactNum(data.value)}` : undefined}
                     icon={icon}
                   />
                 )
@@ -961,7 +1052,6 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
                     key={stage.id}
                     onClick={() => {
                       updateLeadStage(viewingLead.id, stage.id)
-                      setViewingLead((prev) => prev ? { ...prev, stage: stage.id } : prev)
                     }}
                     className={cn(
                       "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors",
@@ -994,6 +1084,14 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
                 <p className="text-sm text-muted-foreground italic border-l-2 border-border pl-3">
                   {viewingLead.agency_description}
                 </p>
+              )}
+
+              {/* Valuation summary (raw text from lead capture) */}
+              {viewingLead.valuation_summary && !viewingLead.low_offer && !viewingLead.quick_low && (
+                <div className="rounded-lg border border-border bg-secondary/30 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Valuation Summary</p>
+                  <p className="text-xs text-foreground whitespace-pre-wrap leading-relaxed">{viewingLead.valuation_summary}</p>
+                </div>
               )}
 
               {/* Valuation offer band — top priority */}
@@ -1148,8 +1246,11 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
                 className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
                 onClick={() => {
                   const deal = leadToDeal(viewingLead)
+                  // Optimistically mark as won in local state
+                  setLeads((prev) => prev.map((l) => l.id === viewingLead.id ? { ...l, stage: 'won' } : l))
                   setViewingLead(null)
                   setWonDeal(deal)
+                  refreshStats()
                 }}
               >
                 <Trophy className="h-4 w-4" />

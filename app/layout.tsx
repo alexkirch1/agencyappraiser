@@ -31,11 +31,11 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('agency-appraiser-theme');if(t==='light'){}else{document.documentElement.classList.add('dark')}}catch(e){document.documentElement.classList.add('dark')}})()`,
+            __html: `(function(){try{var t=localStorage.getItem('agency-appraiser-theme');if(t==='dark'){document.documentElement.classList.add('dark')}else{document.documentElement.classList.remove('dark');localStorage.setItem('agency-appraiser-theme','light')}}catch(e){}})()`,
           }}
         />
       </head>
-      <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased bg-background text-foreground`}>
         <ThemeProvider>
           <AuthProvider>
             <Header />

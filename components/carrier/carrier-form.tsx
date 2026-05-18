@@ -89,7 +89,7 @@ function countFilledFields(inputs: CarrierInputs): { filled: number; total: numb
   }
 
   const total  = fields.length
-  const filled = fields.filter(f => f !== null && f !== undefined && f !== "").length
+  const filled = fields.filter(f => f !== null && f !== undefined && f !== "" && f !== false).length
   return { filled, total }
 }
 

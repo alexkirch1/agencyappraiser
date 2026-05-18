@@ -218,7 +218,7 @@ export function FeedbackTab() {
   const handleUpdate = async (id: number, patch: Partial<FeedbackItem>) => {
     await fetch("/api/admin/feedback", {
       method: "PATCH",
-      headers: authHeaders(),
+      headers: authHeaders() as Record<string, string>,
       body: JSON.stringify({ id, ...patch }),
     })
     mutate()
@@ -227,7 +227,7 @@ export function FeedbackTab() {
   const handleDelete = async (id: number) => {
     await fetch("/api/admin/feedback", {
       method: "DELETE",
-      headers: authHeaders(),
+      headers: authHeaders() as Record<string, string>,
       body: JSON.stringify({ id }),
     })
     mutate()

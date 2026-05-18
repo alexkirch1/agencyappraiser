@@ -214,7 +214,7 @@ export function AmsUpload({ onParsed }: Props) {
                     <p className="text-xs text-foreground">{(meta.top_lobs as string[]).join(" · ")}</p>
                   </div>
                 )}
-                {meta.revenue_is_estimated && (
+                {Boolean(meta.revenue_is_estimated) && (
                   <p className="col-span-2 text-[10px] text-muted-foreground sm:col-span-3">
                     * Revenue is estimated from commission rates — review and adjust in the form below.
                   </p>

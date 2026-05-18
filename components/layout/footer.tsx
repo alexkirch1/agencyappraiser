@@ -29,6 +29,9 @@ export function Footer() {
             <Link href="/carrier" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
               Carrier Report
             </Link>
+            <Link href="/ams" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+              AMS Report
+            </Link>
             <Link href="/my-valuations" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
               My Valuations
             </Link>
@@ -42,7 +45,7 @@ export function Footer() {
                 This tool provides preliminary estimates for educational purposes only. It is not a binding offer or formal appraisal.
               </p>
               <p className="mt-1 text-xs text-muted-foreground/60">
-                {"Agency Appraiser. All rights reserved."}
+                {"© 2026 Agency Appraiser. All rights reserved."}
               </p>
             </div>
             <p className="shrink-0 font-mono text-[10px] text-muted-foreground/40" title="Build version and timestamp" suppressHydrationWarning>

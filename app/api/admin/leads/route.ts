@@ -17,6 +17,7 @@ export async function GET() {
         l.agency_name,
         l.tool_used,
         l.estimated_value,
+        l.valuation_summary,
         l.pipedrive_deal_id,
         l.created_at,
         l.stage,

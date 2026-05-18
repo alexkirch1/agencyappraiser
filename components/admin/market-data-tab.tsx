@@ -176,7 +176,7 @@ function Stat({ label, value, sub, icon: Icon, accent, accentBg }: {
   )
 }
 
-// ─── Main tab ────────────�����───────────────────────────────────────────────────
+// ─── Main tab ────────────������───────────────────────────────────────────────────
 
 export function MarketDataTab() {
   const { data, error, isLoading, mutate } = useSWR<MarketStats>(
@@ -308,7 +308,7 @@ export function MarketDataTab() {
         </CardHeader>
         <CardContent className="space-y-8 pb-8">
           {sizeRows.map((row) => (
-            <div key={row.tier} className="space-y-2">
+            <div key={row.label} className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2 font-mono text-sm font-medium text-foreground">
                   {row.label}
@@ -429,14 +429,14 @@ export function MarketDataTab() {
                   <tr key={row.bucket}>
                     <td className="py-3 font-mono font-medium text-foreground">{row.label}</td>
                     <td className="py-3 font-mono font-semibold text-primary">
-                      {"liveMedian" in row && row.liveMedian != null
-                        ? `${row.liveMedian.toFixed(2)}x`
-                        : row.medianAdjustment}
+                      {"liveMedian" in row && (row as { liveMedian: number | null }).liveMedian != null
+                        ? `${((row as { liveMedian: number }).liveMedian).toFixed(2)}x`
+                        : (row as { medianAdjustment: string }).medianAdjustment}
                     </td>
                     <td className="py-3"><RiskBadge risk={row.risk} /></td>
                     {retentionRows && (
                       <td className="py-3 text-xs text-muted-foreground">
-                        {"count" in row ? row.count : 0}
+                        {"count" in row ? String((row as { count: number }).count) : "0"}
                       </td>
                     )}
                   </tr>

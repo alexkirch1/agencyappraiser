@@ -1,8 +1,7 @@
 {
-  "/ams/page": "app/ams/page.js",
+  "/admin/page": "app/admin/page.js",
+  "/api/admin/auth/route": "app/api/admin/auth/route.js",
+  "/api/admin/overview/route": "app/api/admin/overview/route.js",
   "/api/auth/me/route": "app/api/auth/me/route.js",
-  "/api/parse-ams-report/route": "app/api/parse-ams-report/route.js",
-  "/api/submit-lead/route": "app/api/submit-lead/route.js",
-  "/page": "app/page.js",
-  "/quick-value/page": "app/quick-value/page.js"
+  "/page": "app/page.js"
 }

@@ -10,18 +10,21 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: "dark",
+  theme: "light",
   toggleTheme: () => {},
 })
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("dark")
+  const [theme, setTheme] = useState<Theme>("light")
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     const stored = localStorage.getItem("agency-appraiser-theme") as Theme | null
     if (stored === "light" || stored === "dark") {
       setTheme(stored)
+    } else {
+      // No preference stored — default to light and save it
+      localStorage.setItem("agency-appraiser-theme", "light")
     }
     setMounted(true)
   }, [])

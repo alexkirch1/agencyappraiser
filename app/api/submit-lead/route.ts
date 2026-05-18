@@ -358,8 +358,8 @@ export async function POST(req: Request) {
     // Save lead to Neon
     try {
       const rows = await sql`
-        INSERT INTO leads (name, email, phone, agency_name, tool_used, estimated_value)
-        VALUES (${name}, ${email}, ${phone || null}, ${agencyName || null}, ${toolUsed || null}, ${estimatedValue || null})
+        INSERT INTO leads (name, email, phone, agency_name, tool_used, estimated_value, valuation_summary)
+        VALUES (${name}, ${email}, ${phone || null}, ${agencyName || null}, ${toolUsed || null}, ${estimatedValue || null}, ${valuationSummary || null})
         RETURNING id
       `
       results.leadId = rows[0]?.id ?? null
