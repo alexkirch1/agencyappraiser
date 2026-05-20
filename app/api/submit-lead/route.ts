@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server"
 import sql from "@/lib/db"
 import { rateLimit, getClientIp } from "@/lib/rate-limit"
+import { adminNotificationEmail } from "@/lib/email-templates"
 
 const PIPEDRIVE_TOKEN = process.env.PIPEDRIVE_API_TOKEN
-const PIPEDRIVE_DOMAIN = "rocky" // your Pipedrive subdomain
+const PIPEDRIVE_DOMAIN = "rocky"
 const RESEND_API_KEY: string | undefined = process.env.RESEND_API_KEY
-const NOTIFY_EMAIL = "mergers@rockyquote.com"
+const NOTIFY_EMAIL = "alex@rockyquote.com"
 
 // We'll look up the pipeline + stage IDs dynamically on first call
 let cachedStageId: number | null = null
@@ -212,104 +213,41 @@ async function sendEmailNotification(data: {
   leadPhone: string
   agencyName: string
   toolUsed: string
+  estimatedValue?: string
   valuationSummary: string
 }) {
   if (!RESEND_API_KEY) {
-    console.log("[v0] RESEND_API_KEY not set, skipping email")
+    console.log("[submit-lead] RESEND_API_KEY not set, skipping email")
     return
   }
 
   try {
-    const adminRes = await fetch("https://api.resend.com/emails", {
+    const { from, html, subject } = adminNotificationEmail({
+      leadName: data.leadName,
+      leadEmail: data.leadEmail,
+      leadPhone: data.leadPhone,
+      agencyName: data.agencyName,
+      toolUsed: data.toolUsed,
+      estimatedValue: data.estimatedValue,
+      valuationSummary: data.valuationSummary,
+    })
+
+    await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "Agency Appraiser <onboarding@resend.dev>",
+        from,
         to: [NOTIFY_EMAIL],
         reply_to: data.leadEmail,
-        subject: `New Lead: ${data.leadName} - ${data.toolUsed}`,
-        html: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #0ea5e9;">New Agency Appraiser Lead</h2>
-            <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
-              <tr>
-                <td style="padding: 8px 12px; border: 1px solid #e2e8f0; font-weight: bold; background: #f8fafc;">Name</td>
-                <td style="padding: 8px 12px; border: 1px solid #e2e8f0;">${data.leadName}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 12px; border: 1px solid #e2e8f0; font-weight: bold; background: #f8fafc;">Email</td>
-                <td style="padding: 8px 12px; border: 1px solid #e2e8f0;"><a href="mailto:${data.leadEmail}">${data.leadEmail}</a></td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 12px; border: 1px solid #e2e8f0; font-weight: bold; background: #f8fafc;">Phone</td>
-                <td style="padding: 8px 12px; border: 1px solid #e2e8f0;">${data.leadPhone || "Not provided"}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 12px; border: 1px solid #e2e8f0; font-weight: bold; background: #f8fafc;">Agency</td>
-                <td style="padding: 8px 12px; border: 1px solid #e2e8f0;">${data.agencyName || "Not provided"}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 12px; border: 1px solid #e2e8f0; font-weight: bold; background: #f8fafc;">Tool Used</td>
-                <td style="padding: 8px 12px; border: 1px solid #e2e8f0;">${data.toolUsed}</td>
-              </tr>
-            </table>
-            <h3 style="margin-top: 24px;">Valuation Details</h3>
-            <div style="background: #f1f5f9; border-radius: 8px; padding: 16px; white-space: pre-wrap; font-size: 14px;">
-${data.valuationSummary}
-            </div>
-            <p style="margin-top: 24px; font-size: 12px; color: #94a3b8;">
-              This lead was submitted via the Agency Appraiser calculator at ${new Date().toLocaleString()}.
-            </p>
-          </div>
-        `,
+        subject,
+        html,
       }),
     })
-    await adminRes.json()
-
-    // Send confirmation copy to the user
-    const userRes = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-      },
-      body: JSON.stringify({
-        from: "Agency Appraiser <onboarding@resend.dev>",
-        to: [data.leadEmail],
-        reply_to: NOTIFY_EMAIL,
-        subject: "We received your agency valuation request",
-        html: `
-          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-            <h1 style="color: #0f172a; font-size: 22px;">Thanks, ${data.leadName}!</h1>
-            <p style="color: #334155; font-size: 16px; line-height: 1.6;">
-              We received your agency valuation request and our team will be in touch shortly.
-            </p>
-            ${data.valuationSummary ? `
-            <div style="background: #f1f5f9; border-radius: 8px; padding: 16px; margin: 24px 0; white-space: pre-wrap; font-size: 14px; color: #475569;">
-              ${data.valuationSummary}
-            </div>` : ""}
-            <p style="color: #334155; font-size: 16px; line-height: 1.6;">
-              In the meantime, you can revisit your valuation anytime at
-              <a href="https://agencyappraiser.com/calculator" style="color: #0ea5e9;">agencyappraiser.com/calculator</a>.
-            </p>
-            <p style="color: #334155; font-size: 16px; line-height: 1.6; margin-top: 32px;">
-              Talk soon,<br/>
-              <strong>The Agency Appraiser Team</strong><br/>
-              <a href="mailto:mergers@rockyquote.com" style="color: #0ea5e9;">mergers@rockyquote.com</a>
-            </p>
-            <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #e2e8f0;">
-              <p style="color: #94a3b8; font-size: 12px;">You received this because you submitted a valuation request on Agency Appraiser.</p>
-            </div>
-          </div>
-        `,
-      }),
-    })
-    await userRes.json()
   } catch (err) {
-    console.error("[v0] Email send failed:", err)
+    console.error("[submit-lead] Admin email failed:", err)
   }
 }
 
@@ -423,16 +361,38 @@ export async function POST(req: Request) {
       }
     }
 
-    // 2. Send email notification to admin
+    // 2. Send admin notification email
     await sendEmailNotification({
       leadName: name,
       leadEmail: email,
       leadPhone: phone,
       agencyName,
       toolUsed: toolUsed || "Agency Valuation",
-      valuationSummary: valuationSummary || "No valuation data yet (lead captured pre-calculation)",
+      estimatedValue: estimatedValue?.toString(),
+      valuationSummary: valuationSummary || "No valuation data yet",
     })
     results.email = true
+
+    // 3. Queue 3-email drip sequence for the lead
+    if (results.leadId) {
+      const now = new Date()
+      const day2 = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000)
+      const day5 = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000)
+      await sql`
+        INSERT INTO email_drip (lead_id, sequence, send_after)
+        VALUES
+          (${results.leadId}, 1, ${now.toISOString()}),
+          (${results.leadId}, 2, ${day2.toISOString()}),
+          (${results.leadId}, 3, ${day5.toISOString()})
+        ON CONFLICT (lead_id, sequence) DO NOTHING
+      `.catch((err) => console.error("[submit-lead] Failed to queue drip emails:", err))
+
+      // Trigger the drip processor immediately so Email 1 goes out right away
+      fetch(`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/send-drip-email`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${process.env.CRON_SECRET ?? ""}` },
+      }).catch(() => {})
+    }
 
     return NextResponse.json({ success: true, ...results, leadId: results.leadId })
   } catch (err) {
