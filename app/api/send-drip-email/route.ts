@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const pending = await sql<DripRow[]>`
+    const pending = (await sql`
       SELECT
         d.id,
         d.lead_id,
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
         AND l.archived = false
       ORDER BY d.send_after ASC
       LIMIT 50
-    `
+    `) as DripRow[]
 
     if (pending.length === 0) {
       return NextResponse.json({ sent: 0, message: "No pending emails" })
