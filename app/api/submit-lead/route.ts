@@ -388,10 +388,14 @@ export async function POST(req: Request) {
       `.catch((err) => console.error("[submit-lead] Failed to queue drip emails:", err))
 
       // Trigger the drip processor immediately so Email 1 goes out right away
-      fetch(`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/send-drip-email`, {
+      const appUrl = process.env.NEXT_PUBLIC_BASE_URL
+        ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
+      const cronHeaders: Record<string, string> = { "Content-Type": "application/json" }
+      if (process.env.CRON_SECRET) cronHeaders["Authorization"] = `Bearer ${process.env.CRON_SECRET}`
+      fetch(`${appUrl}/api/send-drip-email`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${process.env.CRON_SECRET ?? ""}` },
-      }).catch(() => {})
+        headers: cronHeaders,
+      }).catch((e) => console.error("[submit-lead] Failed to trigger drip:", e))
     }
 
     return NextResponse.json({ success: true, ...results, leadId: results.leadId })

@@ -2,7 +2,10 @@
 // All emails use inline styles for maximum email client compatibility
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "https://agencyappraiser.com"
-const FROM = "Agency Appraiser <hello@agencyappraiser.com>"
+// Use Resend's shared domain until agencyappraiser.com is verified in Resend
+const FROM = process.env.RESEND_FROM_EMAIL
+  ? `Agency Appraiser <${process.env.RESEND_FROM_EMAIL}>`
+  : "Agency Appraiser <onboarding@resend.dev>"
 const BRAND_COLOR = "#0ea5e9"
 const DARK_TEXT = "#0f172a"
 const MUTED_TEXT = "#64748b"

@@ -96,6 +96,7 @@ export async function GET(req: NextRequest) {
 
 // POST — hourly cron processor
 export async function POST(req: NextRequest) {
+  // Only enforce auth if CRON_SECRET is configured
   const authHeader = req.headers.get("authorization")
   if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
