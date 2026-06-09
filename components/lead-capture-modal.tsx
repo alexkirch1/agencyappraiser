@@ -5,7 +5,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Lock, CheckCircle2, Loader2 } from "lucide-react"
+import { Lock, CheckCircle2, Loader2, ChevronRight } from "lucide-react"
+
+const REFERRAL_OPTIONS = [
+  "Google / Search",
+  "LinkedIn",
+  "Facebook Group",
+  "Referred by a colleague",
+  "Industry newsletter",
+  "Big I / PIA association",
+  "Podcast or webinar",
+  "Other",
+]
 
 interface LeadData {
   name: string
@@ -41,6 +52,11 @@ export function LeadCaptureModal({
   const [agencyName, setAgencyName] = useState("")
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
+  const [step, setStep] = useState<"form" | "referral">("form")
+  const [leadId, setLeadId] = useState<number | null>(null)
+  const [leadData, setLeadData] = useState<LeadData | null>(null)
+  const [referralSource, setReferralSource] = useState("")
+  const [savingReferral, setSavingReferral] = useState(false)
 
   const validate = () => {
     const newErrors: Record<string, string> = {}
@@ -56,16 +72,15 @@ export function LeadCaptureModal({
     if (!validate()) return
 
     setSubmitting(true)
-    const leadData: LeadData = { name, email, phone, agencyName }
+    const data: LeadData = { name, email, phone, agencyName }
 
-    // Fire API call to Pipedrive + email, capture leadId for DB linking
     let returnedLeadId: number | null = null
     try {
       const res = await fetch("/api/submit-lead", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...leadData,
+          ...data,
           toolUsed,
           valuationSummary,
           estimatedValue,
@@ -75,18 +90,90 @@ export function LeadCaptureModal({
       const json = await res.json()
       returnedLeadId = json.leadId ?? null
     } catch {
-      console.error("[v0] Lead API call failed, continuing anyway")
+      console.error("[lead-capture] Lead API call failed, continuing anyway")
     }
 
     setSubmitting(false)
-    onSubmit(leadData, returnedLeadId)
+    setLeadId(returnedLeadId)
+    setLeadData(data)
+    setStep("referral")
+  }
+
+  const handleReferral = async (source: string) => {
+    setReferralSource(source)
+    setSavingReferral(true)
+
+    // Save referral source to DB in background — non-blocking
+    if (leadId) {
+      fetch("/api/submit-lead/referral", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId, referralSource: source }),
+      }).catch(() => {})
+    }
+
+    // Small delay so the selection feels acknowledged
+    await new Promise((r) => setTimeout(r, 400))
+    setSavingReferral(false)
+    onSubmit(leadData!, leadId)
+  }
+
+  const handleSkip = () => {
+    onSubmit(leadData!, leadId)
+  }
+
+  if (step === "referral") {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+        <Card className="w-full max-w-sm border-border bg-card shadow-2xl">
+          <CardHeader className="pb-3">
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+              <CheckCircle2 className="h-6 w-6 text-primary" />
+            </div>
+            <CardTitle className="text-center text-lg font-bold text-foreground">
+              One quick question
+            </CardTitle>
+            <p className="text-center text-sm text-muted-foreground mt-1">
+              How did you hear about Agency Appraiser?
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-2">
+              {REFERRAL_OPTIONS.map((option) => (
+                <button
+                  key={option}
+                  onClick={() => handleReferral(option)}
+                  disabled={savingReferral}
+                  className={`flex items-center justify-between rounded-lg border px-4 py-2.5 text-sm text-left transition-all
+                    ${referralSource === option
+                      ? "border-primary bg-primary/10 text-primary font-medium"
+                      : "border-border bg-secondary/30 text-foreground hover:border-primary/50 hover:bg-primary/5"
+                    } disabled:opacity-60`}
+                >
+                  <span>{option}</span>
+                  {savingReferral && referralSource === option
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                    : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  }
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={handleSkip}
+              className="mt-3 w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Skip this question
+            </button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
       <Card className="w-full max-w-sm border-border bg-card shadow-2xl">
         <CardHeader className="pb-3">
-          {/* Close button */}
           {onClose && (
             <button
               onClick={onClose}
