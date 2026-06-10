@@ -12,5 +12,6 @@
   "/api/send-drip-email/route": "app/api/send-drip-email/route.js",
   "/api/submit-lead/route": "app/api/submit-lead/route.js",
   "/calculator/page": "app/calculator/page.js",
-  "/page": "app/page.js"
+  "/page": "app/page.js",
+  "/quick-value/page": "app/quick-value/page.js"
 }
