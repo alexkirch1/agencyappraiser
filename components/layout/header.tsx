@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useState } from "react"
+import { useState, useRef, useCallback } from "react"
 import { cn } from "@/lib/utils"
 import { Menu, X, TrendingUp, Sun, Moon, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -22,11 +22,35 @@ export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const { theme, toggleTheme } = useTheme()
 
+  // Triple-click logo easter egg — flips logo upside down for 2s
+  const [logoFlipped, setLogoFlipped] = useState(false)
+  const clickCountRef = useRef(0)
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const flipTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleLogoClick = useCallback(() => {
+    clickCountRef.current += 1
+    if (clickTimerRef.current) clearTimeout(clickTimerRef.current)
+    clickTimerRef.current = setTimeout(() => { clickCountRef.current = 0 }, 600)
+
+    if (clickCountRef.current >= 3) {
+      clickCountRef.current = 0
+      setLogoFlipped(true)
+      if (flipTimerRef.current) clearTimeout(flipTimerRef.current)
+      flipTimerRef.current = setTimeout(() => setLogoFlipped(false), 2000)
+    }
+  }, [])
+
   return (
     <>
     <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 lg:px-8">
-        <Link href="/" className="flex items-center gap-2">
+        <Link
+          href="/"
+          className="flex items-center gap-2"
+          onClick={handleLogoClick}
+          style={{ transition: "transform 0.4s cubic-bezier(.68,-0.55,.27,1.55)", transform: logoFlipped ? "rotate(180deg)" : "rotate(0deg)" }}
+        >
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
             <TrendingUp className="h-5 w-5 text-primary-foreground" />
           </div>
