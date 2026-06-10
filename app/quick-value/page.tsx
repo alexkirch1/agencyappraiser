@@ -13,6 +13,7 @@ import { ArrowRight, Calculator, Zap, DollarSign, AlertTriangle, TrendingUp, Shi
 import { FeedbackWidget } from "@/components/feedback-widget"
 import { InfoTip } from "@/components/ui/info-tip"
 import { downloadQuickValuePDF } from "@/lib/generate-pdf"
+import { EncouragementBanner } from "@/components/ui/encouragement-banner"
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -419,6 +420,17 @@ export default function QuickValuePage() {
               Get My Quick Estimate
             </Button>
           )}
+
+          {/* Positive encouragement based on what they've entered */}
+          <EncouragementBanner ctx={{
+            revenue,
+            retention,
+            growth,
+            bookType,
+            customers,
+            fieldsCompleted: [revenue, retention, bookType, growth, customers, policies]
+              .filter(v => v != null && v !== "" && v !== 0).length,
+          }} />
         </div>
 
         {/* Right: Sticky Results */}

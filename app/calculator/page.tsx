@@ -17,6 +17,7 @@ import { downloadValuationPDF } from "@/lib/generate-pdf"
 import { MarketIntelPanel } from "@/components/market-intel-panel"
 import { BenchmarkComparison } from "@/components/calculator/benchmark-comparison"
 import { FeedbackWidget } from "@/components/feedback-widget"
+import { EncouragementBanner } from "@/components/ui/encouragement-banner"
 
 const defaultInputs: ValuationInputs = {
   isCaptive: null,
@@ -310,6 +311,29 @@ function CalculatorContent() {
             />
           </div>
 
+          {/* Encouragement banner — only while editing, not after results are unlocked */}
+          {!submitted && (
+            <EncouragementBanner ctx={{
+              revenue:          inputs.revenueLTM,
+              retention_rate:   inputs.retentionRate,
+              growth:           inputs.revenueGrowthTrend || null,
+              bookType:         inputs.policyMix != null
+                                  ? inputs.policyMix >= 70 ? "commercial"
+                                  : inputs.policyMix <= 30 ? "personal"
+                                  : "mixed"
+                                  : null,
+              customers:        inputs.activeCustomers,
+              years_in_business: inputs.yearEstablished
+                                  ? new Date().getFullYear() - inputs.yearEstablished
+                                  : null,
+              fieldsCompleted:  [
+                inputs.revenueLTM, inputs.retentionRate, inputs.policyMix,
+                inputs.revenueGrowthTrend, inputs.activeCustomers, inputs.yearEstablished,
+                inputs.isCaptive,
+              ].filter(v => v != null && v !== "").length,
+            }} />
+          )}
+
           {/* Validation Errors */}
           {validationErrors.length > 0 && editing && (
             <div className="mt-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
@@ -393,7 +417,7 @@ function CalculatorContent() {
               <div>
                 <p className="font-semibold text-foreground">Captive Agent — Limited Transferability</p>
                 <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">
-                  Because you are a captive agent, this valuation is shown for informational purposes only. Captive books of business cannot be sold independently — the carrier owns the policies. Valuation is capped at 1.0–1.5x revenue. Please contact us to discuss your specific options.
+                  Because you are a captive agent, this valuation is shown for informational purposes only. Captive books of business cannot be sold independently — the carrier owns the policies. Valuation is capped at 1.0��1.5x revenue. Please contact us to discuss your specific options.
                 </p>
               </div>
             </div>
