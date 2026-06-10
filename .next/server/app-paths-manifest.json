@@ -1,4 +1,10 @@
 {
+  "/ams/page": "app/ams/page.js",
   "/api/auth/me/route": "app/api/auth/me/route.js",
+  "/api/completed-deal/route": "app/api/completed-deal/route.js",
+  "/api/save-full-valuation/route": "app/api/save-full-valuation/route.js",
+  "/api/send-drip-email/route": "app/api/send-drip-email/route.js",
+  "/api/submit-lead/route": "app/api/submit-lead/route.js",
+  "/calculator/page": "app/calculator/page.js",
   "/page": "app/page.js"
 }
