@@ -167,7 +167,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 // Single scrolling ticker row
 function TickerRow({ delay }: { delay: number }) {
   const items = [
-    "AGCY +14.2%", "BOB +5.8M", "INSR +22%", "ROCKY +99%",
+    "AGCY +14.2%", "BOB +5.8M", "INSR +22%", "APPR +99%",
     "APPR +8.4%", "MULTI 3.2x", "RETEN 94%", "COMM +18%",
   ]
   const text = [...items, ...items].join("   ·   ")
