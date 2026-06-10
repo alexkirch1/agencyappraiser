@@ -9,7 +9,7 @@ import { Slider } from "@/components/ui/slider"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Button } from "@/components/ui/button"
 import { ValuationDisclaimerModal } from "@/components/valuation-disclaimer-modal"
-import { ArrowRight, Calculator, Zap, DollarSign, AlertTriangle, TrendingUp, ShieldAlert, Download } from "lucide-react"
+import { ArrowRight, Calculator, Zap, DollarSign, AlertTriangle, TrendingUp, ShieldAlert, Download, Share2, Check } from "lucide-react"
 import { FeedbackWidget } from "@/components/feedback-widget"
 import { InfoTip } from "@/components/ui/info-tip"
 import { downloadQuickValuePDF } from "@/lib/generate-pdf"
@@ -105,6 +105,26 @@ export default function QuickValuePage() {
   const [showDisclaimer, setShowDisclaimer] = useState(false)
   const [resultsVisible, setResultsVisible] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
+  const [savedLeadId, setSavedLeadId] = useState<number | null>(null)
+  const [shareCopied, setShareCopied] = useState(false)
+
+  const handleShare = async () => {
+    const url = savedLeadId
+      ? `${window.location.origin}/valuation/${savedLeadId}`
+      : window.location.href
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      const ta = document.createElement("textarea")
+      ta.value = url
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand("copy")
+      document.body.removeChild(ta)
+    }
+    setShareCopied(true)
+    setTimeout(() => setShareCopied(false), 2500)
+  }
 
   const estimate = useMemo(() => {
     if (!revenue || revenue <= 0) return null
@@ -474,7 +494,7 @@ export default function QuickValuePage() {
                       </Button>
                     </div>
 
-                    {/* PDF Download */}
+                    {/* PDF Download + Share */}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -510,6 +530,15 @@ export default function QuickValuePage() {
                     >
                       <Download className="h-3.5 w-3.5" />
                       {pdfLoading ? "Generating PDF..." : "Download Summary PDF"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full gap-2 text-xs text-muted-foreground hover:text-foreground"
+                      onClick={handleShare}
+                    >
+                      {shareCopied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Share2 className="h-3.5 w-3.5" />}
+                      {shareCopied ? "Link copied!" : "Share Results"}
                     </Button>
                   </div>
                 ) : (
@@ -593,6 +622,8 @@ export default function QuickValuePage() {
                     tier: estimate.tier,
                   }),
                 })
+                const saved = await res.json().catch(() => ({}))
+                if (saved?.leadId) setSavedLeadId(saved.leadId)
               } catch { /* non-blocking */ }
             }
           }}
