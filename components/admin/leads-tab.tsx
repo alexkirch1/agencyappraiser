@@ -31,6 +31,7 @@ interface LeadRow {
   tool_used: string | null
   estimated_value: string | null
   valuation_summary: string | null
+  referral_source: string | null
   pipedrive_deal_id: number | null
   created_at: string
   stage: string | null
@@ -1074,6 +1075,11 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
                   {toolBadge(viewingLead.tool_used)}
                   {viewingLead.primary_state && (
                     <Badge variant="outline" className="text-[10px]">{viewingLead.primary_state}</Badge>
+                  )}
+                  {viewingLead.referral_source && (
+                    <Badge variant="outline" className="text-[10px] text-muted-foreground gap-1">
+                      Heard via: {viewingLead.referral_source}
+                    </Badge>
                   )}
                 </div>
                 <span className="text-xs text-muted-foreground shrink-0">{new Date(viewingLead.created_at).toLocaleDateString()}</span>

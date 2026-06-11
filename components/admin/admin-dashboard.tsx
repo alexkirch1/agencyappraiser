@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import {
   LogOut, Sun, Moon, BarChart3, FolderKanban, Settings, Users,
-  TrendingUp, BarChart2, Archive, MessageSquare, Menu, X,
+  TrendingUp, BarChart2, Archive, MessageSquare, Menu, X, Mail,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/theme-provider"
@@ -15,6 +15,7 @@ import { AnalyticsTab } from "@/components/admin/analytics-tab"
 import { MarketDataTab } from "@/components/admin/market-data-tab"
 import { ArchiveTab } from "@/components/admin/archive-tab"
 import { FeedbackTab } from "@/components/admin/feedback-tab"
+import { EmailDripTab } from "@/components/admin/email-drip-tab"
 import { cn } from "@/lib/utils"
 
 export interface Deal {
@@ -51,14 +52,15 @@ const NAV_GROUPS = [
   {
     label: "Admin",
     items: [
-      { id: "feedback",   label: "Feedback",         icon: MessageSquare },
-      { id: "archive",    label: "Archive",          icon: Archive },
-      { id: "settings",   label: "Settings",         icon: Settings },
+      { id: "email-drip",  label: "Email Drip",        icon: Mail },
+      { id: "feedback",    label: "Feedback",           icon: MessageSquare },
+      { id: "archive",     label: "Archive",            icon: Archive },
+      { id: "settings",    label: "Settings",           icon: Settings },
     ],
   },
 ] as const
 
-type TabId = "overview" | "analytics" | "leads" | "horizon" | "market-data" | "feedback" | "archive" | "settings"
+type TabId = "overview" | "analytics" | "leads" | "horizon" | "market-data" | "email-drip" | "feedback" | "archive" | "settings"
 
 const TAB_LABELS: Record<TabId, string> = {
   overview: "Overview",
@@ -66,6 +68,7 @@ const TAB_LABELS: Record<TabId, string> = {
   leads: "Leads",
   horizon: "Horizon Pipeline",
   "market-data": "Market Data",
+  "email-drip": "Email Drip",
   feedback: "Feedback",
   archive: "Archive",
   settings: "Settings",
@@ -239,6 +242,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             {activeTab === "horizon"     && <HorizonTab deals={deals} onSaveDeal={addDeal} onUpdateDeal={updateDeal} />}
             {activeTab === "market-data" && <MarketDataTab />}
             {activeTab === "feedback"    && <FeedbackTab />}
+            {activeTab === "email-drip"  && <EmailDripTab />}
             {activeTab === "archive"     && <ArchiveTab />}
             {activeTab === "settings"    && <SettingsTab onClearAll={clearAll} dealCount={deals.length} />}
           </div>

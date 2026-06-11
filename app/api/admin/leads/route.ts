@@ -18,6 +18,7 @@ export async function GET() {
         l.tool_used,
         l.estimated_value,
         l.valuation_summary,
+        l.referral_source,
         l.pipedrive_deal_id,
         l.created_at,
         l.stage,

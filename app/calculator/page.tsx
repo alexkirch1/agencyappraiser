@@ -11,12 +11,13 @@ import { RiskAudit } from "@/components/calculator/risk-audit"
 import { calculateValuation, runRiskAudit, type ValuationInputs } from "@/components/calculator/valuation-engine"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Lock, Unlock, AlertCircle, ClipboardCheck, ArrowRight, Pencil, Download, ShieldCheck } from "lucide-react"
+import { Lock, Unlock, AlertCircle, ClipboardCheck, ArrowRight, Pencil, Download, ShieldCheck, Share2, Check } from "lucide-react"
 import Link from "next/link"
 import { downloadValuationPDF } from "@/lib/generate-pdf"
 import { MarketIntelPanel } from "@/components/market-intel-panel"
 import { BenchmarkComparison } from "@/components/calculator/benchmark-comparison"
 import { FeedbackWidget } from "@/components/feedback-widget"
+import { EncouragementBanner } from "@/components/ui/encouragement-banner"
 
 const defaultInputs: ValuationInputs = {
   isCaptive: null,
@@ -127,6 +128,25 @@ function CalculatorContent() {
   const [triedSubmit, setTriedSubmit] = useState(false)
   const [leadId, setLeadId] = useState<number | null>(null)
   const [pdfLoading, setPdfLoading] = useState(false)
+  const [shareCopied, setShareCopied] = useState(false)
+
+  const handleShare = async () => {
+    if (!leadId) return
+    const url = `${window.location.origin}/valuation/${leadId}`
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      // fallback for browsers that block clipboard
+      const ta = document.createElement("textarea")
+      ta.value = url
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand("copy")
+      document.body.removeChild(ta)
+    }
+    setShareCopied(true)
+    setTimeout(() => setShareCopied(false), 2500)
+  }
 
   // Pre-fill from URL params if navigated from quick-value (only if not already set)
   useEffect(() => {
@@ -291,6 +311,29 @@ function CalculatorContent() {
             />
           </div>
 
+          {/* Encouragement banner — only while editing, not after results are unlocked */}
+          {!submitted && (
+            <EncouragementBanner ctx={{
+              revenue:          inputs.revenueLTM,
+              retention_rate:   inputs.retentionRate,
+              growth:           inputs.revenueGrowthTrend || null,
+              bookType:         inputs.policyMix != null
+                                  ? inputs.policyMix >= 70 ? "commercial"
+                                  : inputs.policyMix <= 30 ? "personal"
+                                  : "mixed"
+                                  : null,
+              customers:        inputs.activeCustomers,
+              years_in_business: inputs.yearEstablished
+                                  ? new Date().getFullYear() - inputs.yearEstablished
+                                  : null,
+              fieldsCompleted:  [
+                inputs.revenueLTM, inputs.retentionRate, inputs.policyMix,
+                inputs.revenueGrowthTrend, inputs.activeCustomers, inputs.yearEstablished,
+                inputs.isCaptive,
+              ].filter(v => v != null && v !== "").length,
+            }} />
+          )}
+
           {/* Validation Errors */}
           {validationErrors.length > 0 && editing && (
             <div className="mt-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
@@ -374,7 +417,7 @@ function CalculatorContent() {
               <div>
                 <p className="font-semibold text-foreground">Captive Agent — Limited Transferability</p>
                 <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">
-                  Because you are a captive agent, this valuation is shown for informational purposes only. Captive books of business cannot be sold independently — the carrier owns the policies. Valuation is capped at 1.0–1.5x revenue. Please contact us to discuss your specific options.
+                  Because you are a captive agent, this valuation is shown for informational purposes only. Captive books of business cannot be sold independently — the carrier owns the policies. Valuation is capped at 1.0��1.5x revenue. Please contact us to discuss your specific options.
                 </p>
               </div>
             </div>
@@ -383,24 +426,37 @@ function CalculatorContent() {
             <h2 className="text-2xl font-bold tracking-tight text-foreground">
               Deep Dive: Deal Simulator & Risk Audit
             </h2>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 shrink-0"
-              disabled={pdfLoading}
-              onClick={async () => {
-                if (!results) return
-                setPdfLoading(true)
-                try {
-                  await downloadValuationPDF(inputs, results, riskAudit)
-                } finally {
-                  setPdfLoading(false)
-                }
-              }}
-            >
-              <Download className="h-4 w-4" />
-              {pdfLoading ? "Generating..." : "Download PDF Report"}
-            </Button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 shrink-0"
+                disabled={pdfLoading}
+                onClick={async () => {
+                  if (!results) return
+                  setPdfLoading(true)
+                  try {
+                    await downloadValuationPDF(inputs, results, riskAudit)
+                  } finally {
+                    setPdfLoading(false)
+                  }
+                }}
+              >
+                <Download className="h-4 w-4" />
+                {pdfLoading ? "Generating..." : "Download PDF Report"}
+              </Button>
+              {leadId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 shrink-0"
+                  onClick={handleShare}
+                >
+                  {shareCopied ? <Check className="h-4 w-4 text-emerald-500" /> : <Share2 className="h-4 w-4" />}
+                  {shareCopied ? "Link copied!" : "Share Results"}
+                </Button>
+              )}
+            </div>
           </div>
           {/* Row 1: Market Intel (full width) */}
           <div className="mb-6">

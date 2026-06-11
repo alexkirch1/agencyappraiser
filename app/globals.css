@@ -142,3 +142,12 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Easter egg: scrolling ticker animation */
+@keyframes ticker {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.animate-ticker {
+  animation: ticker 8s linear infinite;
+}
