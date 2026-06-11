@@ -637,6 +637,7 @@ export default function QuickValuePage() {
                 .then((r) => r.json())
                 .then((saved) => { if (saved?.leadId) setSavedLeadId(saved.leadId) })
                 .catch(() => {})
+              } catch { /* non-blocking */ }
             }
           }}
         />
