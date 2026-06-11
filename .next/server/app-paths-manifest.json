@@ -1,17 +1,4 @@
 {
-  "/admin/page": "app/admin/page.js",
-  "/ams/page": "app/ams/page.js",
-  "/api/admin/auth/route": "app/api/admin/auth/route.js",
-  "/api/admin/email-drip/route": "app/api/admin/email-drip/route.js",
-  "/api/admin/feedback/route": "app/api/admin/feedback/route.js",
-  "/api/admin/overview/route": "app/api/admin/overview/route.js",
-  "/api/admin/site-archive/route": "app/api/admin/site-archive/route.js",
   "/api/auth/me/route": "app/api/auth/me/route.js",
-  "/api/completed-deal/route": "app/api/completed-deal/route.js",
-  "/api/save-full-valuation/route": "app/api/save-full-valuation/route.js",
-  "/api/send-drip-email/route": "app/api/send-drip-email/route.js",
-  "/api/submit-lead/route": "app/api/submit-lead/route.js",
-  "/calculator/page": "app/calculator/page.js",
-  "/page": "app/page.js",
-  "/quick-value/page": "app/quick-value/page.js"
+  "/page": "app/page.js"
 }
