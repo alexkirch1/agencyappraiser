@@ -161,7 +161,7 @@ function TickerRow({ delay }: { delay: number }) {
 }
 
 // ── "Found all" celebration toast ─────────────────────────────────────────────
-function AllFoundToast() {
+function AllFoundToast({ children }: { children: React.ReactNode }) {
   const [show, setShow]   = useState(false)
   const [count, setCount] = useState(0)
   const shownRef          = useRef<Set<string>>(new Set())
@@ -182,7 +182,7 @@ function AllFoundToast() {
   return (
     <EasterEggsProvider onNewFind={handleNewFind}>
       <ThemeProviderInner>
-        {/* All-found banner */}
+        {children}
         <div
           aria-live="assertive"
           className={`fixed top-6 left-1/2 z-[10000] -translate-x-1/2 flex items-center gap-3 rounded-2xl border border-yellow-400/40 bg-yellow-50 px-6 py-3 shadow-2xl dark:bg-yellow-950/80 transition-all duration-500 ${
