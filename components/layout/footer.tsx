@@ -3,10 +3,11 @@
 import Link from "next/link"
 import { TrendingUp } from "lucide-react"
 import { useState, useRef, useCallback } from "react"
+import { useEasterEggs } from "@/lib/easter-eggs"
 
 // Version bumped on each meaningful release
-const APP_VERSION = "2.0.0"
-const BUILD_DATE = "2026-06-10T00:00:00"
+const APP_VERSION = "2.1.0"
+const BUILD_DATE = "2026-06-17T00:00:00"
 
 const FAKE_CHANGELOG = [
   { v: "v2.0.0", note: "Added easter eggs. Productivity: -12%." },
@@ -20,6 +21,7 @@ const FAKE_CHANGELOG = [
 
 export function Footer() {
   const [changelogOpen, setChangelogOpen] = useState(false)
+  const { markFound } = useEasterEggs()
   const clickCountRef = useRef(0)
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -30,9 +32,10 @@ export function Footer() {
 
     if (clickCountRef.current >= 5) {
       clickCountRef.current = 0
+      markFound("changelog")
       setChangelogOpen((prev) => !prev)
     }
-  }, [])
+  }, [markFound])
 
   return (
     <footer className="border-t border-border bg-card">

@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react"
 import confetti from "canvas-confetti"
+import { EasterEggsProvider, useEasterEggs, type EasterEggId } from "@/lib/easter-eggs"
 
 type Theme = "dark" | "light"
 
@@ -15,52 +16,34 @@ const ThemeContext = createContext<ThemeContextType>({
   toggleTheme: () => {},
 })
 
-// Easter egg sequences
-const INVERT_SEQUENCE  = ["ArrowLeft", "ArrowLeft", "ArrowRight", "ArrowRight", "ArrowUp"]
-const KONAMI_SEQUENCE  = ["ArrowUp","ArrowUp","ArrowDown","ArrowDown","ArrowLeft","ArrowRight","ArrowLeft","ArrowRight","b","a"]
-const DOLLAR_SEQUENCE  = ["$","$","$","$","$"]
+const INVERT_SEQUENCE = ["ArrowLeft", "ArrowLeft", "ArrowRight", "ArrowRight", "ArrowUp"]
+const KONAMI_SEQUENCE = ["ArrowUp","ArrowUp","ArrowDown","ArrowDown","ArrowLeft","ArrowRight","ArrowLeft","ArrowRight","b","a"]
+const DOLLAR_SEQUENCE = ["$","$","$","$","$"]
 
-// Konami confetti — money rain
 function fireMoneyConfetti() {
   const duration = 3000
   const end = Date.now() + duration
   const colors = ["#22c55e", "#16a34a", "#4ade80", "#86efac", "#fde047"]
-
   const frame = () => {
-    confetti({
-      particleCount: 6,
-      angle: 60,
-      spread: 55,
-      origin: { x: 0 },
-      colors,
-      shapes: ["square"],
-      scalar: 1.4,
-    })
-    confetti({
-      particleCount: 6,
-      angle: 120,
-      spread: 55,
-      origin: { x: 1 },
-      colors,
-      shapes: ["square"],
-      scalar: 1.4,
-    })
+    confetti({ particleCount: 6, angle: 60,  spread: 55, origin: { x: 0 }, colors, shapes: ["square"], scalar: 1.4 })
+    confetti({ particleCount: 6, angle: 120, spread: 55, origin: { x: 1 }, colors, shapes: ["square"], scalar: 1.4 })
     if (Date.now() < end) requestAnimationFrame(frame)
   }
   frame()
 }
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme]         = useState<Theme>("light")
-  const [mounted, setMounted]     = useState(false)
-  const [inverted, setInverted]   = useState(false)
-  const [toast, setToast]         = useState<string | null>(null)
-  const [tickerOn, setTickerOn]   = useState(false)
-  const sequenceRef               = useRef<string[]>([])
-  const toastTimerRef             = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const tickerTimerRef            = useRef<ReturnType<typeof setTimeout> | null>(null)
+// ── Inner provider — has access to EasterEggsContext ─────────────────────────
+function ThemeProviderInner({ children }: { children: React.ReactNode }) {
+  const [theme, setTheme]       = useState<Theme>("light")
+  const [mounted, setMounted]   = useState(false)
+  const [inverted, setInverted] = useState(false)
+  const [toast, setToast]       = useState<string | null>(null)
+  const [tickerOn, setTickerOn] = useState(false)
+  const sequenceRef             = useRef<string[]>([])
+  const toastTimerRef           = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const tickerTimerRef          = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { markFound }           = useEasterEggs()
 
-  // ── Theme init ────────────────────────────────────────────────────
   useEffect(() => {
     const stored = localStorage.getItem("agency-appraiser-theme") as Theme | null
     if (stored === "light" || stored === "dark") setTheme(stored)
@@ -75,14 +58,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("agency-appraiser-theme", theme)
   }, [theme, mounted])
 
-  // ── Toast helper ──────────────────────────────────────────────────
   const showToast = useCallback((msg: string, ms = 2500) => {
     setToast(msg)
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
     toastTimerRef.current = setTimeout(() => setToast(null), ms)
   }, [])
 
-  // ── Keyboard easter eggs ──────────────────────────────────────────
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement
@@ -92,9 +73,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       sequenceRef.current = [...sequenceRef.current, e.key].slice(-maxLen)
       const seq = sequenceRef.current
 
-      // ← ← → → ↑  — invert colors
+      // ← ← → → ↑
       if (seq.slice(-INVERT_SEQUENCE.length).join(",") === INVERT_SEQUENCE.join(",")) {
         sequenceRef.current = []
+        markFound("invert")
         setInverted((prev) => {
           const next = !prev
           document.documentElement.style.filter = next ? "invert(1) hue-rotate(180deg)" : ""
@@ -108,26 +90,27 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         })
       }
 
-      // Konami code — money confetti
+      // Konami
       if (seq.slice(-KONAMI_SEQUENCE.length).join(",") === KONAMI_SEQUENCE.join(",")) {
         sequenceRef.current = []
+        markFound("konami")
         fireMoneyConfetti()
         showToast("It's raining money!", 3200)
       }
 
-      // $$$$$  — stock ticker overlay
+      // $$$$$
       if (seq.slice(-DOLLAR_SEQUENCE.length).join(",") === DOLLAR_SEQUENCE.join(",")) {
         sequenceRef.current = []
+        markFound("ticker")
         setTickerOn(true)
         showToast("To the moon!", 2000)
         if (tickerTimerRef.current) clearTimeout(tickerTimerRef.current)
         tickerTimerRef.current = setTimeout(() => setTickerOn(false), 5000)
       }
     }
-
     window.addEventListener("keydown", handleKey)
     return () => window.removeEventListener("keydown", handleKey)
-  }, [showToast])
+  }, [showToast, markFound])
 
   const toggleTheme = useCallback(() => {
     setTheme((prev) => (prev === "dark" ? "light" : "dark"))
@@ -137,7 +120,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
       {children}
 
-      {/* Toast notification */}
+      {/* Toast */}
       <div
         aria-live="polite"
         style={{ filter: inverted ? "invert(1) hue-rotate(180deg)" : "" }}
@@ -148,7 +131,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         {toast}
       </div>
 
-      {/* $$$$$  stock ticker overlay */}
+      {/* Stock ticker overlay */}
       {tickerOn && (
         <div
           aria-hidden
@@ -164,25 +147,82 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
-// Single scrolling ticker row
 function TickerRow({ delay }: { delay: number }) {
-  const items = [
-    "AGCY +14.2%", "BOB +5.8M", "INSR +22%", "APPR +99%",
-    "APPR +8.4%", "MULTI 3.2x", "RETEN 94%", "COMM +18%",
-  ]
+  const items = ["AGCY +14.2%","BOB +5.8M","INSR +22%","APPR +99%","APPR +8.4%","MULTI 3.2x","RETEN 94%","COMM +18%"]
   const text = [...items, ...items].join("   ·   ")
-
   return (
     <div
       className="absolute w-full font-mono text-2xl font-black text-primary/20 whitespace-nowrap animate-ticker"
-      style={{
-        top: `${8 + delay * 8}%`,
-        animationDelay: `${delay * 0.3}s`,
-      }}
+      style={{ top: `${8 + delay * 8}%`, animationDelay: `${delay * 0.3}s` }}
     >
       {text}   {text}
     </div>
   )
+}
+
+// ── "Found all" celebration toast ─────────────────────────────────────────────
+function AllFoundToast() {
+  const [show, setShow]   = useState(false)
+  const [count, setCount] = useState(0)
+  const shownRef          = useRef<Set<string>>(new Set())
+
+  const handleNewFind = useCallback((id: EasterEggId, allFound: boolean, total: number) => {
+    if (shownRef.current.has(id)) return
+    shownRef.current.add(id)
+    setCount(total)
+
+    if (allFound) {
+      setShow(true)
+      // Big confetti burst for finding them all
+      confetti({ particleCount: 120, spread: 100, origin: { y: 0.5 }, colors: ["#f59e0b","#22c55e","#3b82f6","#ec4899"] })
+      setTimeout(() => setShow(false), 5000)
+    }
+  }, [])
+
+  return (
+    <EasterEggsProvider onNewFind={handleNewFind}>
+      <ThemeProviderInner>
+        {/* All-found banner */}
+        <div
+          aria-live="assertive"
+          className={`fixed top-6 left-1/2 z-[10000] -translate-x-1/2 flex items-center gap-3 rounded-2xl border border-yellow-400/40 bg-yellow-50 px-6 py-3 shadow-2xl dark:bg-yellow-950/80 transition-all duration-500 ${
+            show ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"
+          }`}
+        >
+          <span className="text-2xl">🏆</span>
+          <div>
+            <p className="text-sm font-bold text-yellow-900 dark:text-yellow-200">You found all {count} easter eggs!</p>
+            <p className="text-xs text-yellow-700 dark:text-yellow-400">Seriously impressive. You have too much time on your hands.</p>
+          </div>
+        </div>
+        {/* Count badge — always visible once any egg found */}
+        <EggCountBadge />
+      </ThemeProviderInner>
+    </EasterEggsProvider>
+  )
+}
+
+function EggCountBadge() {
+  const { foundCount, total, allFound } = useEasterEggs()
+  if (foundCount === 0) return null
+  return (
+    <div
+      aria-label={`${foundCount} of ${total} easter eggs found`}
+      title={`${foundCount} of ${total} easter eggs found`}
+      className={`fixed bottom-6 right-6 z-[9997] flex h-9 w-9 items-center justify-center rounded-full border text-xs font-bold shadow-lg transition-all duration-300 ${
+        allFound
+          ? "border-yellow-400 bg-yellow-400 text-yellow-900"
+          : "border-primary/30 bg-primary/10 text-primary"
+      }`}
+    >
+      {foundCount}/{total}
+    </div>
+  )
+}
+
+// ── Public exports ────────────────────────────────────────────────────────────
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  return <AllFoundToast>{children}</AllFoundToast>
 }
 
 export function useTheme() {
