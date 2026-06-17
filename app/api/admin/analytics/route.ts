@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import { NextResponse } from "next/server"
 import sql from "@/lib/db"
 import { isAdminAuthenticated } from "@/lib/admin-auth"
@@ -9,7 +11,7 @@ export async function GET() {
 
   try {
     const [leadsPerMonth, avgValuationByMonth, riskGrades, scopeBreakdown, totals] =
-      await Promise.all([
+      (await Promise.all([
         // Leads grouped by month
         sql`
           SELECT TO_CHAR(created_at, 'Mon YY') AS month,
@@ -65,20 +67,20 @@ export async function GET() {
                     THEN revenue_ltm::varchar::numeric ELSE NULL END
              ), 0) FROM full_valuations WHERE revenue_ltm IS NOT NULL) AS avg_revenue_ltm
         `,
-      ])
+      ]) as unknown as Record<string, unknown>[][])
 
     return NextResponse.json({
-      leadsPerMonth: leadsPerMonth.map((r) => ({ month: r.month, count: r.count })),
-      avgValuationByMonth: avgValuationByMonth.map((r) => ({ month: r.month, avg: parseFloat(r.avg) })),
+      leadsPerMonth: leadsPerMonth.map((r) => ({ month: r.month as string, count: r.count as number })),
+      avgValuationByMonth: avgValuationByMonth.map((r) => ({ month: r.month as string, avg: parseFloat(r.avg as string) })),
       riskGradeBreakdown: riskGrades,
       scopeBreakdown: scopeBreakdown.map((r) => ({
-        scope: r.scope === "full_agency" ? "Full Agency" : r.scope === "book_only" ? "Book Only" : r.scope,
-        count: r.count,
+        scope: r.scope === "full_agency" ? "Full Agency" : r.scope === "book_only" ? "Book Only" : r.scope as string,
+        count: r.count as number,
       })),
-      totalLeads: totals[0]?.total_leads ?? 0,
-      totalValuations: totals[0]?.total_valuations ?? 0,
-      avgMultiple: totals[0]?.avg_multiple ? parseFloat(totals[0].avg_multiple) : 0,
-      avgRevenueLTM: totals[0]?.avg_revenue_ltm ? parseFloat(totals[0].avg_revenue_ltm) : 0,
+      totalLeads: (totals[0]?.total_leads as number) ?? 0,
+      totalValuations: (totals[0]?.total_valuations as number) ?? 0,
+      avgMultiple: totals[0]?.avg_multiple ? parseFloat(totals[0].avg_multiple as string) : 0,
+      avgRevenueLTM: totals[0]?.avg_revenue_ltm ? parseFloat(totals[0].avg_revenue_ltm as string) : 0,
     })
   } catch (err) {
     console.error("[v0] Analytics error:", err)

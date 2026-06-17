@@ -634,8 +634,9 @@ export default function QuickValuePage() {
                     tier: estimate.tier,
                   }),
                 })
-                const saved = await res.json().catch(() => ({}))
-                if (saved?.leadId) setSavedLeadId(saved.leadId)
+                .then((r) => r.json())
+                .then((saved) => { if (saved?.leadId) setSavedLeadId(saved.leadId) })
+                .catch(() => {})
               } catch { /* non-blocking */ }
             }
           }}

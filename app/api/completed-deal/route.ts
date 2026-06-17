@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
-import { isAdminAuthenticated } from "@/lib/admin-auth"
+export const dynamic = "force-dynamic"
 
-const sql = neon(process.env.DATABASE_URL!)
+import { NextResponse } from "next/server"
+import sql from "@/lib/db"
+import { isAdminAuthenticated } from "@/lib/admin-auth"
 
 export async function POST(req: Request) {
   if (!(await isAdminAuthenticated())) {

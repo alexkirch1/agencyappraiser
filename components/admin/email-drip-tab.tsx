@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils"
 
 const ADMIN_TOKEN_KEY = "admin_session_token"
 
-function getHeaders() {
+function getHeaders(): Record<string, string> {
   const token = typeof window !== "undefined" ? localStorage.getItem(ADMIN_TOKEN_KEY) : null
   return token ? { Authorization: `Bearer ${token}` } : {}
 }

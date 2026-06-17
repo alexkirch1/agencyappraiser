@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 // Drip email processor — called by Vercel cron every hour
 // Also handles GET /api/send-drip-email?lead=ID&seq=all for one-click unsubscribe
 

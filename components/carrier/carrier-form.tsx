@@ -54,7 +54,7 @@ function BenchmarkBadge({ value, config }: { value: number | null; config: Bench
 function countFilledFields(inputs: CarrierInputs): { filled: number; total: number } {
   const carrier = inputs.carrier
   const bt = inputs.bookType
-  const fields: (number | boolean | null | undefined)[] = []
+  const fields: (number | boolean | string | null | undefined)[] = []
 
   if (carrier === "progressive") {
     const pl = bt === "personal" || bt === "both"
@@ -89,7 +89,7 @@ function countFilledFields(inputs: CarrierInputs): { filled: number; total: numb
   }
 
   const total  = fields.length
-  const filled = fields.filter(f => f !== null && f !== undefined && Boolean(f) !== false && f !== "").length
+  const filled = fields.filter(f => f !== null && f !== undefined && f !== "" && f !== 0 && f !== false).length
   return { filled, total }
 }
 
