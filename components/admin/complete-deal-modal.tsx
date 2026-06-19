@@ -62,6 +62,11 @@ export function CompleteDealModal({ deal, onClose, onSaved }: CompleteDealModalP
           primary_state: deal.details?.state ?? null,
           carrier: deal.details?.carrier ?? null,
           notes,
+          // Learning model fields — pulled from deal.details saved at deal creation
+          model_multiple: (deal.details?.multiple as number | undefined) ?? null,
+          override_reason: (deal.details?.overrideReason as string | undefined) ?? null,
+          total_policies: (deal.details?.policyCount as number | undefined) ?? null,
+          total_customers: null,
         }),
       })
       if (!res.ok) throw new Error("Save failed")

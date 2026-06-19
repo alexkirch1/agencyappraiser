@@ -27,6 +27,11 @@ export async function POST(req: Request) {
       primary_state,
       carrier,
       notes,
+      // Learning model fields
+      model_multiple,
+      override_reason,
+      total_policies,
+      total_customers,
     } = body
 
     await sql`
@@ -34,12 +39,14 @@ export async function POST(req: Request) {
         deal_name, deal_type, premium_base, appraised_low,
         appraised_high, final_offer, final_multiple, deal_structure,
         earnout_pct, seller_stay_months, retention_rate, loss_ratio,
-        policies_per_cx, primary_state, carrier, notes
+        policies_per_cx, primary_state, carrier, notes,
+        model_multiple, override_reason, total_policies, total_customers
       ) VALUES (
         ${deal_name}, ${deal_type}, ${premium_base}, ${appraised_low ?? null},
         ${appraised_high ?? null}, ${final_offer}, ${final_multiple}, ${deal_structure},
         ${earnout_pct}, ${seller_stay_months ?? null}, ${retention_rate ?? null}, ${loss_ratio ?? null},
-        ${policies_per_cx ?? null}, ${primary_state ?? null}, ${carrier ?? null}, ${notes ?? null}
+        ${policies_per_cx ?? null}, ${primary_state ?? null}, ${carrier ?? null}, ${notes ?? null},
+        ${model_multiple ?? null}, ${override_reason ?? null}, ${total_policies ?? null}, ${total_customers ?? null}
       )
     `
 
