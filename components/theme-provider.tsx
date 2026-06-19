@@ -204,18 +204,23 @@ function AllFoundToast({ children }: { children: React.ReactNode }) {
 
 function EggCountBadge() {
   const { foundCount, total, allFound } = useEasterEggs()
-  if (foundCount === 0) return null
   return (
     <div
-      aria-label={`${foundCount} of ${total} easter eggs found`}
-      title={`${foundCount} of ${total} easter eggs found`}
-      className={`fixed bottom-6 right-6 z-[9997] flex h-9 w-9 items-center justify-center rounded-full border text-xs font-bold shadow-lg transition-all duration-300 ${
+      aria-label={allFound ? `All ${total} easter eggs found!` : `${foundCount} of ${total} easter eggs found — keep looking`}
+      title={allFound ? `All ${total} easter eggs found!` : `${foundCount} of ${total} easter eggs found`}
+      className={`fixed bottom-6 right-6 z-[9997] flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium shadow-md backdrop-blur-sm transition-all duration-300 cursor-default select-none ${
         allFound
-          ? "border-yellow-400 bg-yellow-400 text-yellow-900"
-          : "border-primary/30 bg-primary/10 text-primary"
+          ? "border-yellow-400/60 bg-yellow-400/20 text-yellow-700 dark:text-yellow-300"
+          : "border-border bg-background/80 text-muted-foreground"
       }`}
     >
-      {foundCount}/{total}
+      <span className="text-base leading-none" aria-hidden>🥚</span>
+      {allFound
+        ? `All ${total} found!`
+        : foundCount > 0
+          ? `${foundCount}/${total} easter eggs`
+          : `${total} easter eggs hidden`
+      }
     </div>
   )
 }
