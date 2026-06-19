@@ -21,7 +21,7 @@ const FAKE_CHANGELOG = [
 
 export function Footer() {
   const [changelogOpen, setChangelogOpen] = useState(false)
-  const { markFound } = useEasterEggs()
+  const { markFound, foundCount, total, allFound } = useEasterEggs()
   const clickCountRef = useRef(0)
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -87,6 +87,13 @@ export function Footer() {
                 suppressHydrationWarning
               >
                 v{APP_VERSION} {" • "} {BUILD_DATE.replace("T", " ")}
+                {" • "}
+                {allFound
+                  ? `all ${total} easter eggs found`
+                  : foundCount > 0
+                    ? `${foundCount}/${total} easter eggs found`
+                    : `${total} easter eggs hidden`
+                }
               </button>
 
               {/* Secret changelog popover */}

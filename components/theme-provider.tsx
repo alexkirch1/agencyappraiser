@@ -195,33 +195,8 @@ function AllFoundToast({ children }: { children: React.ReactNode }) {
             <p className="text-xs text-yellow-700 dark:text-yellow-400">Seriously impressive. You have too much time on your hands.</p>
           </div>
         </div>
-        {/* Count badge — always visible once any egg found */}
-        <EggCountBadge />
       </ThemeProviderInner>
     </EasterEggsProvider>
-  )
-}
-
-function EggCountBadge() {
-  const { foundCount, total, allFound } = useEasterEggs()
-  return (
-    <div
-      aria-label={allFound ? `All ${total} easter eggs found!` : `${foundCount} of ${total} easter eggs found — keep looking`}
-      title={allFound ? `All ${total} easter eggs found!` : `${foundCount} of ${total} easter eggs found`}
-      className={`fixed bottom-6 right-6 z-[9997] flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium shadow-md backdrop-blur-sm transition-all duration-300 cursor-default select-none ${
-        allFound
-          ? "border-yellow-400/60 bg-yellow-400/20 text-yellow-700 dark:text-yellow-300"
-          : "border-border bg-background/80 text-muted-foreground"
-      }`}
-    >
-      <span className="text-base leading-none" aria-hidden>🥚</span>
-      {allFound
-        ? `All ${total} found!`
-        : foundCount > 0
-          ? `${foundCount}/${total} easter eggs`
-          : `${total} easter eggs hidden`
-      }
-    </div>
   )
 }
 
