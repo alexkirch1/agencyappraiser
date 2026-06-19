@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { Menu, X, TrendingUp, Sun, Moon, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/theme-provider"
+import { useEasterEggs } from "@/lib/easter-eggs"
 
 const navItems = [
   { href: "/", label: "Home" },
@@ -21,6 +22,7 @@ export function Header() {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
   const { theme, toggleTheme } = useTheme()
+  const { markFound } = useEasterEggs()
 
   // Triple-click logo easter egg — flips logo upside down for 2s
   const [logoFlipped, setLogoFlipped] = useState(false)
@@ -35,6 +37,7 @@ export function Header() {
 
     if (clickCountRef.current >= 3) {
       clickCountRef.current = 0
+      markFound("logo-flip")
       setLogoFlipped(true)
       if (flipTimerRef.current) clearTimeout(flipTimerRef.current)
       flipTimerRef.current = setTimeout(() => setLogoFlipped(false), 2000)

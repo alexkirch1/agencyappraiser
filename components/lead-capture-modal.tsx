@@ -9,6 +9,7 @@ import { Lock, CheckCircle2, Loader2, ChevronRight } from "lucide-react"
 
 const REFERRAL_OPTIONS = [
   "Google / Search",
+  "Ad (Google, Meta, etc.)",
   "LinkedIn",
   "Facebook Group",
   "Referred by a colleague",
