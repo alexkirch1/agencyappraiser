@@ -302,8 +302,8 @@ export function ValuationReport({
     onMultipleChange(modelMultiple)
   }
 
-  // AI suggestion text based on comps
-  const aiSuggestion = buildAISuggestion(intel, modelMultiple)
+  // Deal structure suggestion based on comps
+  const structureSuggestion = buildDealStructureSuggestion(intel, modelMultiple, currentValuation)
 
   const delta = valuationMultiple - modelMultiple
   const deltaSign = delta > 0.01 ? "+" : ""
@@ -546,26 +546,80 @@ export function ValuationReport({
         </div>
       </div>
 
-      {/* ── AI suggestions panel ────────────────────────────────────────── */}
-      {aiSuggestion && (
-        <div className="mb-5 rounded-lg border border-primary/20 bg-primary/5 p-4">
-          <p className="mb-1 text-xs font-bold uppercase tracking-wide text-primary">
-            Market Intelligence
-          </p>
-          <p className="text-sm text-foreground">{aiSuggestion}</p>
-          {intel && intel.sampleSize > 0 && intel.byType && (
-            <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
-              {intel.medianMultiple != null && (
-                <span>Median closed: <strong className="text-foreground">{intel.medianMultiple.toFixed(2)}x</strong></span>
-              )}
-              {intel.byType.full.count > 0 && intel.byType.full.medianMultiple != null && (
-                <span>Full agency median: <strong className="text-foreground">{intel.byType.full.medianMultiple.toFixed(2)}x</strong></span>
-              )}
-              {intel.byType.book.count > 0 && intel.byType.book.medianMultiple != null && (
-                <span>Book purchase median: <strong className="text-foreground">{intel.byType.book.medianMultiple.toFixed(2)}x</strong></span>
-              )}
-              <span className="text-muted-foreground/50">({intel.sampleSize} closed deal{intel.sampleSize > 1 ? "s" : ""})</span>
+      {/* ── Deal Structure Suggestion ─────────────────────────────────── */}
+      {structureSuggestion && (
+        <div className="mb-5 rounded-lg border border-primary/25 bg-primary/5 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-xs font-bold uppercase tracking-wide text-primary">
+              Suggested Deal Structure
+            </p>
+            <span className={cn(
+              "rounded-full px-2.5 py-0.5 text-[11px] font-bold",
+              structureSuggestion.type === "all-cash"   && "bg-green-500/15 text-green-600 dark:text-green-400",
+              structureSuggestion.type === "cash-split" && "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+              structureSuggestion.type === "growth"     && "bg-purple-500/15 text-purple-600 dark:text-purple-400",
+            )}>
+              {structureSuggestion.label}
+            </span>
+          </div>
+
+          {/* Cash breakdown bar */}
+          <div className="mb-3">
+            <div className="mb-1.5 flex justify-between text-xs font-semibold">
+              <span className="text-green-600 dark:text-green-400">Cash at Close — {structureSuggestion.cashPct}%</span>
+              <span className="text-purple-600 dark:text-purple-400">
+                {structureSuggestion.cashPct < 100 ? `Deferred — ${100 - structureSuggestion.cashPct}%` : ""}
+              </span>
             </div>
+            <div className="flex h-3 w-full overflow-hidden rounded-full bg-border">
+              <div
+                className="h-full bg-green-500 transition-all duration-500"
+                style={{ width: `${structureSuggestion.cashPct}%` }}
+              />
+              {structureSuggestion.cashPct < 100 && (
+                <div
+                  className="h-full bg-purple-500 transition-all duration-500"
+                  style={{ width: `${100 - structureSuggestion.cashPct}%` }}
+                />
+              )}
+            </div>
+            <div className="mt-1.5 flex justify-between text-xs text-muted-foreground">
+              <span>{fmt(currentValuation * structureSuggestion.cashPct / 100)} cash</span>
+              {structureSuggestion.cashPct < 100 && (
+                <span>{fmt(currentValuation * (100 - structureSuggestion.cashPct) / 100)} {structureSuggestion.deferredLabel}</span>
+              )}
+            </div>
+          </div>
+
+          {/* Two-sided rationale */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-md bg-background/60 p-3">
+              <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Our Side</p>
+              <p className="text-xs text-foreground">{structureSuggestion.ourRationale}</p>
+            </div>
+            <div className="rounded-md bg-background/60 p-3">
+              <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Their Side</p>
+              <p className="text-xs text-foreground">{structureSuggestion.theirRationale}</p>
+            </div>
+          </div>
+
+          {/* Apply suggestion button */}
+          <button
+            type="button"
+            onClick={() => {
+              setCashPct(structureSuggestion.cashPct)
+              applyStrategy(structureSuggestion.strategy)
+            }}
+            className="mt-3 w-full rounded-md bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
+          >
+            Apply this structure to deal
+          </button>
+
+          {intel && intel.sampleSize > 0 && (
+            <p className="mt-2 text-center text-[10px] text-muted-foreground/60">
+              Based on {intel.sampleSize} closed deal{intel.sampleSize > 1 ? "s" : ""}
+              {intel.medianMultiple != null ? ` — median multiple ${intel.medianMultiple.toFixed(2)}x` : ""}
+            </p>
           )}
         </div>
       )}
@@ -799,23 +853,102 @@ function FactorRow({
   )
 }
 
-// ── AI suggestion builder ─────────────────────────────────────────────────────
+// ── Deal structure suggestion builder ────────────────────────────────────────
 
-function buildAISuggestion(intel: MarketIntel | undefined, modelMultiple: number): string | null {
-  if (!intel || intel.sampleSize === 0) return null
+interface DealStructureSuggestion {
+  type: "all-cash" | "cash-split" | "growth"
+  strategy: Strategy
+  label: string
+  cashPct: number
+  deferredLabel: string
+  ourRationale: string
+  theirRationale: string
+}
 
-  const med = intel.medianMultiple
-  if (med == null) return null
+function buildDealStructureSuggestion(
+  intel: MarketIntel | undefined,
+  modelMultiple: number,
+  totalValue: number,
+): DealStructureSuggestion | null {
+  // Always show a suggestion — use intel to calibrate, fall back to book-quality proxy
+  const earnoutRate   = intel?.earnoutRate ?? 0          // 0–1
+  const medianStay    = intel?.medianSellerStay ?? null  // months
+  const medianMultiple = intel?.medianMultiple ?? null
 
-  const diff = med - modelMultiple
+  // Determine deal type recommendation based on three signals:
+  // 1. If market rarely uses earnouts (<20%) → All Cash
+  // 2. If earnout rate is high (>50%) OR value is high (>2.5x) → Growth/Earnout
+  // 3. Otherwise → Cash Split
+  const highValue = modelMultiple >= 2.5
+  const highRetentionRisk = medianMultiple != null && modelMultiple > medianMultiple + 0.3
 
-  if (Math.abs(diff) < 0.1) {
-    return `Your model multiple (${fmtX(modelMultiple)}) is closely aligned with the market median of ${fmtX(med)} across ${intel.sampleSize} closed deal${intel.sampleSize > 1 ? "s" : ""}.`
+  let type: DealStructureSuggestion["type"]
+  let cashPct: number
+  let deferredLabel: string
+
+  if (earnoutRate < 0.2 && !highValue) {
+    // Market strongly prefers cash, book quality looks clean
+    type = "all-cash"
+    cashPct = 100
+    deferredLabel = ""
+  } else if (earnoutRate >= 0.5 || highValue) {
+    // Market frequently uses earnout, or high multiple warrants performance protection
+    type = "growth"
+    // Higher multiple = more deferred to protect downside
+    cashPct = highValue ? 60 : 70
+    deferredLabel = "earnout"
+  } else {
+    // Middle ground — balanced split
+    type = "cash-split"
+    cashPct = 80
+    deferredLabel = "holdback/earnout"
   }
 
-  if (diff > 0.1) {
-    return `Similar deals have closed at a median of ${fmtX(med)} — ${diff.toFixed(2)}x above this model's suggestion. Market data supports a higher offer for well-performing books.`
+  const strategyMap: Record<DealStructureSuggestion["type"], Strategy> = {
+    "all-cash":   "quick",
+    "cash-split": "balanced",
+    "growth":     "growth",
   }
 
-  return `Comparable deals closed at a median of ${fmtX(med)} — ${Math.abs(diff).toFixed(2)}x below the model. Consider whether this book's metrics justify the premium or tighten the offer.`
+  const labelMap = {
+    "all-cash":   "All Cash at Close",
+    "cash-split": `${cashPct}% Cash / ${100 - cashPct}% Holdback`,
+    "growth":     `${cashPct}% Cash / ${100 - cashPct}% Earnout`,
+  }
+
+  // Our-side rationale (de-risk, protect against retention/performance drop)
+  const ourRationale = (() => {
+    if (type === "all-cash") {
+      return "Clean exit with no performance risk. Market data shows most comparable deals closed all-cash — low earnout exposure needed here."
+    }
+    if (type === "growth") {
+      const pct = 100 - cashPct
+      return `${pct}% deferred as earnout protects against post-close retention drops. At ${fmtX(modelMultiple)} this is above the market median — tying ${pct}% to performance reduces our downside.${highRetentionRisk ? " Model multiple exceeds market median; earnout provides key protection." : ""}`
+    }
+    return `${100 - cashPct}% holdback gives us a 12–18 month retention window. If the book performs, we pay it out — if it doesn't, we're protected.`
+  })()
+
+  // Their-side rationale (seller incentives, comfort, upside)
+  const theirRationale = (() => {
+    if (type === "all-cash") {
+      return "Seller receives the full amount immediately — maximum certainty and liquidity. No transition performance risk on their end."
+    }
+    if (type === "growth") {
+      const pct = 100 - cashPct
+      const upside = totalValue * (pct / 100)
+      return `Earnout gives the seller upside if the book performs well post-close. The ${pct}% deferred (${fmt(upside)}) is achievable if retention holds — they benefit from a strong handoff.${medianStay != null ? ` Market median seller stay is ${medianStay} months, suggesting sellers are comfortable with transition commitments.` : ""}`
+    }
+    const holdbackAmt = totalValue * ((100 - cashPct) / 100)
+    return `Seller receives ${cashPct}% immediately (${fmt(totalValue * cashPct / 100)}) with the ${100 - cashPct}% holdback (${fmt(holdbackAmt)}) paid after the retention window. Predictable timeline with clear payout terms.`
+  })()
+
+  return {
+    type,
+    strategy: strategyMap[type],
+    label: labelMap[type],
+    cashPct,
+    deferredLabel,
+    ourRationale,
+    theirRationale,
+  }
 }
