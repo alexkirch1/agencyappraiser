@@ -5,9 +5,10 @@ import { TrendingUp } from "lucide-react"
 import { useState, useRef, useCallback } from "react"
 import { useEasterEggs } from "@/lib/easter-eggs"
 
-// Version bumped on each meaningful release
-const APP_VERSION = "2.1.0"
-const BUILD_DATE = "2026-06-17T00:00:00"
+// Auto-generated version — short git SHA + build date, no manual bumping needed
+const GIT_SHA = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local"
+const APP_VERSION = GIT_SHA
+const BUILD_DATE = process.env.NEXT_PUBLIC_BUILD_DATE ?? new Date().toISOString().slice(0, 10)
 
 const FAKE_CHANGELOG = [
   { v: "v2.0.0", note: "Added easter eggs. Productivity: -12%." },
@@ -83,20 +84,13 @@ export function Footer() {
               <button
                 onClick={handleVersionClick}
                 className="font-mono text-[10px] text-muted-foreground/40 hover:text-muted-foreground/60 transition-colors cursor-default select-none"
-                title="Build version and timestamp"
+                title="Build version"
                 suppressHydrationWarning
               >
-                v{APP_VERSION} {" • "} {BUILD_DATE.replace("T", " ")}
-                {" • "}
-                {allFound
-                  ? `all ${total} easter eggs found`
-                  : foundCount > 0
-                    ? `${foundCount}/${total} easter eggs found`
-                    : `${total} easter eggs hidden`
-                }
+                v{APP_VERSION} {" • "} {BUILD_DATE}
               </button>
 
-              {/* Secret changelog popover */}
+              {/* Secret changelog popover — revealed by 5-click easter egg */}
               {changelogOpen && (
                 <div className="absolute bottom-6 right-0 z-50 w-72 rounded-xl border border-border bg-card p-4 shadow-2xl">
                   <div className="mb-3 flex items-center justify-between">
@@ -116,6 +110,14 @@ export function Footer() {
                       </li>
                     ))}
                   </ul>
+                  <div className="mt-3 border-t border-border pt-3 text-[11px] text-muted-foreground/60 text-center">
+                    {allFound
+                      ? `All ${total} easter eggs found`
+                      : foundCount > 0
+                        ? `${foundCount} / ${total} easter eggs found`
+                        : `${total} easter eggs hidden across the site`
+                    }
+                  </div>
                 </div>
               )}
             </div>
