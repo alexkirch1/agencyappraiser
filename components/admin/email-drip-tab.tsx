@@ -1,7 +1,8 @@
 "use client"
 
 import useSWR, { mutate as globalMutate } from "swr"
-import { Mail, Clock, CheckCircle2, XCircle, Ban, RefreshCw, ChevronRight } from "lucide-react"
+import { useState } from "react"
+import { Mail, Clock, CheckCircle2, XCircle, Ban, RefreshCw, ChevronRight, Play, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -68,13 +69,35 @@ export function EmailDripTab() {
   const rows: DripRow[] = data?.rows ?? []
   const summary: Summary = data?.summary ?? { pending: 0, sent: 0, failed: 0, unsubscribed: 0 }
 
-  const handleAction = async (id: number, action: "retry" | "cancel") => {
+  const [triggering, setTriggering] = useState(false)
+  const [triggerResult, setTriggerResult] = useState<string | null>(null)
+
+  const handleAction = async (id: number, action: "retry" | "cancel" | "queue") => {
     await fetch("/api/admin/email-drip", {
       method: "POST",
       headers: { ...getHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({ id, action }),
     })
     mutate()
+  }
+
+  const handleTrigger = async () => {
+    setTriggering(true)
+    setTriggerResult(null)
+    try {
+      const res = await fetch("/api/admin/email-drip", {
+        method: "POST",
+        headers: { ...getHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ id: 0, action: "trigger" }),
+      })
+      const json = await res.json()
+      setTriggerResult(`Sent: ${json.sent ?? 0}, Failed: ${json.failed ?? 0}, Total: ${json.total ?? 0}`)
+      mutate()
+    } catch {
+      setTriggerResult("Error triggering processor")
+    } finally {
+      setTriggering(false)
+    }
   }
 
   // Group rows by lead
@@ -87,11 +110,29 @@ export function EmailDripTab() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h2 className="text-xl font-bold text-foreground">Email Drip Status</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Track the 3-email follow-up sequence for every lead. Retrigger failed sends or cancel pending emails.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-foreground">Email Drip Status</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Track the 3-email follow-up sequence for every lead. Retrigger failed sends or cancel pending emails.
+          </p>
+          {triggerResult && (
+            <p className="mt-1.5 text-xs text-primary font-medium">{triggerResult}</p>
+          )}
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="shrink-0 gap-2"
+          onClick={handleTrigger}
+          disabled={triggering}
+        >
+          {triggering
+            ? <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+            : <Play className="h-3.5 w-3.5" />
+          }
+          Run processor
+        </Button>
       </div>
 
       {/* Summary cards */}
@@ -157,6 +198,15 @@ export function EmailDripTab() {
                     </span>
                   )}
                   <Badge variant="outline" className="text-[10px]">{first.tool_used ?? "—"}</Badge>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                    title="Re-queue all 3 drip emails for this lead"
+                    onClick={() => handleAction(first.lead_id, "queue")}
+                  >
+                    <Plus className="h-3 w-3" /> Re-queue
+                  </Button>
                 </div>
               </div>
 
