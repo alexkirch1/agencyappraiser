@@ -1,6 +1,5 @@
 import Link from "next/link"
-import { ArrowRight, Calculator, LayoutDashboard, Shield, Target, Zap } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { ArrowRight, Calculator, Shield, Target, Zap } from "lucide-react"
 import { FeedbackWidget } from "@/components/feedback-widget"
 
 // The three-step path a user takes through the tools
@@ -40,21 +39,6 @@ const steps = [
   },
 ]
 
-// Secondary tools surfaced below the main path
-const secondaryTools = [
-  {
-    href: "/ams",
-    icon: LayoutDashboard,
-    label: "AMS Report",
-    description: "Upload an EZLynx export for a full agency-level breakdown.",
-  },
-  {
-    href: "/carrier",
-    icon: Target,
-    label: "Carrier Report",
-    description: "Value a single carrier book of business.",
-  },
-]
 
 export default function HomePage() {
   return (
@@ -145,22 +129,6 @@ export default function HomePage() {
               <ArrowRight className="mt-3 h-4 w-4 shrink-0 text-muted-foreground/40 transition-all group-hover:translate-x-1 group-hover:text-primary" />
             </Link>
           ))}
-        </div>
-      </section>
-
-      {/* ── Lead capture strip ───────────────────────────────────────────── */}
-      <section className="border-t border-border bg-card">
-        <div className="mx-auto flex max-w-4xl flex-col items-center gap-4 px-4 py-12 text-center sm:flex-row sm:justify-between sm:text-left lg:px-8">
-          <div>
-            <p className="text-base font-semibold text-foreground">Not ready to run the numbers yourself?</p>
-            <p className="mt-1 text-sm text-muted-foreground">Get a free preliminary estimate from our team.</p>
-          </div>
-          <Button asChild size="default" className="shrink-0 gap-2">
-            <Link href="/quick-value">
-              Request an estimate
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </Button>
         </div>
       </section>
 
