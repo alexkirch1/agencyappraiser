@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { ArrowRight, Calculator, Shield, Target, Zap } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { FeedbackWidget } from "@/components/feedback-widget"
 
 // The three-step path a user takes through the tools
