@@ -10,7 +10,7 @@ import { CompleteDealModal } from "@/components/admin/complete-deal-modal"
 import { useMarketIntel } from "@/lib/use-market-intel"
 import { cn } from "@/lib/utils"
 import type { Deal } from "./admin-dashboard"
-import { ValuationReport } from "./valuation-report"
+import { ValuationReport, type ValuationFactors, type OverrideReason } from "./valuation-report"
 import {
   cleanNum as sharedCleanNum,
   normalizePolicy as sharedNormalizePolicy,
@@ -191,10 +191,15 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
   const [finAddbacks, setFinAddbacks] = useState(0)
 
   // --- Valuation state ---
-  const [valuationMultiple, setValuationMultiple] = useState(1.5)
+  const [valuationMultiple, setValuationMultiple] = useState(1.0)
   const [factorLoss, setFactorLoss] = useState(0)
   const [factorCarrier, setFactorCarrier] = useState(0)
   const [saving, setSaving] = useState(false)
+  // --- New factor inputs ---
+  const [valuationFactors, setValuationFactors] = useState<Partial<ValuationFactors>>({})
+  // --- Override state ---
+  const [isOverridden, setIsOverridden] = useState(false)
+  const [overrideReason, setOverrideReason] = useState<OverrideReason>("")
 
   // Refs
   const policyFileRef = useRef<HTMLInputElement>(null)
@@ -658,6 +663,10 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
         factorCarrier,
         policyCount: policy.data.length,
         commRecords: comm.data.length,
+        // Learning model fields
+        isOverridden,
+        overrideReason: isOverridden ? overrideReason : null,
+        valuationFactors,
       },
     }
 
@@ -678,9 +687,12 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
     setFinOpex(0)
     setFinOwnerComp(0)
     setFinAddbacks(0)
-    setValuationMultiple(1.5)
+    setValuationMultiple(1.0)
     setFactorLoss(0)
     setFactorCarrier(0)
+    setValuationFactors({})
+    setIsOverridden(false)
+    setOverrideReason("")
     setPolicySearch("")
   }
 
@@ -1812,6 +1824,13 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
             onFactorLossChange={setFactorLoss}
             factorCarrier={factorCarrier}
             onFactorCarrierChange={setFactorCarrier}
+            factors={valuationFactors}
+            onFactorsChange={setValuationFactors}
+            isOverridden={isOverridden}
+            onIsOverriddenChange={setIsOverridden}
+            overrideReason={overrideReason}
+            onOverrideReasonChange={setOverrideReason}
+            intel={intel}
           />
 
           {/* Save Button */}
