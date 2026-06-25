@@ -22,10 +22,10 @@ export async function GET() {
         l.name   AS lead_name,
         l.email  AS lead_email,
         l.tool_used,
-        l.estimated_value
+        l.estimated_value,
+        l.archived AS lead_archived
       FROM email_drip ed
       JOIN leads l ON l.id = ed.lead_id
-      WHERE l.archived = false
       ORDER BY ed.created_at DESC
       LIMIT 200
     `
@@ -66,6 +66,34 @@ export async function POST(req: Request) {
     if (action === "cancel") {
       await sql`
         UPDATE email_drip SET status = 'unsubscribed' WHERE id = ${id}
+      `
+      return NextResponse.json({ ok: true })
+    }
+
+    // Trigger the drip processor immediately
+    if (action === "trigger") {
+      const appUrl = process.env.NEXT_PUBLIC_BASE_URL
+        ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
+      const headers: Record<string, string> = { "Content-Type": "application/json" }
+      if (process.env.CRON_SECRET) headers["Authorization"] = `Bearer ${process.env.CRON_SECRET}`
+      const res = await fetch(`${appUrl}/api/send-drip-email`, { method: "POST", headers })
+      const result = await res.json()
+      return NextResponse.json({ ok: true, ...result })
+    }
+
+    // Queue a fresh drip sequence for a lead (by lead_id)
+    if (action === "queue" && id) {
+      const now = new Date()
+      const day2 = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000)
+      const day5 = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000)
+      await sql`
+        INSERT INTO email_drip (lead_id, sequence, send_after)
+        VALUES
+          (${id}, 1, ${now.toISOString()}),
+          (${id}, 2, ${day2.toISOString()}),
+          (${id}, 3, ${day5.toISOString()})
+        ON CONFLICT (lead_id, sequence) DO UPDATE
+          SET status = 'pending', send_after = EXCLUDED.send_after, sent_at = NULL
       `
       return NextResponse.json({ ok: true })
     }
