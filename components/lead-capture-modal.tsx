@@ -90,6 +90,11 @@ export function LeadCaptureModal({
       })
       const json = await res.json()
       returnedLeadId = json.leadId ?? null
+
+      // Fire Meta Lead event after successful submission
+      if (typeof window !== "undefined" && typeof (window as Window & { fbq?: (...args: unknown[]) => void }).fbq === "function") {
+        (window as Window & { fbq: (...args: unknown[]) => void }).fbq("track", "Lead")
+      }
     } catch {
       console.error("[lead-capture] Lead API call failed, continuing anyway")
     }
