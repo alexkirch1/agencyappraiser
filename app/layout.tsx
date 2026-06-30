@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/lib/use-auth"
 
 const FB_PIXEL_ID = process.env.NEXT_PUBLIC_FACEBOOK_PIXEL_ID
+const CLARITY_ID = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID
 
 const inter = Inter({
   subsets: ["latin"],
@@ -37,6 +38,19 @@ export default function RootLayout({
             __html: `(function(){try{var t=localStorage.getItem('agency-appraiser-theme');if(t==='dark'){document.documentElement.classList.add('dark')}else{document.documentElement.classList.remove('dark');localStorage.setItem('agency-appraiser-theme','light')}}catch(e){}})()`,
           }}
         />
+        {/* Microsoft Clarity — session recordings + heatmaps */}
+        {CLARITY_ID && (
+          <Script id="ms-clarity" strategy="afterInteractive">
+            {`
+              (function(c,l,a,r,i,t,y){
+                c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+                t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+                y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+              })(window, document, "clarity", "script", "${CLARITY_ID}");
+            `}
+          </Script>
+        )}
+
         {/* Meta Pixel — only injected when the env var is set */}
         {FB_PIXEL_ID && (
           <>
