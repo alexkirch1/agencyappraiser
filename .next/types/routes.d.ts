@@ -4,7 +4,7 @@
 type AppRoutes = "/" | "/admin" | "/ams" | "/calculator" | "/carrier" | "/market-data" | "/methodology" | "/my-valuations" | "/quick-value" | "/quiz" | "/readiness" | "/valuation/[id]"
 type AppRouteHandlerRoutes = "/api/admin/analytics" | "/api/admin/archived-carriers" | "/api/admin/auth" | "/api/admin/email-drip" | "/api/admin/feedback" | "/api/admin/leads" | "/api/admin/overview" | "/api/admin/site-archive" | "/api/auth/login" | "/api/auth/logout" | "/api/auth/me" | "/api/auth/register" | "/api/completed-deal" | "/api/feedback" | "/api/market-data/stats" | "/api/parse-ams-report" | "/api/parse-carrier-report" | "/api/pipedrive-fields" | "/api/save-full-valuation" | "/api/save-quick-valuation" | "/api/save-quiz" | "/api/send-drip-email" | "/api/submit-lead" | "/api/submit-lead/referral" | "/api/valuations" | "/api/valuations/[id]"
 type PageRoutes = never
-type LayoutRoutes = "/"
+type LayoutRoutes = "/" | "/ams" | "/calculator" | "/carrier" | "/market-data" | "/quick-value" | "/quiz"
 type RedirectRoutes = never
 type RewriteRoutes = never
 type Routes = AppRoutes | PageRoutes | LayoutRoutes | RedirectRoutes | RewriteRoutes | AppRouteHandlerRoutes
@@ -56,6 +56,12 @@ export type ParamsOf<Route extends Routes> = ParamMap[Route]
 
 interface LayoutSlotMap {
   "/": never
+  "/ams": never
+  "/calculator": never
+  "/carrier": never
+  "/market-data": never
+  "/quick-value": never
+  "/quiz": never
 }
 
 

@@ -1,4 +1,18 @@
+import type { Metadata } from "next"
 import Link from "next/link"
+
+export const metadata: Metadata = {
+  title: "Insurance Agency Valuation Tools — Free Calculator & Instant Estimate",
+  description:
+    "What is your insurance agency worth? Get a free instant estimate in 60 seconds or run our full 7-category valuation scorecard. Built for independent P&C agents and brokers ready to sell, buy, or benchmark.",
+  alternates: { canonical: "https://www.agencyappraiser.com" },
+  openGraph: {
+    title: "Insurance Agency Valuation Tools — Free Calculator & Instant Estimate",
+    description:
+      "What is your insurance agency worth? Free tools for independent P&C agents and brokers — instant estimate, full scorecard, carrier book valuation, and AMS upload.",
+    url: "https://www.agencyappraiser.com",
+  },
+}
 import { ArrowRight, Calculator, Shield, Target, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { FeedbackWidget } from "@/components/feedback-widget"
