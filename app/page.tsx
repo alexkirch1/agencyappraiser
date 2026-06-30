@@ -68,13 +68,12 @@ export default function HomePage() {
           </div>
 
           <h1 className="text-balance text-[2rem] font-bold leading-tight tracking-tight text-foreground sm:text-4xl md:text-5xl lg:text-6xl">
-            What is your agency{" "}
+            What is your insurance agency{" "}
             <span className="text-primary">actually worth?</span>
           </h1>
 
           <p className="mt-4 max-w-xl text-pretty text-[0.95rem] leading-relaxed text-muted-foreground sm:text-base md:text-lg">
-            Most agencies are priced on gut feel. Our tools analyze retention, book quality,
-            risk, and operations to show you what buyers will actually pay.
+            Most independent insurance agencies are priced on gut feel. Our tools analyze your retention, book quality, risk, and carrier mix to show you what buyers will actually pay.
           </p>
 
           <div className="mt-7 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:justify-center">
