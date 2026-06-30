@@ -47,30 +47,30 @@ export default function HomePage() {
 
       {/* ── Hero ────────────────────────────────────────────────────────── */}
       <section className="border-b border-border">
-        <div className="mx-auto flex max-w-3xl flex-col items-center px-4 py-20 text-center lg:px-8 lg:py-28">
+        <div className="mx-auto flex max-w-3xl flex-col items-center px-5 py-14 text-center lg:px-8 lg:py-24">
           <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5">
             <Shield className="h-3.5 w-3.5 text-primary" />
             <span className="text-xs font-medium text-muted-foreground">Insurance Agency M&A Tools</span>
           </div>
 
-          <h1 className="text-balance text-4xl font-bold tracking-tight text-foreground md:text-5xl lg:text-6xl">
-            What is your agency<br />
+          <h1 className="text-balance text-[2rem] font-bold leading-tight tracking-tight text-foreground sm:text-4xl md:text-5xl lg:text-6xl">
+            What is your agency{" "}
             <span className="text-primary">actually worth?</span>
           </h1>
 
-          <p className="mt-5 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground md:text-lg">
+          <p className="mt-4 max-w-xl text-pretty text-[0.95rem] leading-relaxed text-muted-foreground sm:text-base md:text-lg">
             Most agencies are priced on gut feel. Our tools analyze retention, book quality,
             risk, and operations to show you what buyers will actually pay.
           </p>
 
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <Button asChild size="lg" className="gap-2">
+          <div className="mt-7 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:justify-center">
+            <Button asChild size="lg" className="w-full gap-2 sm:w-auto">
               <Link href="/quick-value">
                 Get a quick estimate
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
-            <Button asChild variant="outline" size="lg">
+            <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
               <Link href="/calculator">Full valuation calculator</Link>
             </Button>
           </div>
@@ -78,56 +78,54 @@ export default function HomePage() {
       </section>
 
       {/* ── Path ─────────────────────────────────────────────────────────── */}
-      <section className="mx-auto w-full max-w-4xl px-4 py-16 lg:px-8">
-        <p className="mb-10 text-center text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+      <section className="mx-auto w-full max-w-4xl px-5 py-12 lg:px-8">
+        <p className="mb-8 text-center text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           Three steps — start wherever makes sense
         </p>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           {steps.map((step, i) => (
             <Link
               key={step.href}
               href={step.href}
-              className={`group flex items-start gap-5 rounded-xl border p-6 transition-colors hover:border-primary/50 ${
+              className={`group flex items-start gap-4 rounded-xl border p-5 transition-colors hover:border-primary/50 ${
                 step.primary
                   ? "border-primary/30 bg-primary/5"
                   : "border-border bg-card"
               }`}
             >
-              {/* Step number */}
-              <span className="mt-0.5 shrink-0 font-mono text-2xl font-bold text-primary/30 group-hover:text-primary/50 transition-colors">
-                {step.n}
-              </span>
-
               {/* Icon */}
               <div className={`mt-0.5 shrink-0 flex h-10 w-10 items-center justify-center rounded-lg ${
-                step.primary ? "bg-primary/10" : "bg-muted"
+                step.primary ? "bg-primary/15" : "bg-muted"
               }`}>
                 <step.icon className={`h-5 w-5 ${step.primary ? "text-primary" : "text-muted-foreground"}`} />
               </div>
 
               {/* Content */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <h2 className={`text-base font-semibold transition-colors group-hover:text-primary ${
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-xs font-bold text-primary/40">{step.n}</span>
+                  <h2 className={`text-[0.95rem] font-semibold leading-snug transition-colors group-hover:text-primary ${
                     step.primary ? "text-primary" : "text-foreground"
                   }`}>
                     {step.label}
                   </h2>
-                  <span className="text-xs text-muted-foreground/60">{step.time}</span>
                   {i === 0 && (
-                    <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                       Start here
                     </span>
                   )}
                 </div>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                <p className="mt-1 text-[0.8rem] leading-relaxed text-muted-foreground sm:text-sm">
                   {step.description}
+                </p>
+                <p className="mt-2 text-[11px] font-medium text-primary/60 group-hover:text-primary transition-colors">
+                  {step.cta} →
                 </p>
               </div>
 
-              {/* Arrow */}
-              <ArrowRight className="mt-3 h-4 w-4 shrink-0 text-muted-foreground/40 transition-all group-hover:translate-x-1 group-hover:text-primary" />
+              {/* Arrow — desktop only */}
+              <ArrowRight className="mt-3 hidden h-4 w-4 shrink-0 text-muted-foreground/40 transition-all group-hover:translate-x-1 group-hover:text-primary sm:block" />
             </Link>
           ))}
         </div>
