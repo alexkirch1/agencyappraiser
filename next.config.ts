@@ -6,6 +6,11 @@ const nextConfig: NextConfig = {
   },
   // Suppress HMR client-side overlay noise in development
   devIndicators: false,
+  // Inline CSS into DOM snapshots so Microsoft Clarity session replays
+  // can render styles even when hashed production CSS URLs are unavailable
+  experimental: {
+    inlineCss: true,
+  },
 }
 
 export default nextConfig
