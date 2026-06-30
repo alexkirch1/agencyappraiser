@@ -6,6 +6,7 @@ import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/lib/use-auth"
+import { GoogleAnalytics } from "@next/third-parties/google"
 
 const FB_PIXEL_ID = process.env.NEXT_PUBLIC_FACEBOOK_PIXEL_ID
 const CLARITY_ID = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID
@@ -85,6 +86,9 @@ export default function RootLayout({
             <Footer />
           </AuthProvider>
         </ThemeProvider>
+        {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
+          <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />
+        )}
       </body>
     </html>
   )
