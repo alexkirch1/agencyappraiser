@@ -130,6 +130,8 @@ function CalculatorContent() {
   const [leadId, setLeadId] = useState<number | null>(null)
   const [pdfLoading, setPdfLoading] = useState(false)
   const [shareCopied, setShareCopied] = useState(false)
+  // Pre-computed mid-point so estimatedValue stored on the lead is the actual valuation, not revenue
+  const [pendingMidValue, setPendingMidValue] = useState<number>(0)
 
   const handleShare = async () => {
     if (!leadId) return
@@ -214,6 +216,10 @@ function CalculatorContent() {
       return
     }
     setValidationErrors([])
+    // Pre-compute the mid-point so the lead record stores the actual valuation, not the revenue
+    const preCalc = calculateValuation(inputs)
+    const midValue = preCalc ? Math.round((preCalc.lowOffer + preCalc.highOffer) / 2) : 0
+    setPendingMidValue(midValue)
     if (unlocked) {
       // Already unlocked (first submit or resubmit after edit)
       setShowDisclaimer(true)
@@ -523,7 +529,7 @@ function CalculatorContent() {
           description="Enter your details to view your complete valuation report with risk audit and deal simulator."
           toolUsed="Agency Valuation Calculator"
           valuationSummary={`Revenue (LTM): $${inputs.revenueLTM?.toLocaleString() ?? "N/A"}\nSDE/EBITDA: $${inputs.sdeEbitda?.toLocaleString() ?? "N/A"}\nRetention Rate: ${inputs.retentionRate ?? "N/A"}%\nCommercial Mix: ${inputs.policyMix ?? "N/A"}%\nClient Concentration: ${inputs.clientConcentration ?? "N/A"}%\nCarrier Diversification: ${inputs.carrierDiversification ?? "N/A"}%\nYear Established: ${inputs.yearEstablished ?? "N/A"}\nState: ${inputs.primaryState || "N/A"}\nEmployees: ${inputs.employeeCount ?? "N/A"}`}
-          estimatedValue={inputs.revenueLTM ?? 0}
+          estimatedValue={pendingMidValue}
           valuationData={{
             revenueLTM: inputs.revenueLTM,
             sdeEbitda: inputs.sdeEbitda,

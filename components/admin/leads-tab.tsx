@@ -1282,7 +1282,7 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
               <div className="grid grid-cols-3 gap-2">
                 {[
                   { label: "Low", value: fmt(viewingLead.low_offer ?? viewingLead.quick_low) },
-                  { label: "Mid / Est.", value: fmt(viewingLead.estimated_value ?? viewingLead.quick_mid), highlight: true as const },
+                  { label: "Mid Value", value: fmt(viewingLead.estimated_value ?? viewingLead.quick_mid), highlight: true as const },
                   { label: "High", value: fmt(viewingLead.high_offer ?? viewingLead.quick_high) },
                 ].map(({ label, value, highlight }) => (
                   <div key={label} className={`rounded-lg border p-3 text-center ${highlight ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30" : "border-border bg-secondary/30"}`}>

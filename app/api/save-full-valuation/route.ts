@@ -48,6 +48,17 @@ export async function POST(req: Request) {
       RETURNING id
     `
 
+    // Update the parent lead's estimated_value to the actual mid-point (lowOffer + highOffer / 2)
+    // so the admin drawer shows the real valuation, not whatever revenue figure was stored at lead capture.
+    if (leadId && results?.lowOffer != null && results?.highOffer != null) {
+      const midOffer = Math.round((results.lowOffer + results.highOffer) / 2)
+      await sql`
+        UPDATE leads
+        SET estimated_value = ${midOffer}, last_activity = NOW()
+        WHERE id = ${leadId}
+      `
+    }
+
     return NextResponse.json({ success: true, id: rows[0]?.id })
   } catch (err) {
     console.error("[v0] save-full-valuation error:", err)
