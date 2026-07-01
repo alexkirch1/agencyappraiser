@@ -7,9 +7,11 @@ const nextConfig: NextConfig = {
   // Suppress HMR client-side overlay noise in development
   devIndicators: false,
   // Inline CSS into DOM snapshots so Microsoft Clarity session replays
-  // can render styles even when hashed production CSS URLs are unavailable
+  // can render styles even when hashed production CSS URLs are unavailable.
+  // Only enabled in production — inlineCss + Turbopack dev creates phantom
+  // [__metadata_id__] sub-routes that cause API routes to 500 in development.
   experimental: {
-    inlineCss: true,
+    inlineCss: process.env.NODE_ENV === "production",
   },
 }
 
