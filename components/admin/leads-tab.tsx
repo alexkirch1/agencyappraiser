@@ -270,105 +270,277 @@ function Row({ label, value, tooltip }: { label: string; value: string | null | 
   )
 }
 
-// ── Buyer Intelligence builder ────────────────────────────────────────────────
+// ── Buyer Intelligence engine ─────────────────────────────────────────────────
+
+type SignalLevel = "green" | "yellow" | "red"
+
+interface Signal {
+  level: SignalLevel
+  label: string
+  detail: string
+}
 
 interface BuyerIntel {
-  strengths: string[]
-  risks: string[]
+  verdict: "Strong Buy" | "Buy" | "Proceed with Caution" | "Pass" | "Insufficient Data"
+  verdictReason: string
+  dealStructure: string   // cash-heavy vs earnout recommendation
+  score: number           // 0-100 deal quality score
+  signals: Signal[]
   questions: string[]
 }
 
-function buildBuyerIntelligence(lead: LeadRow): BuyerIntel {
-  const strengths: string[] = []
-  const risks: string[] = []
-  const questions: string[] = []
+function fmt$(n: number | null) {
+  if (!n) return null
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n)
+}
 
-  // Retention
+function buildBuyerIntelligence(lead: LeadRow): BuyerIntel {
+  const signals: Signal[] = []
+  const questions: string[] = []
+  let scorePoints = 0
+  let maxPoints = 0
+
+  const revenue = parseFloat(lead.revenue_ltm ?? lead.quick_revenue ?? "0") || null
+  const sde = parseFloat(lead.sde_ebitda ?? "0") || null
+  const ownerComp = parseFloat(lead.owner_compensation ?? "0") || null
   const retention = parseFloat(lead.retention_rate ?? lead.quick_retention ?? "0") || null
+  const multiple = parseFloat(lead.calculated_multiple ?? lead.quick_multiplier ?? lead.suggested_mult ?? "0") || null
+  const carrierDiv = parseFloat(lead.carrier_diversification ?? "0") || null
+  const clientConc = parseFloat(lead.client_concentration ?? "0") || null
+  const low = parseFloat(lead.low_offer ?? lead.quick_low ?? "0") || null
+  const high = parseFloat(lead.high_offer ?? lead.quick_high ?? "0") || null
+
+  // ── 1. Retention ──────────────────────────────────────────────────────────
+  maxPoints += 20
   if (retention !== null) {
-    if (retention >= 92) strengths.push(`Strong retention at ${retention}% — well above the 88% industry average.`)
-    else if (retention >= 85) strengths.push(`Solid retention at ${retention}%.`)
-    else if (retention < 80) risks.push(`Retention is ${retention}% — below acceptable threshold. Expect buyer pushback on multiple.`)
-    else risks.push(`Retention at ${retention}% is marginal — verify trailing 3-year trend.`)
+    if (retention >= 93) {
+      signals.push({ level: "green", label: "Retention", detail: `${retention}% retention — top decile. Well above the 88% P&C benchmark. Strong book stickiness post-close.` })
+      scorePoints += 20
+    } else if (retention >= 88) {
+      signals.push({ level: "green", label: "Retention", detail: `${retention}% retention — at or above industry average. Acceptable for most buyers.` })
+      scorePoints += 15
+    } else if (retention >= 82) {
+      signals.push({ level: "yellow", label: "Retention", detail: `${retention}% retention — below the 88% benchmark. Request trailing 3-year trend to rule out acceleration.` })
+      scorePoints += 8
+    } else {
+      signals.push({ level: "red", label: "Retention", detail: `${retention}% retention — significantly below benchmark. Expect buyers to reduce multiple by 0.3–0.5x or require a retention-based earnout.` })
+      scorePoints += 2
+    }
   } else {
     questions.push("What is the 3-year trailing retention rate?")
   }
 
-  // Revenue trend
+  // ── 2. Revenue / SDE margin sanity ────────────────────────────────────────
+  maxPoints += 15
+  if (revenue && sde) {
+    const sdeMargin = (sde / revenue) * 100
+    if (ownerComp && revenue) {
+      const compRatio = (ownerComp / revenue) * 100
+      if (compRatio > 60) {
+        signals.push({ level: "red", label: "Owner Comp vs Revenue", detail: `Owner compensation is ${compRatio.toFixed(0)}% of revenue (${ fmt$(ownerComp) }). Normalized SDE will shift dramatically after recast — verify buyer can absorb management replacement cost.` })
+        scorePoints += 3
+      } else if (compRatio > 40) {
+        signals.push({ level: "yellow", label: "Owner Comp vs Revenue", detail: `Owner comp is ${compRatio.toFixed(0)}% of revenue. Moderate recast risk — confirm SDE figure is already normalized.` })
+        scorePoints += 9
+      } else {
+        signals.push({ level: "green", label: "Financials", detail: `SDE margin of ${sdeMargin.toFixed(0)}% on ${fmt$(revenue)} revenue. Clean financial profile — limited recast risk.` })
+        scorePoints += 15
+      }
+    } else {
+      signals.push({ level: "green", label: "Financials", detail: `SDE of ${fmt$(sde)} on ${fmt$(revenue)} revenue (${sdeMargin.toFixed(0)}% margin).` })
+      scorePoints += 12
+    }
+  } else if (revenue) {
+    questions.push("What is the normalized SDE/EBITDA after adjusting for owner compensation?")
+  } else {
+    questions.push("What is the agency's LTM revenue and trailing SDE?")
+  }
+
+  // ── 3. Revenue trend ──────────────────────────────────────────────────────
+  maxPoints += 15
   if (lead.revenue_ltm && lead.revenue_y2) {
     const ltm = parseFloat(lead.revenue_ltm)
     const y2 = parseFloat(lead.revenue_y2)
     const growth = ((ltm - y2) / y2) * 100
-    if (growth >= 10) strengths.push(`Revenue grew ${growth.toFixed(1)}% year-over-year — strong organic growth story.`)
-    else if (growth < -5) risks.push(`Revenue declined ${Math.abs(growth).toFixed(1)}% YoY — will reduce multiple significantly.`)
-  }
-  if (lead.growth === "declining") risks.push("Agency self-reported declining growth — investigate cause before offer.")
-  if (lead.growth === "strong") strengths.push("Self-reported strong growth trajectory.")
-
-  // Book concentration
-  const concentration = parseFloat(lead.client_concentration ?? "0") || null
-  if (concentration !== null && concentration > 20) {
-    risks.push(`Top client represents ${concentration}% of revenue — concentration risk. Request client list with tenure.`)
-  }
-
-  // Carrier concentration
-  const carrierConc = parseFloat(lead.carrier_diversification ?? "0") || null
-  if (carrierConc !== null && carrierConc < 40) {
-    risks.push(`Carrier diversification score is low (${carrierConc}%). Over-concentration in one carrier is a key risk.`)
-  } else if (carrierConc !== null && carrierConc >= 70) {
-    strengths.push("Well-diversified carrier mix — lower appointment risk for buyer.")
-  }
-  if (lead.top_carriers) strengths.push(`Appointed with: ${lead.top_carriers}.`)
-
-  // E&O claims
-  if (lead.eo_claims != null && lead.eo_claims > 0) {
-    risks.push(`${lead.eo_claims} E&O claim${lead.eo_claims > 1 ? "s" : ""} on record — require full claim detail and resolution status.`)
+    if (growth >= 12) {
+      signals.push({ level: "green", label: "Revenue Growth", detail: `+${growth.toFixed(1)}% YoY revenue growth — strong organic story. Buyers will pay a premium for momentum.` })
+      scorePoints += 15
+    } else if (growth >= 3) {
+      signals.push({ level: "green", label: "Revenue Growth", detail: `+${growth.toFixed(1)}% YoY growth — steady and positive. In line with market expectations.` })
+      scorePoints += 11
+    } else if (growth >= -3) {
+      signals.push({ level: "yellow", label: "Revenue Growth", detail: `Revenue is flat (${growth.toFixed(1)}% YoY). Not a dealbreaker but reduces urgency premium. Verify cause.` })
+      scorePoints += 6
+    } else {
+      signals.push({ level: "red", label: "Revenue Decline", detail: `Revenue declined ${Math.abs(growth).toFixed(1)}% YoY — this is a significant red flag. Buyers will apply a distressed multiple or walk. Root cause required before offer.` })
+      scorePoints += 1
+    }
+  } else if (lead.growth === "declining") {
+    signals.push({ level: "red", label: "Revenue Trend", detail: "Self-reported declining growth. Pull 3-year P&L before making any offer." })
+    scorePoints += 2; maxPoints += 15
+  } else if (lead.growth === "strong") {
+    signals.push({ level: "green", label: "Revenue Trend", detail: "Self-reported strong growth trajectory. Verify with actual financials." })
+    scorePoints += 10; maxPoints += 15
+  } else {
+    questions.push("What is the YoY revenue trend for the past 3 years?")
   }
 
-  // Seller transition
-  const sellerStay = lead.closing_timeline
-  if (sellerStay) {
-    if (sellerStay.toLowerCase().includes("12") || sellerStay.toLowerCase().includes("18") || sellerStay.toLowerCase().includes("24")) {
-      strengths.push(`Seller committed to ${sellerStay} transition — reduces client attrition risk post-close.`)
-    } else if (sellerStay.toLowerCase().includes("6") || sellerStay.toLowerCase().includes("3")) {
-      risks.push(`Short seller transition (${sellerStay}) increases post-close retention risk — negotiate a longer runway or larger earnout.`)
+  // ── 4. Carrier concentration ──────────────────────────────────────────────
+  maxPoints += 15
+  if (carrierDiv !== null) {
+    const carrierNames = lead.top_carriers ? ` (${lead.top_carriers})` : ""
+    if (carrierDiv >= 65) {
+      signals.push({ level: "green", label: "Carrier Diversification", detail: `Strong carrier mix at ${carrierDiv}%${carrierNames}. Well-spread appointments reduce post-close non-renewal risk.` })
+      scorePoints += 15
+    } else if (carrierDiv >= 40) {
+      signals.push({ level: "yellow", label: "Carrier Concentration", detail: `Moderate carrier concentration (score: ${carrierDiv}%)${carrierNames}. Ask which carrier holds the largest share of premium and what happens if that appointment is lost.` })
+      scorePoints += 8
+    } else {
+      signals.push({ level: "red", label: "Carrier Concentration", detail: `High carrier concentration (score: ${carrierDiv}%)${carrierNames}. Over-reliance on one carrier is a top risk in P&C acquisitions — a single non-renewal could eliminate 40–60% of premium post-close. Request carrier volume breakdown.` })
+      scorePoints += 2
+    }
+  } else if (lead.top_carriers) {
+    signals.push({ level: "yellow", label: "Carriers", detail: `Appointed with ${lead.top_carriers}. Concentration data not quantified — ask for premium split by carrier.` })
+    maxPoints += 15; scorePoints += 6
+    questions.push("What % of written premium is placed with the top carrier?")
+  } else {
+    questions.push("Which carriers is the agency appointed with and what are the premium volumes?")
+  }
+
+  // ── 5. Client concentration ───────────────────────────────────────────────
+  if (clientConc !== null) {
+    maxPoints += 10
+    if (clientConc > 25) {
+      signals.push({ level: "red", label: "Client Concentration", detail: `Top client is ${clientConc}% of revenue. Request client list with tenure — if this client leaves post-close, the book value drops materially. Consider holdback or earnout tied to this account.` })
+      scorePoints += 1
+    } else if (clientConc > 15) {
+      signals.push({ level: "yellow", label: "Client Concentration", detail: `Top client at ${clientConc}% of revenue — moderate concentration. Verify tenure and relationship is transferable.` })
+      scorePoints += 6
+    } else {
+      signals.push({ level: "green", label: "Client Concentration", detail: `No single client dominates (top client at ${clientConc}%). Clean diversified book.` })
+      scorePoints += 10
+    }
+  }
+
+  // ── 6. E&O history ────────────────────────────────────────────────────────
+  if (lead.eo_claims != null) {
+    maxPoints += 10
+    if (lead.eo_claims === 0) {
+      signals.push({ level: "green", label: "E&O History", detail: "Clean E&O record — no claims on file. Reduces reps & warranties exposure for the buyer." })
+      scorePoints += 10
+    } else if (lead.eo_claims <= 2) {
+      signals.push({ level: "yellow", label: "E&O Claims", detail: `${lead.eo_claims} E&O claim${lead.eo_claims > 1 ? "s" : ""} on record. Request full details, resolution status, and confirm coverage limits before LOI.` })
+      scorePoints += 4
+    } else {
+      signals.push({ level: "red", label: "E&O Claims", detail: `${lead.eo_claims} E&O claims — above acceptable threshold. Significant reps & warranties exposure. Require detailed claim summaries and consider an escrow holdback.` })
+      scorePoints += 0
+    }
+  }
+
+  // ── 7. Seller transition ──────────────────────────────────────────────────
+  maxPoints += 10
+  if (lead.closing_timeline) {
+    const t = lead.closing_timeline.toLowerCase()
+    if (t.includes("24") || t.includes("18")) {
+      signals.push({ level: "green", label: "Seller Transition", detail: `${lead.closing_timeline} transition commitment — long runway significantly reduces post-close attrition risk.` })
+      scorePoints += 10
+    } else if (t.includes("12")) {
+      signals.push({ level: "green", label: "Seller Transition", detail: `12-month transition — adequate for most books. Standard for P&C acquisitions.` })
+      scorePoints += 8
+    } else if (t.includes("6")) {
+      signals.push({ level: "yellow", label: "Seller Transition", detail: "6-month transition is short. Negotiate extension or build retention earnout into deal structure." })
+      scorePoints += 4
+    } else {
+      signals.push({ level: "red", label: "Seller Transition", detail: `Short transition (${lead.closing_timeline}) — high post-close attrition risk. Require minimum 12 months or apply a retention-adjusted earnout.` })
+      scorePoints += 1
     }
   } else {
-    questions.push("What transition period is the seller willing to commit to?")
+    questions.push("What transition/stay period is the seller willing to commit to?")
   }
 
-  // Staff risk
-  if (lead.staff_retention_risk?.toLowerCase().includes("high")) {
-    risks.push("High staff retention risk flagged — key staff may leave post-close. Request employment agreements.")
-  }
-  if (lead.producer_agreements?.toLowerCase() === "yes") {
-    strengths.push("Producer agreements in place — reduces walk-away risk of top producers.")
-  } else if (lead.producer_agreements?.toLowerCase() === "no") {
-    risks.push("No producer agreements — producers could walk post-close. Address in LOI.")
-  }
-
-  // Agency age
+  // ── 8. Agency tenure ──────────────────────────────────────────────────────
   if (lead.year_established) {
     const age = new Date().getFullYear() - lead.year_established
-    if (age >= 20) strengths.push(`${age}-year-old agency — established relationships and long client tenure.`)
-    else if (age < 5) risks.push(`Agency is only ${age} years old — limited track record for buyer confidence.`)
+    maxPoints += 5
+    if (age >= 20) {
+      signals.push({ level: "green", label: "Agency Age", detail: `${age} years in operation — deep-rooted client relationships. Low probability of mass attrition post-acquisition.` })
+      scorePoints += 5
+    } else if (age >= 10) {
+      signals.push({ level: "green", label: "Agency Age", detail: `${age} years in operation — established agency with solid track record.` })
+      scorePoints += 4
+    } else if (age < 5) {
+      signals.push({ level: "yellow", label: "Agency Age", detail: `Only ${age} years old — limited track record. Buyer may require a larger earnout component.` })
+      scorePoints += 2
+    }
   }
 
-  // Quick valuation tier
-  if (lead.tier === "premium") strengths.push("Quick valuation scored this book as a premium-tier asset.")
-  if (lead.tier === "distressed") risks.push("Quick valuation flagged this as a distressed book — verify underlying metrics.")
+  // ── 9. Producer agreements ────────────────────────────────────────────────
+  if (lead.producer_agreements) {
+    maxPoints += 5
+    if (lead.producer_agreements.toLowerCase() === "yes") {
+      signals.push({ level: "green", label: "Producer Agreements", detail: "Non-solicit/non-compete agreements in place — reduces walk-away risk of key producers post-close." })
+      scorePoints += 5
+    } else {
+      signals.push({ level: "red", label: "Producer Agreements", detail: "No producer agreements. Producers could solicit the book to a competitor post-close. Address in LOI with restrictive covenants." })
+      scorePoints += 0
+    }
+  }
 
-  // Risk grade
-  if (lead.risk_grade === "A" || lead.risk_grade === "A+") strengths.push("Top risk grade — minimal red flags across all scoring categories.")
-  if (lead.risk_grade === "D" || lead.risk_grade === "F") risks.push("Poor risk grade — significant structural concerns. Consider lowball offer or pass.")
+  // ── 10. Trucking / commercial auto ────────────────────────────────────────
+  const isTrucking = lead.policy_mix && parseFloat(lead.policy_mix) >= 50 && lead.top_carriers?.toLowerCase().match(/progressive|canal|great american/)
+  if (isTrucking || lead.agency_description?.toLowerCase().includes("truck")) {
+    maxPoints += 5
+    signals.push({ level: "red", label: "Trucking Exposure", detail: "Book appears to have significant trucking/commercial auto exposure. Carriers frequently non-renew these accounts during ownership changes. Cap multiple at 1.5x and require carrier consent letters before close." })
+    scorePoints += 0
+  }
 
-  // Default questions if we don't have data
-  if (!lead.revenue_ltm && !lead.quick_revenue) questions.push("What is the agency's LTM revenue and 3-year trend?")
-  if (!lead.top_carriers) questions.push("Which carriers is the agency appointed with and what are the volumes?")
-  if (!lead.office_structure) questions.push("Is the agency remote, office-based, or hybrid? Any long-term lease obligations?")
-  if (!lead.sde_ebitda && lead.revenue_ltm) questions.push("What is the SDE/EBITDA after normalizing owner compensation?")
+  // ── Compute verdict ───────────────────────────────────────────────────────
+  const dealScore = maxPoints > 0 ? Math.round((scorePoints / maxPoints) * 100) : 0
+  const redCount = signals.filter(s => s.level === "red").length
+  const greenCount = signals.filter(s => s.level === "green").length
 
-  return { strengths, risks, questions }
+  let verdict: BuyerIntel["verdict"]
+  let verdictReason: string
+  let dealStructure: string
+
+  if (maxPoints === 0) {
+    verdict = "Insufficient Data"
+    verdictReason = "Not enough data to form a recommendation. Submit full valuation to unlock analysis."
+    dealStructure = "Cannot assess deal structure without financial data."
+  } else if (redCount >= 3 || dealScore < 30) {
+    verdict = "Pass"
+    verdictReason = `${redCount} critical risk${redCount !== 1 ? "s" : ""} identified. The risk-adjusted return does not support an offer at current ask.`
+    dealStructure = "If pursuing anyway: heavy earnout (60%+ contingent), 12-month escrow holdback, and tight reps & warranties."
+  } else if (redCount >= 2 || dealScore < 50) {
+    verdict = "Proceed with Caution"
+    verdictReason = `${redCount} significant risk${redCount !== 1 ? "s" : ""} need resolution before LOI. Manageable with the right deal structure.`
+    dealStructure = multiple && multiple > 1.8
+      ? `At ${multiple}x, consider retrading to ${(multiple - 0.3).toFixed(2)}x with a 30–40% earnout tied to 12-month post-close retention.`
+      : "Structure 25–35% as an earnout tied to retention performance over 24 months."
+  } else if (greenCount >= 3 && dealScore >= 75) {
+    verdict = "Strong Buy"
+    verdictReason = `${greenCount} green signals with a deal quality score of ${dealScore}/100. Premium book — move quickly.`
+    dealStructure = multiple && multiple > 2.5
+      ? `${multiple}x is at the high end of market. Negotiate to ${(multiple - 0.2).toFixed(2)}x with 10–15% earnout. Cash-heavy deal is appropriate given quality.`
+      : `Clean deal — cash-heavy structure appropriate (80%+ at close). Minimal earnout needed given book quality.`
+  } else {
+    verdict = "Buy"
+    verdictReason = `Deal quality score of ${dealScore}/100 with ${greenCount} positive and ${redCount} risk signals. Standard P&C acquisition profile.`
+    dealStructure = "Standard structure: 70–75% cash at close, 25–30% earnout over 24 months tied to premium retention."
+  }
+
+  // ── Fill remaining questions ───────────────────────────────────────────────
+  if (!lead.office_structure) questions.push("Is the agency fully remote, office-based, or hybrid? Any long-term lease obligations?")
+  if (!lead.sde_ebitda && revenue) questions.push("Confirm SDE/EBITDA is already normalized for owner's market-rate salary.")
+  if (!lead.producer_agreements && !signals.find(s => s.label === "Producer Agreements")) {
+    questions.push("Do key producers have non-solicit or non-compete agreements?")
+  }
+  if (questions.length === 0 && signals.length >= 5) {
+    questions.push("What is the expiration/renewal date on the top 3 carrier appointments?")
+    questions.push("Are there any outstanding audits, state DOI actions, or pending litigation?")
+  }
+
+  return { verdict, verdictReason, dealStructure, score: dealScore, signals, questions }
 }
 
 // Smart stat card with trend indicator
@@ -1234,42 +1406,96 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
               {/* ── Buyer Intelligence ──────────────────────────────────────── */}
               {(() => {
                 const intel = buildBuyerIntelligence(viewingLead)
-                const hasIntel = intel.strengths.length > 0 || intel.risks.length > 0 || intel.questions.length > 0
-                if (!hasIntel) return null
+                if (intel.verdict === "Insufficient Data" && intel.signals.length === 0) return null
+
+                const verdictColors: Record<BuyerIntel["verdict"], string> = {
+                  "Strong Buy":           "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400",
+                  "Buy":                  "bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400",
+                  "Proceed with Caution": "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400",
+                  "Pass":                 "bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400",
+                  "Insufficient Data":    "bg-secondary border-border text-muted-foreground",
+                }
+                const signalDot: Record<Signal["level"], string> = {
+                  green:  "bg-emerald-500",
+                  yellow: "bg-amber-400",
+                  red:    "bg-rose-500",
+                }
+                const signalBg: Record<Signal["level"], string> = {
+                  green:  "bg-emerald-500/5 border-emerald-500/20",
+                  yellow: "bg-amber-500/5 border-amber-500/20",
+                  red:    "bg-rose-500/5 border-rose-500/20",
+                }
+
                 return (
                   <div className="rounded-lg border border-border bg-card overflow-hidden">
+                    {/* Header */}
                     <div className="flex items-center gap-2 border-b border-border bg-secondary/30 px-4 py-2.5">
                       <Lightbulb className="h-3.5 w-3.5 text-amber-500" />
                       <p className="text-xs font-bold uppercase tracking-wide text-foreground">Buyer Intelligence</p>
+                      {intel.verdict !== "Insufficient Data" && (
+                        <span className="ml-auto text-[10px] font-semibold text-muted-foreground">
+                          Deal Score: {intel.score}/100
+                        </span>
+                      )}
                     </div>
-                    <div className="divide-y divide-border/50">
-                      {intel.strengths.length > 0 && (
-                        <div className="px-4 py-3 space-y-1.5">
-                          <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                            <CheckCircle2 className="h-3 w-3" /> Strengths
-                          </p>
-                          {intel.strengths.map((s, i) => (
-                            <p key={i} className="text-xs text-foreground leading-relaxed pl-4">{s}</p>
+
+                    <div className="p-4 space-y-4">
+                      {/* Verdict + Deal Structure */}
+                      <div className={cn("rounded-lg border px-4 py-3 space-y-1.5", verdictColors[intel.verdict])}>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-bold uppercase tracking-wide">Recommendation</p>
+                          <span className="text-sm font-bold">{intel.verdict}</span>
+                        </div>
+                        <p className="text-xs leading-relaxed opacity-90">{intel.verdictReason}</p>
+                        <div className="border-t border-current/20 pt-2 mt-1">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide opacity-70 mb-0.5">Deal Structure</p>
+                          <p className="text-xs leading-relaxed opacity-85">{intel.dealStructure}</p>
+                        </div>
+                      </div>
+
+                      {/* Score bar */}
+                      {intel.verdict !== "Insufficient Data" && (
+                        <div>
+                          <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                            <span>Deal Quality</span>
+                            <span>{intel.score}/100</span>
+                          </div>
+                          <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
+                            <div
+                              className={cn("h-full rounded-full transition-all", intel.score >= 70 ? "bg-emerald-500" : intel.score >= 45 ? "bg-amber-400" : "bg-rose-500")}
+                              style={{ width: `${intel.score}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Signals */}
+                      {intel.signals.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Signal Analysis</p>
+                          {intel.signals.map((sig, i) => (
+                            <div key={i} className={cn("rounded-md border px-3 py-2.5 flex gap-2.5", signalBg[sig.level])}>
+                              <span className={cn("mt-1 h-2 w-2 rounded-full shrink-0", signalDot[sig.level])} />
+                              <div>
+                                <p className="text-[11px] font-semibold text-foreground">{sig.label}</p>
+                                <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">{sig.detail}</p>
+                              </div>
+                            </div>
                           ))}
                         </div>
                       )}
-                      {intel.risks.length > 0 && (
-                        <div className="px-4 py-3 space-y-1.5">
-                          <p className="text-[10px] font-bold uppercase tracking-wide text-rose-600 dark:text-rose-400 flex items-center gap-1">
-                            <AlertTriangle className="h-3 w-3" /> Risks
-                          </p>
-                          {intel.risks.map((r, i) => (
-                            <p key={i} className="text-xs text-foreground leading-relaxed pl-4">{r}</p>
-                          ))}
-                        </div>
-                      )}
+
+                      {/* Questions to ask */}
                       {intel.questions.length > 0 && (
-                        <div className="px-4 py-3 space-y-1.5">
+                        <div className="space-y-1.5">
                           <p className="text-[10px] font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400 flex items-center gap-1">
                             <HelpCircle className="h-3 w-3" /> Questions to Ask
                           </p>
                           {intel.questions.map((q, i) => (
-                            <p key={i} className="text-xs text-foreground leading-relaxed pl-4">{q}</p>
+                            <div key={i} className="flex gap-2 pl-1">
+                              <span className="text-blue-400 text-xs shrink-0 mt-0.5">—</span>
+                              <p className="text-xs text-foreground leading-relaxed">{q}</p>
+                            </div>
                           ))}
                         </div>
                       )}
