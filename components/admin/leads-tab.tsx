@@ -1279,10 +1279,20 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
               })()}
 
               {/* Valuation offer band — top priority */}
+              {(() => {
+                const low = parseFloat(viewingLead.low_offer ?? viewingLead.quick_low ?? "")
+                const high = parseFloat(viewingLead.high_offer ?? viewingLead.quick_high ?? "")
+                // Always compute mid from the actual low/high so it stays between them.
+                // Only fall back to stored estimated_value when we have no range data at all.
+                const computedMid = !isNaN(low) && !isNaN(high)
+                  ? Math.round((low + high) / 2)
+                  : parseFloat(viewingLead.estimated_value ?? viewingLead.quick_mid ?? "")
+                const midDisplay = fmt(isNaN(computedMid) ? null : String(computedMid))
+                return (
               <div className="grid grid-cols-3 gap-2">
                 {[
                   { label: "Low", value: fmt(viewingLead.low_offer ?? viewingLead.quick_low) },
-                  { label: "Mid Value", value: fmt(viewingLead.estimated_value ?? viewingLead.quick_mid), highlight: true as const },
+                  { label: "Mid Value", value: midDisplay, highlight: true as const },
                   { label: "High", value: fmt(viewingLead.high_offer ?? viewingLead.quick_high) },
                 ].map(({ label, value, highlight }) => (
                   <div key={label} className={`rounded-lg border p-3 text-center ${highlight ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30" : "border-border bg-secondary/30"}`}>
@@ -1291,6 +1301,8 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
                   </div>
                 ))}
               </div>
+                )
+              })()}
 
               {/* Core scoring */}
               {(viewingLead.core_score || viewingLead.risk_grade || viewingLead.calculated_multiple) && (
