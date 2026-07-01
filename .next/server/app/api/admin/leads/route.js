@@ -16,6 +16,7 @@
         l.archived,
         l.archive_reason,
         l.archived_at,
+        l.notes,
         fv.low_offer,
         fv.high_offer,
         fv.core_score,
@@ -121,14 +122,14 @@
       WHERE created_at >= NOW() - INTERVAL '8 weeks' AND archived = false
       GROUP BY DATE_TRUNC('week', created_at)
       ORDER BY week ASC
-    `;return u.NextResponse.json({leads:a,stats:b[0],stageStats:c,sourceStats:d,weeklyTrend:e})}catch(a){return console.error("[v0] admin leads fetch error:",a),u.NextResponse.json({error:"Failed to fetch leads"},{status:500})}}async function z(a){if(!await (0,w.nm)())return u.NextResponse.json({error:"Unauthorized"},{status:401});try{let{id:b,stage:c,archived:d,archive_reason:e}=await a.json();if(!b||isNaN(Number(b)))return u.NextResponse.json({error:"Invalid lead id"},{status:400});if("boolean"==typeof d)return await (0,v.A)`
+    `;return u.NextResponse.json({leads:a,stats:b[0],stageStats:c,sourceStats:d,weeklyTrend:e})}catch(a){return console.error("[v0] admin leads fetch error:",a),u.NextResponse.json({error:"Failed to fetch leads"},{status:500})}}async function z(a){if(!await (0,w.nm)())return u.NextResponse.json({error:"Unauthorized"},{status:401});try{let{id:b,stage:c,archived:d,archive_reason:e,notes:f}=await a.json();if(!b||isNaN(Number(b)))return u.NextResponse.json({error:"Invalid lead id"},{status:400});if("boolean"==typeof d)return await (0,v.A)`
         UPDATE leads 
         SET archived = ${d},
             archive_reason = ${e??null},
             archived_at = ${d?(0,v.A)`NOW()`:null},
             last_activity = NOW()
         WHERE id = ${Number(b)}
-      `,u.NextResponse.json({success:!0});if(c&&!["new","contacted","qualified","proposal","negotiating","won","lost"].includes(c))return u.NextResponse.json({error:"Invalid stage"},{status:400});return await (0,v.A)`
+      `,u.NextResponse.json({success:!0});if("string"==typeof f)return await (0,v.A)`UPDATE leads SET notes = ${f}, last_activity = NOW() WHERE id = ${Number(b)}`,u.NextResponse.json({success:!0});if(c&&!["new","contacted","qualified","proposal","negotiating","won","lost"].includes(c))return u.NextResponse.json({error:"Invalid stage"},{status:400});return await (0,v.A)`
       UPDATE leads 
       SET stage = ${c}, last_activity = NOW() 
       WHERE id = ${Number(b)}

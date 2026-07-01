@@ -14,7 +14,8 @@ import {
   Users, TrendingUp, Calculator, ClipboardCheck, DollarSign, RefreshCw, 
   FolderKanban, Trophy, X, ChevronRight, ExternalLink, Trash2, Archive,
   ArrowUpRight, ArrowDownRight, Percent, Target, Clock, Calendar,
-  LayoutGrid, List, GripVertical, Phone, Mail, ChevronDown, ArchiveRestore
+  LayoutGrid, List, GripVertical, Phone, Mail, ChevronDown, ArchiveRestore,
+  Lightbulb, AlertTriangle, CheckCircle2, HelpCircle, StickyNote, Save
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CompleteDealModal } from "@/components/admin/complete-deal-modal"
@@ -90,6 +91,8 @@ interface LeadRow {
   archived: boolean
   archive_reason: string | null
   archived_at: string | null
+  // Notes
+  notes: string | null
 }
 
 interface Stats {
@@ -265,6 +268,107 @@ function Row({ label, value, tooltip }: { label: string; value: string | null | 
       <span className="font-medium text-foreground text-right max-w-[55%] break-words">{value}</span>
     </div>
   )
+}
+
+// ── Buyer Intelligence builder ────────────────────────────────────────────────
+
+interface BuyerIntel {
+  strengths: string[]
+  risks: string[]
+  questions: string[]
+}
+
+function buildBuyerIntelligence(lead: LeadRow): BuyerIntel {
+  const strengths: string[] = []
+  const risks: string[] = []
+  const questions: string[] = []
+
+  // Retention
+  const retention = parseFloat(lead.retention_rate ?? lead.quick_retention ?? "0") || null
+  if (retention !== null) {
+    if (retention >= 92) strengths.push(`Strong retention at ${retention}% — well above the 88% industry average.`)
+    else if (retention >= 85) strengths.push(`Solid retention at ${retention}%.`)
+    else if (retention < 80) risks.push(`Retention is ${retention}% — below acceptable threshold. Expect buyer pushback on multiple.`)
+    else risks.push(`Retention at ${retention}% is marginal — verify trailing 3-year trend.`)
+  } else {
+    questions.push("What is the 3-year trailing retention rate?")
+  }
+
+  // Revenue trend
+  if (lead.revenue_ltm && lead.revenue_y2) {
+    const ltm = parseFloat(lead.revenue_ltm)
+    const y2 = parseFloat(lead.revenue_y2)
+    const growth = ((ltm - y2) / y2) * 100
+    if (growth >= 10) strengths.push(`Revenue grew ${growth.toFixed(1)}% year-over-year — strong organic growth story.`)
+    else if (growth < -5) risks.push(`Revenue declined ${Math.abs(growth).toFixed(1)}% YoY — will reduce multiple significantly.`)
+  }
+  if (lead.growth === "declining") risks.push("Agency self-reported declining growth — investigate cause before offer.")
+  if (lead.growth === "strong") strengths.push("Self-reported strong growth trajectory.")
+
+  // Book concentration
+  const concentration = parseFloat(lead.client_concentration ?? "0") || null
+  if (concentration !== null && concentration > 20) {
+    risks.push(`Top client represents ${concentration}% of revenue — concentration risk. Request client list with tenure.`)
+  }
+
+  // Carrier concentration
+  const carrierConc = parseFloat(lead.carrier_diversification ?? "0") || null
+  if (carrierConc !== null && carrierConc < 40) {
+    risks.push(`Carrier diversification score is low (${carrierConc}%). Over-concentration in one carrier is a key risk.`)
+  } else if (carrierConc !== null && carrierConc >= 70) {
+    strengths.push("Well-diversified carrier mix — lower appointment risk for buyer.")
+  }
+  if (lead.top_carriers) strengths.push(`Appointed with: ${lead.top_carriers}.`)
+
+  // E&O claims
+  if (lead.eo_claims != null && lead.eo_claims > 0) {
+    risks.push(`${lead.eo_claims} E&O claim${lead.eo_claims > 1 ? "s" : ""} on record — require full claim detail and resolution status.`)
+  }
+
+  // Seller transition
+  const sellerStay = lead.closing_timeline
+  if (sellerStay) {
+    if (sellerStay.toLowerCase().includes("12") || sellerStay.toLowerCase().includes("18") || sellerStay.toLowerCase().includes("24")) {
+      strengths.push(`Seller committed to ${sellerStay} transition — reduces client attrition risk post-close.`)
+    } else if (sellerStay.toLowerCase().includes("6") || sellerStay.toLowerCase().includes("3")) {
+      risks.push(`Short seller transition (${sellerStay}) increases post-close retention risk — negotiate a longer runway or larger earnout.`)
+    }
+  } else {
+    questions.push("What transition period is the seller willing to commit to?")
+  }
+
+  // Staff risk
+  if (lead.staff_retention_risk?.toLowerCase().includes("high")) {
+    risks.push("High staff retention risk flagged — key staff may leave post-close. Request employment agreements.")
+  }
+  if (lead.producer_agreements?.toLowerCase() === "yes") {
+    strengths.push("Producer agreements in place — reduces walk-away risk of top producers.")
+  } else if (lead.producer_agreements?.toLowerCase() === "no") {
+    risks.push("No producer agreements — producers could walk post-close. Address in LOI.")
+  }
+
+  // Agency age
+  if (lead.year_established) {
+    const age = new Date().getFullYear() - lead.year_established
+    if (age >= 20) strengths.push(`${age}-year-old agency — established relationships and long client tenure.`)
+    else if (age < 5) risks.push(`Agency is only ${age} years old — limited track record for buyer confidence.`)
+  }
+
+  // Quick valuation tier
+  if (lead.tier === "premium") strengths.push("Quick valuation scored this book as a premium-tier asset.")
+  if (lead.tier === "distressed") risks.push("Quick valuation flagged this as a distressed book — verify underlying metrics.")
+
+  // Risk grade
+  if (lead.risk_grade === "A" || lead.risk_grade === "A+") strengths.push("Top risk grade — minimal red flags across all scoring categories.")
+  if (lead.risk_grade === "D" || lead.risk_grade === "F") risks.push("Poor risk grade — significant structural concerns. Consider lowball offer or pass.")
+
+  // Default questions if we don't have data
+  if (!lead.revenue_ltm && !lead.quick_revenue) questions.push("What is the agency's LTM revenue and 3-year trend?")
+  if (!lead.top_carriers) questions.push("Which carriers is the agency appointed with and what are the volumes?")
+  if (!lead.office_structure) questions.push("Is the agency remote, office-based, or hybrid? Any long-term lease obligations?")
+  if (!lead.sde_ebitda && lead.revenue_ltm) questions.push("What is the SDE/EBITDA after normalizing owner compensation?")
+
+  return { strengths, risks, questions }
 }
 
 // Smart stat card with trend indicator
@@ -505,6 +609,9 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
   const [archivingLead, setArchivingLead] = useState<LeadRow | null>(null)
   const [archiveLoading, setArchiveLoading] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
+  const [notesValue, setNotesValue] = useState<string>("")
+  const [notesSaving, setNotesSaving] = useState(false)
+  const [notesSaved, setNotesSaved] = useState(false)
   const { mutate: mutateIntel } = useMarketIntel()
 
   const fetchLeads = useCallback(async () => {
@@ -606,6 +713,24 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
     }
   }
 
+  const saveNotes = async (leadId: number, notes: string) => {
+    setNotesSaving(true)
+    setNotesSaved(false)
+    try {
+      await fetch("/api/admin/leads", {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ id: leadId, notes }),
+      })
+      setLeads((prev) => prev.map((l) => l.id === leadId ? { ...l, notes } : l))
+      setViewingLead((prev) => prev?.id === leadId ? { ...prev, notes } : prev)
+      setNotesSaved(true)
+      setTimeout(() => setNotesSaved(false), 2000)
+    } finally {
+      setNotesSaving(false)
+    }
+  }
+
   const unarchiveLead = async (id: number) => {
     try {
       const res = await fetch("/api/admin/leads", {
@@ -624,6 +749,12 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
   }
 
   useEffect(() => { fetchLeads() }, [fetchLeads])
+
+  // Sync notes textarea when a different lead is opened
+  useEffect(() => {
+    setNotesValue(viewingLead?.notes ?? "")
+    setNotesSaved(false)
+  }, [viewingLead?.id])
 
   const activeDeals = deals.filter((d) => d.status === "active")
   const completedDeals = deals.filter((d) => d.status === "completed")
@@ -1100,6 +1231,53 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
                 </div>
               )}
 
+              {/* ── Buyer Intelligence ──────────────────────────────────────── */}
+              {(() => {
+                const intel = buildBuyerIntelligence(viewingLead)
+                const hasIntel = intel.strengths.length > 0 || intel.risks.length > 0 || intel.questions.length > 0
+                if (!hasIntel) return null
+                return (
+                  <div className="rounded-lg border border-border bg-card overflow-hidden">
+                    <div className="flex items-center gap-2 border-b border-border bg-secondary/30 px-4 py-2.5">
+                      <Lightbulb className="h-3.5 w-3.5 text-amber-500" />
+                      <p className="text-xs font-bold uppercase tracking-wide text-foreground">Buyer Intelligence</p>
+                    </div>
+                    <div className="divide-y divide-border/50">
+                      {intel.strengths.length > 0 && (
+                        <div className="px-4 py-3 space-y-1.5">
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3" /> Strengths
+                          </p>
+                          {intel.strengths.map((s, i) => (
+                            <p key={i} className="text-xs text-foreground leading-relaxed pl-4">{s}</p>
+                          ))}
+                        </div>
+                      )}
+                      {intel.risks.length > 0 && (
+                        <div className="px-4 py-3 space-y-1.5">
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" /> Risks
+                          </p>
+                          {intel.risks.map((r, i) => (
+                            <p key={i} className="text-xs text-foreground leading-relaxed pl-4">{r}</p>
+                          ))}
+                        </div>
+                      )}
+                      {intel.questions.length > 0 && (
+                        <div className="px-4 py-3 space-y-1.5">
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                            <HelpCircle className="h-3 w-3" /> Questions to Ask
+                          </p>
+                          {intel.questions.map((q, i) => (
+                            <p key={i} className="text-xs text-foreground leading-relaxed pl-4">{q}</p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })()}
+
               {/* Valuation offer band — top priority */}
               <div className="grid grid-cols-3 gap-2">
                 {[
@@ -1211,6 +1389,43 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
                   </div>
                 </div>
               )}
+
+              {/* Notes */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                    <StickyNote className="h-3.5 w-3.5" /> Notes
+                  </p>
+                  <button
+                    onClick={() => saveNotes(viewingLead.id, notesValue)}
+                    disabled={notesSaving || notesValue === (viewingLead.notes ?? "")}
+                    className={cn(
+                      "flex items-center gap-1 text-[11px] font-medium rounded px-2 py-0.5 transition-colors",
+                      notesSaved
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : notesValue !== (viewingLead.notes ?? "")
+                          ? "text-primary hover:bg-primary/10"
+                          : "text-muted-foreground/40 cursor-default"
+                    )}
+                  >
+                    <Save className="h-3 w-3" />
+                    {notesSaved ? "Saved" : "Save"}
+                  </button>
+                </div>
+                <textarea
+                  value={notesValue}
+                  onChange={(e) => setNotesValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) {
+                      saveNotes(viewingLead.id, notesValue)
+                    }
+                  }}
+                  placeholder="Add notes, follow-up actions, due diligence flags…"
+                  rows={4}
+                  className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2.5 text-xs text-foreground placeholder:text-muted-foreground/50 resize-none focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all"
+                />
+                <p className="mt-1 text-[10px] text-muted-foreground/50">Cmd+Enter to save</p>
+              </div>
 
               {/* Pipedrive link */}
               {viewingLead.pipedrive_deal_id && (
