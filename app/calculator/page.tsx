@@ -52,6 +52,7 @@ const defaultInputs: ValuationInputs = {
   sellerTransitionMonths: null,
   newBusinessValue: null,
   avgClientTenure: null,
+  hasTrucking: null,
 }
 
 // Only truly required fields — the engine handles missing optional fields gracefully

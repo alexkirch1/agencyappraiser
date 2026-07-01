@@ -9,7 +9,7 @@ import { Slider } from "@/components/ui/slider"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Button } from "@/components/ui/button"
 import { ValuationDisclaimerModal } from "@/components/valuation-disclaimer-modal"
-import { ArrowRight, Calculator, Zap, DollarSign, AlertTriangle, TrendingUp, ShieldAlert, Download, Share2, Check } from "lucide-react"
+import { ArrowRight, Calculator, Zap, DollarSign, AlertTriangle, TrendingUp, ShieldAlert, Download, Share2, Check, Truck } from "lucide-react"
 import { FeedbackWidget } from "@/components/feedback-widget"
 import { InfoTip } from "@/components/ui/info-tip"
 import { downloadQuickValuePDF } from "@/lib/generate-pdf"
@@ -102,6 +102,7 @@ export default function QuickValuePage() {
   const [customers, setCustomers] = useState<number | null>(null)
   const [policies, setPolicies] = useState<number | null>(null)
   const [growth, setGrowth] = useState<string>("")
+  const [hasTrucking, setHasTrucking] = useState<boolean | null>(null)
   const [multiplier, setMultiplier] = useState(1.95)
   const [showDisclaimer, setShowDisclaimer] = useState(false)
   const [resultsVisible, setResultsVisible] = useState(false)
@@ -167,11 +168,17 @@ export default function QuickValuePage() {
       else if (ratio < 1.33) suggested -= 0.16
     }
 
+    // Trucking penalty — caps multiple and reduces suggested
+    if (hasTrucking === true) {
+      suggested -= 0.40
+      suggested = Math.min(suggested, 1.5)
+    }
+
     // Small revenue-tier micro-offset so it never snaps to a round number
     const revOffset = revenue > 2_000_000 ? 0.07 : revenue > 500_000 ? 0.03 : -0.04
     suggested += revOffset
 
-    suggested = Math.max(0.78, Math.min(3.0, parseFloat(suggested.toFixed(2))))
+    suggested = Math.max(0.78, Math.min(hasTrucking ? 1.5 : 3.0, parseFloat(suggested.toFixed(2))))
 
     // Central value
     const value = naturalRound(revenue * multiplier)
@@ -188,7 +195,7 @@ export default function QuickValuePage() {
     const gap  = getFullValGap(retention, bookType, growth)
 
     return { value, lowValue, highValue, suggested, tier, gap, ratio }
-  }, [revenue, retention, bookType, multiplier, customers, policies, growth])
+  }, [revenue, retention, bookType, multiplier, customers, policies, growth, hasTrucking])
 
   const tierInfo = estimate ? TIER_MESSAGES[estimate.tier] : null
 
@@ -363,6 +370,46 @@ export default function QuickValuePage() {
                   <span className="text-xs text-muted-foreground">Policies per customer</span>
                   <span className="font-mono text-sm font-bold text-foreground">{estimate.ratio.toFixed(2)}</span>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Trucking / Commercial Auto */}
+          <Card className="border border-border bg-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+                <Truck className="h-4 w-4 text-muted-foreground" />
+                6. Do you write trucking or heavy commercial auto?
+                <InfoTip text="Trucking and heavy commercial auto (semi-trucks, fleets, owner-operators) carry elevated loss ratios and are frequently non-renewed by carriers during an ownership change. Answering yes applies a significant valuation penalty." />
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <RadioGroup
+                value={hasTrucking === null ? "" : hasTrucking ? "yes" : "no"}
+                onValueChange={(v) => setHasTrucking(v === "yes")}
+                className="flex flex-col gap-2 sm:flex-row sm:gap-3"
+              >
+                {[
+                  { value: "no",  label: "No trucking",        sub: "Standard P&C book" },
+                  { value: "yes", label: "Yes, trucking/fleet", sub: "Semi-trucks, fleets, owner-operators" },
+                ].map((opt) => (
+                  <label
+                    key={opt.value}
+                    className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/10"
+                  >
+                    <RadioGroupItem value={opt.value} />
+                    <span>
+                      {opt.label}
+                      <span className="ml-2 text-muted-foreground text-xs">{opt.sub}</span>
+                    </span>
+                  </label>
+                ))}
+              </RadioGroup>
+              {hasTrucking === true && (
+                <p className="flex items-start gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  Trucking exposure reduces your suggested multiple and caps it at 1.5x. Buyers price in carrier non-renewal risk and volatile loss ratios on these accounts.
+                </p>
               )}
             </CardContent>
           </Card>

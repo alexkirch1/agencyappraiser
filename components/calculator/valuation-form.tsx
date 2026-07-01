@@ -306,6 +306,38 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
             <SmartInput id="policyMix" inputType="percent" placeholder="e.g. 60" value={inputs.policyMix} onValueChange={(v) => update({ policyMix: v })} className="mt-1.5" />
             <p className="mt-1 text-xs text-muted-foreground/70">% of premium that is Commercial Lines</p>
           </div>
+
+          {/* Trucking / Commercial Auto exposure */}
+          <div>
+            <Label className="mb-2 block text-sm text-muted-foreground">
+              Does your book include trucking or heavy commercial auto?
+              <InfoTip text="Trucking and heavy commercial auto (semi-trucks, fleets, owner-operators) carry elevated loss ratios and are frequently non-renewed by carriers during ownership changes. This applies a valuation penalty and caps the multiple — buyers view it as a significant risk." />
+            </Label>
+            <RadioGroup
+              value={inputs.hasTrucking === null ? "" : inputs.hasTrucking ? "yes" : "no"}
+              onValueChange={(v) => update({ hasTrucking: v === "yes" })}
+              className="flex gap-3"
+            >
+              {[
+                { value: "no",  label: "No trucking exposure" },
+                { value: "yes", label: "Yes, trucking or fleet accounts" },
+              ].map((opt) => (
+                <label
+                  key={opt.value}
+                  className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/10"
+                >
+                  <RadioGroupItem value={opt.value} />
+                  <span>{opt.label}</span>
+                </label>
+              ))}
+            </RadioGroup>
+            {inputs.hasTrucking === true && (
+              <p className="mt-2 flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                Trucking exposure applies a valuation penalty and caps your multiple at 1.5x. Buyers price in carrier non-renewal risk and volatile loss ratios.
+              </p>
+            )}
+          </div>
           <div id="field-clientConcentration">
             <Label htmlFor="concentration" className="text-sm text-muted-foreground">
               Client Concentration (%)

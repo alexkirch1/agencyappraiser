@@ -34,6 +34,8 @@ export interface ValuationInputs {
   totalWrittenPremium: number | null // for auto-calculating avg premium
   // Transition
   sellerTransitionMonths: number | null // 0-6, 6-12, 12-24
+  // Trucking book flag
+  hasTrucking: boolean | null // true = significant trucking/commercial auto exposure
   // Conditional (Full Agency only)
   closingTimeline: string // urgent | standard | long
   annualPayrollCost: number | null
@@ -278,7 +280,14 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
     else if (avgPrem >= 1500) avgPremScore = 0.02
     else if (avgPrem < 800)   avgPremScore = -0.03
   }
-  bookScore += concentrationScore + mixScore + polsPerCxScore + lossRatioScore + avgPremScore
+  // Trucking penalty — commercial auto / trucking books carry elevated loss ratios,
+  // carrier non-renewal risk, and are notoriously difficult to transfer to a buyer.
+  // Applied as a flat penalty off the book score and a hard cap on total score.
+  let truckingPenalty = 0
+  if (inputs.hasTrucking === true) {
+    truckingPenalty = 0.18
+  }
+  bookScore += concentrationScore + mixScore + polsPerCxScore + lossRatioScore + avgPremScore - truckingPenalty
   bookScore = Math.max(0.1, Math.min(0.75, bookScore))
   totalRawScore += bookScore
 
@@ -340,6 +349,12 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
     }
   }
   scaledCoreScore = Math.max(desiredMin, Math.min(desiredAbsoluteMax, scaledCoreScore))
+
+  // Trucking hard cap — buyers apply a structural discount on trucking books
+  // due to unpredictable loss ratios and limited carrier options post-acquisition.
+  if (inputs.hasTrucking === true) {
+    scaledCoreScore = Math.min(scaledCoreScore, 1.5)
+  }
 
   const finalMultiple = scaledCoreScore * TRANSACTION_MULTIPLIER
 
@@ -530,6 +545,18 @@ export function runRiskAudit(inputs: ValuationInputs): RiskAuditResult {
     strengthCount++
   } else if (mix < 20 && mix > 0) {
     items.push({ level: "Info", title: "Personal Lines Focus", problem: "Your book is primarily Personal Lines.", psychology: "Personal lines are stable but can be labor-intensive. Buyers may discount slightly for the service load.", mitigation: "Cross-sell commercial policies to existing homeowners." })
+  }
+
+  // 5b. Trucking / Commercial Auto exposure
+  if (inputs.hasTrucking === true) {
+    items.push({
+      level: "High Risk",
+      title: "Trucking / Commercial Auto Exposure",
+      problem: "Books with significant trucking or heavy commercial auto exposure are among the hardest to transfer. Carriers frequently non-renew these accounts during ownership changes, and loss ratios are volatile.",
+      psychology: "Buyers view trucking books as a liability, not an asset. They price in the risk that key carrier appointments won't survive the acquisition, which compresses the multiple significantly.",
+      mitigation: "Quantify what % of your revenue is trucking. If it's under 15%, consider running-off or reassigning those accounts before going to market. Above 15%, expect buyers to request a 20–30% price concession or require an extended earnout period.",
+    })
+    highCount++
   }
 
   // 6. Office Structure
