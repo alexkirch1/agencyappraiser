@@ -123,7 +123,7 @@ export function LeadCaptureModal({
 
     // Save referral source to DB in background — non-blocking
     if (leadId) {
-      fetch("/api/submit-lead/referral", {
+      fetch("/api/lead-referral", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ leadId, referralSource: source }),
@@ -142,7 +142,7 @@ export function LeadCaptureModal({
 
     // Save feedback to lead notes in background — non-blocking
     if (leadId) {
-      fetch("/api/submit-lead/feedback", {
+      fetch("/api/lead-feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ leadId, feedback: option }),

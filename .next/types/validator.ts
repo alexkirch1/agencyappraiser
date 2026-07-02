@@ -281,6 +281,24 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
+// Validate ../../app/api/lead-feedback/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/lead-feedback">> = Specific
+  const handler = {} as typeof import("../../app/api/lead-feedback/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../app/api/lead-referral/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/lead-referral">> = Specific
+  const handler = {} as typeof import("../../app/api/lead-referral/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../app/api/market-data/stats/route.ts
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/market-data/stats">> = Specific
@@ -348,24 +366,6 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/send-drip-email">> = Specific
   const handler = {} as typeof import("../../app/api/send-drip-email/route.js")
-  type __Check = __IsExpected<typeof handler>
-  // @ts-ignore
-  type __Unused = __Check
-}
-
-// Validate ../../app/api/submit-lead/feedback/route.ts
-{
-  type __IsExpected<Specific extends RouteHandlerConfig<"/api/submit-lead/feedback">> = Specific
-  const handler = {} as typeof import("../../app/api/submit-lead/feedback/route.js")
-  type __Check = __IsExpected<typeof handler>
-  // @ts-ignore
-  type __Unused = __Check
-}
-
-// Validate ../../app/api/submit-lead/referral/route.ts
-{
-  type __IsExpected<Specific extends RouteHandlerConfig<"/api/submit-lead/referral">> = Specific
-  const handler = {} as typeof import("../../app/api/submit-lead/referral/route.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check
