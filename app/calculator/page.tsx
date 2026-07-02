@@ -536,16 +536,35 @@ function CalculatorContent() {
           valuationSummary={`Revenue (LTM): $${inputs.revenueLTM?.toLocaleString() ?? "N/A"}\nSDE/EBITDA: $${inputs.sdeEbitda?.toLocaleString() ?? "N/A"}\nRetention Rate: ${inputs.retentionRate ?? "N/A"}%\nCommercial Mix: ${inputs.policyMix ?? "N/A"}%\nClient Concentration: ${inputs.clientConcentration ?? "N/A"}%\nCarrier Diversification: ${inputs.carrierDiversification ?? "N/A"}%\nYear Established: ${inputs.yearEstablished ?? "N/A"}\nState: ${inputs.primaryState || "N/A"}\nEmployees: ${inputs.employeeCount ?? "N/A"}`}
           estimatedValue={pendingMidValue}
           valuationData={{
-            revenueLTM: inputs.revenueLTM,
-            sdeEbitda: inputs.sdeEbitda,
-            retentionRate: inputs.retentionRate,
-            policyMix: inputs.policyMix,
-            clientConcentration: inputs.clientConcentration,
+            // Core financials
+            revenueLTM:           inputs.revenueLTM,
+            revenueY2:            inputs.revenueY2,
+            revenueY3:            inputs.revenueY3,
+            sdeEbitda:            inputs.sdeEbitda,
+            ownerCompensation:    inputs.ownerCompensation,
+            annualPayroll:        inputs.annualPayrollCost,
+            // Book quality
+            retentionRate:        inputs.retentionRate,
+            policyMix:            inputs.policyMix,
+            clientConcentration:  inputs.clientConcentration,
             carrierDiversification: inputs.carrierDiversification,
-            yearEstablished: inputs.yearEstablished,
-            primaryState: inputs.primaryState,
-            employeeCount: inputs.employeeCount,
-            scopeOfSale: inputs.scopeOfSale,
+            avgClientTenure:      inputs.avgClientTenure,
+            topCarriers:          inputs.topCarriers,
+            // Agency profile
+            yearEstablished:      inputs.yearEstablished,
+            primaryState:         inputs.primaryState,
+            employeeCount:        inputs.employeeCount,
+            officeStructure:      inputs.officeStructure,
+            agencyDescription:    inputs.agencyDescription,
+            // Deal structure
+            scopeOfSale:          inputs.scopeOfSale,
+            closingTimeline:      inputs.closingTimeline,
+            staffRetentionRisk:   inputs.staffRetentionRisk,
+            newBusinessValue:     inputs.newBusinessValue,
+            // Calculated outputs — filled after calc runs
+            calculatedMultiple:   pendingMidValue && inputs.revenueLTM ? (pendingMidValue / inputs.revenueLTM) : undefined,
+            lowOffer:             pendingMidValue ? Math.round(pendingMidValue * 0.87) : undefined,
+            highOffer:            pendingMidValue ? Math.round(pendingMidValue * 1.07) : undefined,
           }}
         />
       )}
