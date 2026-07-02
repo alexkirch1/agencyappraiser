@@ -301,8 +301,8 @@ export default function QuickValuePage() {
           <Card className="border border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold text-foreground">
-                4. How has your revenue trended over the last 3 years?
-                <InfoTip text="Look at your last 3 years of revenue. Strong growth means 10%+ per year. Moderate is 3-9%. Flat means roughly the same each year." />
+                4. How has your revenue grown over the last 3 years?
+                <InfoTip text="Look at your last 3 years of revenue. Strong means 10%+ per year. Moderate is 3–9%. Flat means roughly the same each year." />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -312,10 +312,10 @@ export default function QuickValuePage() {
                 className="flex flex-col gap-2"
               >
                 {[
-                  { value: "strong",    label: "Strong Growth",   sub: "10%+ per year"        },
-                  { value: "moderate",  label: "Moderate Growth", sub: "3–9% per year"         },
-                  { value: "flat",      label: "Flat",            sub: "Roughly the same"      },
-                  { value: "declining", label: "Declining",       sub: "Revenue has decreased" },
+                  { value: "strong",    label: "Strong",    sub: "10%+ per year"         },
+                  { value: "moderate",  label: "Moderate",  sub: "3–9% per year"          },
+                  { value: "flat",      label: "Flat",      sub: "Roughly the same"       },
+                  { value: "declining", label: "Declining", sub: "Revenue has decreased"  },
                 ].map((opt) => (
                   <label
                     key={opt.value}
