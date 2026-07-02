@@ -68,6 +68,89 @@ function statBox(label: string, value: string) {
   </td>`
 }
 
+// ─── Full valuation completed — admin notification ───────────────────────────
+
+export function fullValuationNotificationEmail(data: {
+  leadName: string
+  leadEmail: string
+  agencyName?: string
+  lowOffer: number
+  highOffer: number
+  midOffer: number
+  calculatedMultiple: number
+  riskGrade: string
+  revenueLTM?: number
+  sdeEbitda?: number
+  retentionRate?: number
+  leadId: number
+}) {
+  const fmt = (n: number) =>
+    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n)
+
+  const gradeColor: Record<string, string> = {
+    "A+": "#16a34a", A: "#16a34a", B: "#0ea5e9", C: "#f59e0b", D: "#ef4444", F: "#dc2626",
+  }
+  const gColor = gradeColor[data.riskGrade] ?? MUTED_TEXT
+
+  const html = layout(`
+    <div style="display:inline-block;background:#8b5cf622;border:1px solid #8b5cf644;border-radius:20px;padding:4px 12px;font-size:12px;color:#7c3aed;font-weight:600;margin-bottom:16px;">
+      FULL VALUATION COMPLETED
+    </div>
+    <h1 style="margin:0 0 4px;font-size:24px;font-weight:700;color:${DARK_TEXT};">${data.leadName}</h1>
+    <p style="margin:0 0 24px;font-size:15px;color:${MUTED_TEXT};">${data.agencyName || "Independent Agency"} &mdash; Full Agency Valuation Calculator</p>
+
+    <!-- Valuation range -->
+    <table width="100%" cellpadding="0" cellspacing="4" style="margin-bottom:20px;">
+      <tr>
+        ${statBox("Low", fmt(data.lowOffer))}
+        ${statBox("Mid Value", fmt(data.midOffer))}
+        ${statBox("High", fmt(data.highOffer))}
+      </tr>
+    </table>
+
+    <!-- Key metrics row -->
+    <table width="100%" cellpadding="0" cellspacing="4" style="margin-bottom:24px;">
+      <tr>
+        ${statBox("Multiple", `${data.calculatedMultiple.toFixed(2)}x`)}
+        ${data.revenueLTM ? statBox("Revenue", fmt(data.revenueLTM)) : ""}
+        ${data.retentionRate ? statBox("Retention", `${data.retentionRate}%`) : ""}
+        <td style="text-align:center;padding:12px 8px;">
+          <div style="background:${BG};border:1px solid ${BORDER};border-radius:8px;padding:14px 12px;">
+            <div style="font-size:20px;font-weight:700;color:${gColor};">${data.riskGrade}</div>
+            <div style="font-size:11px;color:${MUTED_TEXT};margin-top:4px;text-transform:uppercase;letter-spacing:0.5px;">Risk Grade</div>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    ${data.sdeEbitda ? `
+    <div style="background:${BG};border:1px solid ${BORDER};border-left:3px solid #8b5cf6;border-radius:6px;padding:12px 16px;margin-bottom:24px;">
+      <span style="font-size:12px;color:${MUTED_TEXT};font-weight:500;">SDE / EBITDA</span>
+      <span style="float:right;font-size:13px;font-weight:700;color:${DARK_TEXT};">${fmt(data.sdeEbitda)}</span>
+    </div>` : ""}
+
+    <!-- CTA -->
+    <a href="${BASE_URL}/admin"
+       style="display:block;text-align:center;background:#0f172a;color:#fff;text-decoration:none;padding:14px 24px;border-radius:8px;font-weight:600;font-size:15px;margin-bottom:12px;">
+      View in Admin Dashboard
+    </a>
+    <a href="mailto:${data.leadEmail}?subject=Your Agency Valuation Results"
+       style="display:block;text-align:center;background:${BRAND_COLOR};color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;font-size:14px;">
+      Reply to ${data.leadName}
+    </a>
+
+    <p style="margin:16px 0 0;font-size:12px;color:${MUTED_TEXT};text-align:center;">
+      Completed ${new Date().toLocaleString("en-US", { timeZone: "America/New_York", dateStyle: "medium", timeStyle: "short" })} ET
+    </p>
+  `, `Full valuation: ${data.leadName} — ${fmt(data.midOffer)} mid at ${data.calculatedMultiple.toFixed(2)}x (${data.riskGrade} grade)`)
+
+  return {
+    from: FROM,
+    html,
+    subject: `Full Valuation: ${data.leadName} — ${fmt(data.midOffer)} @ ${data.calculatedMultiple.toFixed(2)}x (${data.riskGrade})`,
+  }
+}
+
 // ─── Admin notification email ────────────────────────────────────────────────
 
 export function adminNotificationEmail(data: {
