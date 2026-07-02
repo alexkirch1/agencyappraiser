@@ -655,36 +655,36 @@ export default function QuickValuePage() {
 
       {showDisclaimer && (
         <ValuationDisclaimerModal
-          onContinue={async () => {
+          onContinue={() => {
+            // Immediately transition — do NOT await anything here.
+            // Clarity (and other DOM observers) must see the state change without a network-induced delay.
             setShowDisclaimer(false)
             setResultsVisible(true)
-            // Save to DB silently (no lead required for quick val)
+            // Save to DB fully in the background — fire and forget
             if (estimate) {
-              try {
-                await fetch("/api/save-quick-valuation", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    leadId: null,
-                    revenue,
-                    retention,
-                    bookType,
-                    growth,
-                    customers,
-                    policies,
-                    ratio: estimate.ratio,
-                    multiplier,
-                    suggested: estimate.suggested,
-                    lowValue: estimate.lowValue,
-                    midValue: estimate.value,
-                    highValue: estimate.highValue,
-                    tier: estimate.tier,
-                  }),
-                })
-                .then((r) => r.json())
-                .then((saved) => { if (saved?.leadId) setSavedLeadId(saved.leadId) })
-                .catch(() => {})
-              } catch { /* non-blocking */ }
+              fetch("/api/save-quick-valuation", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  leadId: null,
+                  revenue,
+                  retention,
+                  bookType,
+                  growth,
+                  customers,
+                  policies,
+                  ratio: estimate.ratio,
+                  multiplier,
+                  suggested: estimate.suggested,
+                  lowValue: estimate.lowValue,
+                  midValue: estimate.value,
+                  highValue: estimate.highValue,
+                  tier: estimate.tier,
+                }),
+              })
+              .then((r) => r.json())
+              .then((saved) => { if (saved?.leadId) setSavedLeadId(saved.leadId) })
+              .catch(() => {})
             }
           }}
         />

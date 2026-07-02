@@ -65,9 +65,9 @@ export function ValuationDisclaimerModal({ onContinue }: Props) {
             </div>
           )}
 
-          {/* Disclaimer content */}
+          {/* Disclaimer content — uses a plain CSS class so styled-jsx is not needed */}
           {ready && (
-            <div className="flex flex-col gap-4" style={{ animation: "fade-up 0.4s ease-out" }}>
+            <div className="disclaimer-ready flex flex-col gap-4">
               <div className="flex items-center justify-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary w-fit mx-auto">
                 Beta
               </div>
@@ -94,10 +94,14 @@ export function ValuationDisclaimerModal({ onContinue }: Props) {
         </CardContent>
       </Card>
 
-      <style jsx>{`
+      {/* Plain <style> tag — no styled-jsx dependency that can silently crash on render */}
+      <style>{`
         @keyframes fade-up {
-          0% { opacity: 0; transform: translateY(12px); }
-          100% { opacity: 1; transform: translateY(0); }
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .disclaimer-ready {
+          animation: fade-up 0.4s ease-out both;
         }
       `}</style>
     </div>

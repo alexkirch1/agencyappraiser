@@ -258,18 +258,23 @@ function CalculatorContent() {
     setShowDisclaimer(true)
   }
 
-  const handleDisclaimerContinue = async () => {
+  const handleDisclaimerContinue = () => {
+    // State updates first — Clarity and other DOM observers see the transition immediately.
+    // Do NOT await anything before these calls.
     setShowDisclaimer(false)
     setSubmitted(true)
     setEditing(false)
-    // Calculate results then save to DB
+    // Fire-and-forget DB save — non-blocking
     const calcResults = calculateValuation(inputs)
-    const currentLeadId = leadId
-    saveFullValuation(currentLeadId, calcResults)
-    setTimeout(() => {
-      const el = document.getElementById("valuation-results")
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
-    }, 100)
+    saveFullValuation(leadId, calcResults)
+    // Double-rAF: waits for React to commit the new DOM before scrolling,
+    // more reliable than a fixed setTimeout and keeps the frame budget clean.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = document.getElementById("valuation-results")
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
+      })
+    })
   }
 
   const invalidKeys = (triedSubmit && (!submitted || editing)) ? getInvalidFieldKeys(inputs) : []
