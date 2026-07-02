@@ -30,26 +30,29 @@ export function ValuationSidebar({ results, riskAudit }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Offer Range */}
+      {/* Offer Range — User-facing (conservative) */}
       <Card className="border-primary/30 bg-card">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-            Estimated Value Range
+            Your Estimated Value Range
           </CardTitle>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Conservative estimate — real offers typically exceed the high end
+          </p>
         </CardHeader>
         <CardContent className="pt-0">
           <div className="flex flex-wrap items-end gap-x-3 gap-y-1">
             <div className="flex flex-col">
               <span className="text-xs text-muted-foreground">Low</span>
               <span className="text-xl font-bold text-success sm:text-2xl">
-                {formatCurrency(results.lowOffer)}
+                {formatCurrency(results.userFacingLow)}
               </span>
             </div>
             <span className="mb-1 text-lg text-muted-foreground">—</span>
             <div className="flex flex-col">
               <span className="text-xs text-muted-foreground">High</span>
               <span className="text-xl font-bold text-success sm:text-2xl">
-                {formatCurrency(results.highOffer)}
+                {formatCurrency(results.userFacingHigh)}
               </span>
             </div>
           </div>

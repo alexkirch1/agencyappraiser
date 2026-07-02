@@ -1504,7 +1504,7 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
                 )
               })()}
 
-              {/* Valuation offer band — top priority */}
+              {/* Valuation offer band — top priority (User-facing: conservative) */}
               {(() => {
                 const low = parseFloat(viewingLead.low_offer ?? viewingLead.quick_low ?? "")
                 const high = parseFloat(viewingLead.high_offer ?? viewingLead.quick_high ?? "")
@@ -1515,18 +1515,55 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
                   : parseFloat(viewingLead.estimated_value ?? viewingLead.quick_mid ?? "")
                 const midDisplay = fmt(isNaN(computedMid) ? null : String(computedMid))
                 return (
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { label: "Low", value: fmt(viewingLead.low_offer ?? viewingLead.quick_low) },
-                  { label: "Mid Value", value: midDisplay, highlight: true as const },
-                  { label: "High", value: fmt(viewingLead.high_offer ?? viewingLead.quick_high) },
-                ].map(({ label, value, highlight }) => (
-                  <div key={label} className={`rounded-lg border p-3 text-center ${highlight ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30" : "border-border bg-secondary/30"}`}>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</p>
-                    <p className={`mt-0.5 text-sm font-bold ${highlight ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"}`}>{value}</p>
-                  </div>
-                ))}
+              <div className="space-y-2">
+                <p className="text-[10px] uppercase font-semibold text-muted-foreground">Your Estimated Range (User-Facing)</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: "Low", value: fmt(viewingLead.low_offer ?? viewingLead.quick_low) },
+                    { label: "Mid Value", value: midDisplay, highlight: true as const },
+                    { label: "High", value: fmt(viewingLead.high_offer ?? viewingLead.quick_high) },
+                  ].map(({ label, value, highlight }) => (
+                    <div key={label} className={`rounded-lg border p-3 text-center ${highlight ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30" : "border-border bg-secondary/30"}`}>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</p>
+                      <p className={`mt-0.5 text-sm font-bold ${highlight ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"}`}>{value}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
+                )
+              })()}
+
+              {/* Buyer Profitability Analysis (Admin view: true value + what they should pay) */}
+              {(() => {
+                const multiple = parseFloat(viewingLead.calculated_multiple ?? "0") || null
+                const revenue = parseFloat(viewingLead.revenue_ltm ?? "0") || null
+                if (!multiple || !revenue) return null
+                
+                // True fair value (what the agency is worth)
+                const fairValue = Math.round(revenue * multiple)
+                
+                // What a buyer should pay to stay profitable:
+                // Typically 75-82% of fair value (25-18% discount from true value for buyer margin)
+                const buyerMinPrice = Math.round(fairValue * 0.75)
+                const buyerMaxPrice = Math.round(fairValue * 0.82)
+                
+                return (
+                  <div className="space-y-2">
+                    <p className="text-[10px] uppercase font-semibold text-muted-foreground">Buyer Profitability Analysis (Admin)</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: "Fair Value", value: fmt(fairValue.toString()), detail: "True agency worth @ multiple", color: "border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400" },
+                        { label: "Buyer Min", value: fmt(buyerMinPrice.toString()), detail: "25% discount margin", color: "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400" },
+                        { label: "Buyer Max", value: fmt(buyerMaxPrice.toString()), detail: "18% discount margin", color: "border-cyan-300 bg-cyan-50 dark:border-cyan-800 dark:bg-cyan-950/30 text-cyan-600 dark:text-cyan-400" },
+                      ].map(({ label, value, detail, color }) => (
+                        <div key={label} className={`rounded-lg border p-3 text-center ${color}`}>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide">{label}</p>
+                          <p className="mt-0.5 text-sm font-bold">{value}</p>
+                          <p className="text-[9px] opacity-70 mt-1">{detail}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )
               })()}
 

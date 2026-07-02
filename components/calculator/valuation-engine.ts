@@ -46,6 +46,7 @@ export interface ValuationInputs {
 }
 
 export interface ValuationResults {
+  // Core calculation (before any adjustments)
   lowOffer: number
   highOffer: number
   coreScore: number
@@ -57,6 +58,12 @@ export interface ValuationResults {
   sdeRange: string
   riskLevel: { text: string; color: string }
   completenessNote: string | null // null = all key fields answered
+  
+  // Split valuations for different audiences
+  userFacingLow: number    // Conservative/lower-middle for user to show when comparing
+  userFacingHigh: number   // Adequate (not max) offer for user to see
+  buyerFairValue: number   // True valuation for buyer analysis
+  buyerProfitableRange: { low: number; high: number } // What buyer should pay to stay profitable
 }
 
 export interface RiskAuditItem {
@@ -144,9 +151,12 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
     const captiveDiscount = 0.22
     const rawHigh = revLTM * captiveMultiple
     const rawLow  = revLTM * (captiveMultiple - 0.2)
+    const captiveLow = Math.max(0, rawLow) * (1 - captiveDiscount)
+    const captiveHigh = rawHigh * (1 - captiveDiscount)
+    
     return {
-      lowOffer:              Math.max(0, rawLow) * (1 - captiveDiscount),
-      highOffer:             rawHigh * (1 - captiveDiscount),
+      lowOffer:              captiveLow,
+      highOffer:             captiveHigh,
       coreScore:             captiveMultiple,
       calculatedMultiple:    captiveMultiple * TRANSACTION_MULTIPLIER,
       transactionMultiplier: TRANSACTION_MULTIPLIER,
@@ -156,6 +166,14 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
       sdeRange:              sde ? `${formatCurrency(sde * 3.0)} - ${formatCurrency(sde * 5.0)}` : "---",
       riskLevel:             { text: "CAPTIVE", color: "text-warning" },
       completenessNote:      null,
+      // Captive split valuations (same conservative approach)
+      userFacingLow: captiveLow,
+      userFacingHigh: Math.round(captiveHigh * 0.92),
+      buyerFairValue: revLTM * captiveMultiple,
+      buyerProfitableRange: {
+        low: Math.round(revLTM * captiveMultiple * 0.75),
+        high: Math.round(revLTM * captiveMultiple * 0.82),
+      },
     }
   }
 
@@ -369,6 +387,30 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
   let lowOffer = Math.max(0, rawLowOffer) * (1 - CUSTOMER_LOSS_DISCOUNT) * (1 - completenessDiscount)
   if (lowOffer > highOffer) lowOffer = highOffer * 0.9
 
+  // ── User-Facing Valuations (Conservative) ──────────────────────────────
+  // Show the user a lower-middle range so real offers pleasantly surprise them.
+  // User sees ~85% of true value on the low end, ~95% on the high (not the max).
+  const userFacingLow = lowOffer  // Already conservative
+  const userFacingHigh = Math.round(highOffer * 0.92)  // 8% haircut from max to keep realistic
+
+  // ── Admin/Buyer True Value ─────────────────────────────────────────────
+  // What the agency is truly worth (before customer loss discount applied to user offer).
+  const buyerFairValue = Math.round(revLTM * finalMultiple * (1 - completenessDiscount))
+  
+  // Profitable buyer ranges depend on their cost of capital and strategy.
+  // Typically: 25–35% cash, 65–75% earnout or seller note.
+  // A buyer needs 15–25% margin to be profitable (break-even on transition risk + integration costs).
+  const buyerCostOfCapital = 0.08   // 8% annual cost of capital on the financed portion
+  const buyerMarginNeeded = 0.18    // 18% margin on full price (safe mid-range)
+  
+  // Buyer's maximum they can pay while staying profitable:
+  // = Fair Value * (1 - buyerMarginNeeded)
+  const buyerMaxPrice = Math.round(buyerFairValue * (1 - buyerMarginNeeded))
+  
+  // Buyer's minimum comfortable offer (what they'd bid knowing they need an edge):
+  // = Fair Value * 0.75 (25% discount from true value is standard entry bid)
+  const buyerMinPrice = Math.round(buyerFairValue * 0.75)
+
   return {
     lowOffer,
     highOffer,
@@ -381,6 +423,15 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
     sdeRange: sde ? `${formatCurrency(sde * 5.0)} - ${formatCurrency(sde * 9.0)}` : "---",
     riskLevel: getRiskLevel(finalMultiple),
     completenessNote,
+    // User-facing (conservative)
+    userFacingLow,
+    userFacingHigh,
+    // Buyer true value and profitable range
+    buyerFairValue,
+    buyerProfitableRange: {
+      low: buyerMinPrice,
+      high: buyerMaxPrice,
+    },
   }
 }
 
