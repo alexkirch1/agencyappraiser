@@ -310,8 +310,8 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
           {/* Trucking / Commercial Auto exposure */}
           <div>
             <Label className="mb-2 block text-sm text-muted-foreground">
-              Does your book include trucking or heavy commercial auto?
-              <InfoTip text="Trucking and heavy commercial auto (semi-trucks, fleets, owner-operators) carry elevated loss ratios and are frequently non-renewed by carriers during ownership changes. This applies a valuation penalty and caps the multiple — buyers view it as a significant risk." />
+              Do you specialize in or write any trucking, fleet, or heavy commercial auto business?
+              <InfoTip text="Trucking and fleet accounts (semi-trucks, owner-operators, heavy commercial vehicles) are a distinct market segment. Buyers typically model carrier renewal risk and loss volatility, which may affect valuation multiples for heavily weighted books." />
             </Label>
             <RadioGroup
               value={inputs.hasTrucking === null ? "" : inputs.hasTrucking ? "yes" : "no"}
@@ -319,8 +319,8 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
               className="flex gap-3"
             >
               {[
-                { value: "no",  label: "No trucking exposure" },
-                { value: "yes", label: "Yes, trucking or fleet accounts" },
+                { value: "no",  label: "No — primarily standard commercial/personal lines" },
+                { value: "yes", label: "Yes — we do write trucking or fleet business" },
               ].map((opt) => (
                 <label
                   key={opt.value}
@@ -332,9 +332,9 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
               ))}
             </RadioGroup>
             {inputs.hasTrucking === true && (
-              <p className="mt-2 flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+              <p className="mt-2 flex items-center gap-1.5 rounded-md border border-amber-200/50 bg-amber-50/30 dark:border-amber-900/30 dark:bg-amber-950/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                Trucking exposure applies a valuation penalty and caps your multiple at 1.5x. Buyers price in carrier non-renewal risk and volatile loss ratios.
+                Trucking and fleet business is a specialized market. Most buyers adjust their underwriting assumptions for this segment — we&apos;ll model it in your valuation.
               </p>
             )}
           </div>
