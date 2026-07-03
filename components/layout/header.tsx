@@ -11,10 +11,9 @@ import { useEasterEggs } from "@/lib/easter-eggs"
 
 const navItems = [
   { href: "/", label: "Home" },
-  { href: "/quick-value", label: "Quick Value" },
-  { href: "/calculator", label: "Full Valuation" },
-  { href: "/carrier", label: "Carrier" },
-  { href: "/ams", label: "Agency Mgmt." },
+  { href: "/calculator", label: "Agency & Book" },
+  { href: "/carrier", label: "Carrier Portfolios" },
+  { href: "/ams", label: "EZLynx Valuation", badge: "Beta" },
   { href: "/methodology", label: "Methodology" },
 ]
 
@@ -71,13 +70,18 @@ export function Header() {
               key={item.href}
               href={item.href}
               className={cn(
-                "rounded-md px-2.5 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-1.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors",
                 pathname === item.href
                   ? "bg-secondary text-foreground"
                   : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
               )}
             >
               {item.label}
+              {item.badge && (
+                <span className="rounded-full border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary">
+                  {item.badge}
+                </span>
+              )}
             </Link>
           ))}
         </nav>
@@ -120,13 +124,18 @@ export function Header() {
                 href={item.href}
                 onClick={() => setMobileOpen(false)}
                 className={cn(
-                  "rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   pathname === item.href
                     ? "bg-secondary text-foreground"
                     : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
                 )}
               >
                 {item.label}
+                {item.badge && (
+                  <span className="rounded-full border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary">
+                    {item.badge}
+                  </span>
+                )}
               </Link>
             ))}
           </nav>
