@@ -252,7 +252,7 @@ function CalculatorContent() {
 
   const handleLeadSubmit = async (_leadData: { name: string; email: string; phone: string; agencyName: string }, returnedLeadId?: number | null) => {
     setUnlocked(true)
-    setShowLeadCapture(false)
+    // DO NOT close the modal here — it will close automatically after the feedback step completes
     if (returnedLeadId) setLeadId(returnedLeadId)
     try { sessionStorage.setItem("fullCalcCompleted", "true") } catch {}
     setShowDisclaimer(true)
@@ -528,7 +528,11 @@ function CalculatorContent() {
       {/* Modals */}
       {showLeadCapture && (
         <LeadCaptureModal
-          onSubmit={handleLeadSubmit}
+          onSubmit={(data, leadId) => {
+            handleLeadSubmit(data, leadId)
+            // Close the modal after the entire referral + feedback flow completes
+            setShowLeadCapture(false)
+          }}
           onClose={() => setShowLeadCapture(false)}
           title="Unlock Your Agency Valuation"
           description="Enter your details to view your complete valuation report with risk audit and deal simulator."

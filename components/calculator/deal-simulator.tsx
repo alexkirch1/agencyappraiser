@@ -150,7 +150,7 @@ export function DealSimulator({
     [highOffer, ltmRevenue, growthRate]
   )
 
-  const [activeStrategy, setActiveStrategy] = useState<Strategy>("allcash")
+  const [activeStrategy, setActiveStrategy] = useState<Strategy>("blend")
 
   // Cash+Earnout sliders
   const suggestedBlendCashPct = 60
@@ -249,17 +249,23 @@ export function DealSimulator({
       {/* Strategy tabs */}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         {strategies.map((s) => (
-          <button
-            key={s.key}
-            onClick={() => setActiveStrategy(s.key)}
-            className={`rounded-md border px-3 py-2.5 text-sm font-medium transition-colors sm:px-2 sm:py-2 sm:text-xs ${
-              activeStrategy === s.key
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-card text-foreground hover:bg-secondary"
-            }`}
-          >
-            {s.label}
-          </button>
+          <div key={s.key} className="relative">
+            <button
+              onClick={() => setActiveStrategy(s.key)}
+              className={`w-full rounded-md border px-3 py-2.5 text-sm font-medium transition-colors sm:px-2 sm:py-2 sm:text-xs ${
+                activeStrategy === s.key
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card text-foreground hover:bg-secondary"
+              }`}
+            >
+              {s.label}
+            </button>
+            {s.key === "blend" && (
+              <span className="absolute -top-2 right-0 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-white uppercase tracking-wide">
+                Recommended
+              </span>
+            )}
+          </div>
         ))}
       </div>
 
@@ -366,11 +372,16 @@ export function DealSimulator({
             </div>
           </div>
 
-          {/* Earnout commission % on LTM revenue */}
+          {/* Earnout commission % on LTM revenue — Real max 90%, UI shows 100% */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Commission % on Annual Revenue per Year</span>
               <div className="flex items-center gap-2">
+                {blendCommPct === suggestedBlendCommPct && (
+                  <span className="inline-block rounded-full bg-emerald-500/20 px-2 py-0.5 text-[9px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
+                    Recommended
+                  </span>
+                )}
                 {blendCommPct !== suggestedBlendCommPct && (
                   <span className="text-[10px] text-muted-foreground">Suggested: <span className="font-medium text-foreground">{suggestedBlendCommPct}%</span></span>
                 )}
@@ -379,15 +390,15 @@ export function DealSimulator({
             </div>
             <Slider
               value={[blendCommPct]}
-              onValueChange={([v]) => setBlendCommPct(v)}
+              onValueChange={([v]) => setBlendCommPct(Math.min(90, v))}
               min={10}
-              max={80}
+              max={100}
               step={5}
             />
             <div className="flex justify-between text-[11px] text-muted-foreground">
               <span>10% (conservative)</span>
               <span className="text-[10px] text-primary font-medium">Suggested: {suggestedBlendCommPct}%</span>
-              <span>80% (aggressive)</span>
+              <span>90% (realistic max)</span>
             </div>
             {blendCommPct > suggestedBlendCommPct && (
               <div className="flex items-start gap-1.5 rounded border border-warning/30 bg-warning/10 px-2.5 py-2">
@@ -399,20 +410,36 @@ export function DealSimulator({
             )}
           </div>
 
-          {/* Payout period */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Earnout over:</span>
-            {[1, 2].map((y) => (
-              <Button
-                key={y}
-                size="sm"
-                variant={blendEarnoutYears === y ? "default" : "outline"}
-                className="h-7 px-3 text-xs"
-                onClick={() => setBlendEarnoutYears(y)}
-              >
-                {y} {y === 1 ? "Year" : "Years"}
-              </Button>
-            ))}
+          {/* Payout period — changes commission % to keep total reasonable */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Earnout Period (adjusts commission %):</span>
+              <span className="text-xs text-muted-foreground italic">
+                {blendEarnoutYears === suggestedBlendCommPct / blendCommPct ? "Recommended" : ""}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {[1, 2].map((y) => {
+                // Calculate what commission % would be needed for this year count
+                // to roughly match the target total (keep around current blendTotalValue)
+                const adjustedComm = Math.min(90, Math.max(15, Math.round((blendCommPct * blendEarnoutYears / y) / 5) * 5))
+                return (
+                  <Button
+                    key={y}
+                    size="sm"
+                    variant={blendEarnoutYears === y ? "default" : "outline"}
+                    className="h-7 px-3 text-xs flex-1"
+                    onClick={() => {
+                      setBlendEarnoutYears(y)
+                      setBlendCommPct(adjustedComm)
+                    }}
+                  >
+                    <span className="block">{y} {y === 1 ? "Year" : "Years"}</span>
+                    <span className="block text-[10px] opacity-70">{adjustedComm}% comm</span>
+                  </Button>
+                )
+              })}
+            </div>
           </div>
 
           {/* Per-year breakdown */}
