@@ -52,6 +52,7 @@ const defaultInputs: ValuationInputs = {
   sellerTransitionMonths: null,
   newBusinessValue: null,
   avgClientTenure: null,
+  hasTrucking: null,
 }
 
 // Only truly required fields — the engine handles missing optional fields gracefully
@@ -129,6 +130,8 @@ function CalculatorContent() {
   const [leadId, setLeadId] = useState<number | null>(null)
   const [pdfLoading, setPdfLoading] = useState(false)
   const [shareCopied, setShareCopied] = useState(false)
+  // Pre-computed mid-point so estimatedValue stored on the lead is the actual valuation, not revenue
+  const [pendingMidValue, setPendingMidValue] = useState<number>(0)
 
   const handleShare = async () => {
     if (!leadId) return
@@ -213,6 +216,10 @@ function CalculatorContent() {
       return
     }
     setValidationErrors([])
+    // Pre-compute the mid-point so the lead record stores the actual valuation, not the revenue
+    const preCalc = calculateValuation(inputs)
+    const midValue = preCalc ? Math.round((preCalc.lowOffer + preCalc.highOffer) / 2) : 0
+    setPendingMidValue(midValue)
     if (unlocked) {
       // Already unlocked (first submit or resubmit after edit)
       setShowDisclaimer(true)
@@ -245,24 +252,29 @@ function CalculatorContent() {
 
   const handleLeadSubmit = async (_leadData: { name: string; email: string; phone: string; agencyName: string }, returnedLeadId?: number | null) => {
     setUnlocked(true)
-    setShowLeadCapture(false)
+    // DO NOT close the modal here — it will close automatically after the feedback step completes
     if (returnedLeadId) setLeadId(returnedLeadId)
     try { sessionStorage.setItem("fullCalcCompleted", "true") } catch {}
     setShowDisclaimer(true)
   }
 
-  const handleDisclaimerContinue = async () => {
+  const handleDisclaimerContinue = () => {
+    // State updates first — Clarity and other DOM observers see the transition immediately.
+    // Do NOT await anything before these calls.
     setShowDisclaimer(false)
     setSubmitted(true)
     setEditing(false)
-    // Calculate results then save to DB
+    // Fire-and-forget DB save — non-blocking
     const calcResults = calculateValuation(inputs)
-    const currentLeadId = leadId
-    saveFullValuation(currentLeadId, calcResults)
-    setTimeout(() => {
-      const el = document.getElementById("valuation-results")
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
-    }, 100)
+    saveFullValuation(leadId, calcResults)
+    // Double-rAF: waits for React to commit the new DOM before scrolling,
+    // more reliable than a fixed setTimeout and keeps the frame budget clean.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = document.getElementById("valuation-results")
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
+      })
+    })
   }
 
   const invalidKeys = (triedSubmit && (!submitted || editing)) ? getInvalidFieldKeys(inputs) : []
@@ -516,24 +528,47 @@ function CalculatorContent() {
       {/* Modals */}
       {showLeadCapture && (
         <LeadCaptureModal
-          onSubmit={handleLeadSubmit}
+          onSubmit={(data, leadId) => {
+            handleLeadSubmit(data, leadId)
+            // Close the modal after the entire referral + feedback flow completes
+            setShowLeadCapture(false)
+          }}
           onClose={() => setShowLeadCapture(false)}
           title="Unlock Your Agency Valuation"
           description="Enter your details to view your complete valuation report with risk audit and deal simulator."
           toolUsed="Agency Valuation Calculator"
           valuationSummary={`Revenue (LTM): $${inputs.revenueLTM?.toLocaleString() ?? "N/A"}\nSDE/EBITDA: $${inputs.sdeEbitda?.toLocaleString() ?? "N/A"}\nRetention Rate: ${inputs.retentionRate ?? "N/A"}%\nCommercial Mix: ${inputs.policyMix ?? "N/A"}%\nClient Concentration: ${inputs.clientConcentration ?? "N/A"}%\nCarrier Diversification: ${inputs.carrierDiversification ?? "N/A"}%\nYear Established: ${inputs.yearEstablished ?? "N/A"}\nState: ${inputs.primaryState || "N/A"}\nEmployees: ${inputs.employeeCount ?? "N/A"}`}
-          estimatedValue={inputs.revenueLTM ?? 0}
+          estimatedValue={pendingMidValue}
           valuationData={{
-            revenueLTM: inputs.revenueLTM,
-            sdeEbitda: inputs.sdeEbitda,
-            retentionRate: inputs.retentionRate,
-            policyMix: inputs.policyMix,
-            clientConcentration: inputs.clientConcentration,
+            // Core financials
+            revenueLTM:           inputs.revenueLTM,
+            revenueY2:            inputs.revenueY2,
+            revenueY3:            inputs.revenueY3,
+            sdeEbitda:            inputs.sdeEbitda,
+            ownerCompensation:    inputs.ownerCompensation,
+            annualPayroll:        inputs.annualPayrollCost,
+            // Book quality
+            retentionRate:        inputs.retentionRate,
+            policyMix:            inputs.policyMix,
+            clientConcentration:  inputs.clientConcentration,
             carrierDiversification: inputs.carrierDiversification,
-            yearEstablished: inputs.yearEstablished,
-            primaryState: inputs.primaryState,
-            employeeCount: inputs.employeeCount,
-            scopeOfSale: inputs.scopeOfSale,
+            avgClientTenure:      inputs.avgClientTenure,
+            topCarriers:          inputs.topCarriers,
+            // Agency profile
+            yearEstablished:      inputs.yearEstablished,
+            primaryState:         inputs.primaryState,
+            employeeCount:        inputs.employeeCount,
+            officeStructure:      inputs.officeStructure,
+            agencyDescription:    inputs.agencyDescription,
+            // Deal structure
+            scopeOfSale:          inputs.scopeOfSale,
+            closingTimeline:      inputs.closingTimeline,
+            staffRetentionRisk:   inputs.staffRetentionRisk,
+            newBusinessValue:     inputs.newBusinessValue,
+            // Calculated outputs — filled after calc runs
+            calculatedMultiple:   pendingMidValue && inputs.revenueLTM ? (pendingMidValue / inputs.revenueLTM) : undefined,
+            lowOffer:             pendingMidValue ? Math.round(pendingMidValue * 0.87) : undefined,
+            highOffer:            pendingMidValue ? Math.round(pendingMidValue * 1.07) : undefined,
           }}
         />
       )}

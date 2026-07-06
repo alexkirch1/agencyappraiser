@@ -251,10 +251,10 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
               className="flex flex-col gap-2"
             >
               {[
-                { value: "strong",    label: "Strong Growth",    sub: "10%+ per year" },
-                { value: "moderate",  label: "Moderate Growth",  sub: "3–9% per year" },
-                { value: "flat",      label: "Flat",             sub: "Roughly the same" },
-                { value: "declining", label: "Declining",        sub: "Revenue has decreased" },
+                { value: "strong",    label: "Strong",    sub: "10%+ per year" },
+                { value: "moderate",  label: "Moderate",  sub: "3–9% per year" },
+                { value: "flat",      label: "Flat",      sub: "Roughly the same" },
+                { value: "declining", label: "Declining", sub: "Revenue has decreased" },
               ].map((opt) => (
                 <label
                   key={opt.value}
@@ -305,6 +305,25 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
             </Label>
             <SmartInput id="policyMix" inputType="percent" placeholder="e.g. 60" value={inputs.policyMix} onValueChange={(v) => update({ policyMix: v })} className="mt-1.5" />
             <p className="mt-1 text-xs text-muted-foreground/70">% of premium that is Commercial Lines</p>
+          </div>
+
+          {/* Specialized Niches / Program Business */}
+          <div id="field-agencyNiches">
+            <Label htmlFor="agencyNiches" className="text-sm text-muted-foreground">
+              Specialized Niches or Program Business
+              <InfoTip text="Buyers pay attention to niche concentration — both positively (strong program expertise commands a premium) and for carrier renewal risk (e.g. heavy trucking or construction books). List any industries where you write a meaningful volume." />
+            </Label>
+            <input
+              id="agencyNiches"
+              type="text"
+              placeholder="e.g., None, or list niches here"
+              value={inputs.agencyDescription ?? ""}
+              onChange={(e) => update({ agencyDescription: e.target.value })}
+              className="mt-1.5 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            />
+            <p className="mt-1 text-xs text-muted-foreground/70">
+              Do you specialize in or write a significant volume for specific industries? (e.g., restaurants, trucking, construction, agriculture)
+            </p>
           </div>
           <div id="field-clientConcentration">
             <Label htmlFor="concentration" className="text-sm text-muted-foreground">
@@ -369,37 +388,21 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
             <p className="mt-1 text-xs text-muted-foreground/70">Claims paid ÷ premium earned</p>
           </div>
           <div>
-            <Label className="mb-1.5 block text-sm text-muted-foreground">
-              Average Premium Per Policy
-              <InfoTip text="Your total written premium divided by total policies. Higher average premiums (e.g., $2,000+) signal larger, stickier accounts. Enter your total premium and we'll calculate it, or enter the average directly." />
+            <Label htmlFor="totalWrittenPremium" className="text-sm text-muted-foreground">
+              Total Written Premium ($)
+              <InfoTip text="Your agency's total written premium across all policies. Used to calculate average premium per policy — a key signal of book quality. Higher average premiums indicate larger, stickier commercial accounts." />
             </Label>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="totalWrittenPremium" className="text-xs text-muted-foreground">Total Written Premium</Label>
-                <SmartInput
-                  id="totalWrittenPremium"
-                  inputType="currency"
-                  placeholder="e.g. 3500000"
-                  value={inputs.totalWrittenPremium}
-                  onValueChange={(v) => update({ totalWrittenPremium: v })}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="avgPremiumPerPolicy" className="text-xs text-muted-foreground">Avg Premium (or override)</Label>
-                <SmartInput
-                  id="avgPremiumPerPolicy"
-                  inputType="currency"
-                  placeholder="e.g. 2100"
-                  value={inputs.avgPremiumPerPolicy}
-                  onValueChange={(v) => update({ avgPremiumPerPolicy: v })}
-                  className="mt-1"
-                />
-              </div>
-            </div>
-            {inputs.totalWrittenPremium && inputs.activePolicies && inputs.activePolicies > 0 && !inputs.avgPremiumPerPolicy && (
+            <SmartInput
+              id="totalWrittenPremium"
+              inputType="currency"
+              placeholder="e.g. 3,500,000"
+              value={inputs.totalWrittenPremium}
+              onValueChange={(v) => update({ totalWrittenPremium: v })}
+              className="mt-1.5"
+            />
+            {inputs.totalWrittenPremium && inputs.activePolicies && inputs.activePolicies > 0 && (
               <div className="mt-2 flex items-center justify-between rounded-md bg-secondary/50 px-3 py-2">
-                <span className="text-xs text-muted-foreground">Calculated avg premium</span>
+                <span className="text-xs text-muted-foreground">Avg premium per policy</span>
                 <span className="font-mono text-sm font-bold text-foreground">
                   ${Math.round(inputs.totalWrittenPremium / inputs.activePolicies).toLocaleString()}
                 </span>
@@ -418,14 +421,21 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div>
-            <Label htmlFor="carrierDiv" className="text-sm text-muted-foreground">Carrier Diversification (%)<InfoTip text="What percentage of your total premium is placed with your single largest carrier? Lower means a more diversified book." /></Label>
-            <SmartInput id="carrierDiv" inputType="percent" placeholder="% from top carrier" value={inputs.carrierDiversification} onValueChange={(v) => update({ carrierDiversification: v })} className="mt-1.5" />
-            <p className="mt-1 text-xs text-muted-foreground/70">% of premium from your single largest carrier</p>
+            <Label htmlFor="carrierDiv" className="text-sm text-muted-foreground">Top Carrier Concentration (%)<InfoTip text="What percentage of your total written premium is placed with your single largest carrier? Lower is better — a diversified book is less vulnerable to a carrier non-renewal post-sale." /></Label>
+            <SmartInput id="carrierDiv" inputType="percent" placeholder="e.g. 45" value={inputs.carrierDiversification} onValueChange={(v) => update({ carrierDiversification: v })} className="mt-1.5" />
+            <p className="mt-1 text-xs text-muted-foreground/70">% of total premium placed with your single largest carrier</p>
           </div>
-          <div>
-            <Label htmlFor="rpe" className="text-sm text-muted-foreground">Revenue Per Employee ($)<InfoTip text="Your annual revenue divided by your employee count. If you entered both above, we can calculate this for you. Industry average is around $150K-$200K." /></Label>
-            <SmartInput id="rpe" inputType="currency" placeholder="e.g. 175000" value={inputs.revenuePerEmployee} onValueChange={(v) => update({ revenuePerEmployee: v })} className="mt-1.5" />
-          </div>
+          {inputs.revenueLTM && inputs.employeeCount && inputs.employeeCount > 0 && (
+            <div className="flex items-center justify-between rounded-md bg-secondary/50 px-3 py-2">
+              <span className="text-xs text-muted-foreground">
+                Revenue per employee
+                <InfoTip text="Annual revenue divided by headcount. Industry average is $150K–$200K. Higher ratios indicate a lean, efficient operation." />
+              </span>
+              <span className="font-mono text-sm font-bold text-foreground">
+                ${Math.round(inputs.revenueLTM / inputs.employeeCount).toLocaleString()}
+              </span>
+            </div>
+          )}
           <div>
             <Label htmlFor="topCarriers" className="text-sm text-muted-foreground">Top 5 Carriers (Optional)</Label>
             <Textarea id="topCarriers" placeholder="e.g. Progressive, Safeco, Hartford..." value={inputs.topCarriers} onChange={(e) => update({ topCarriers: e.target.value })} className="mt-1.5" rows={2} />
@@ -472,21 +482,6 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
             <p className="text-xs text-muted-foreground">Additional fields for Full Agency transactions</p>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <div>
-              <Label className="mb-2 block text-sm text-muted-foreground">Closing Timeline<InfoTip text="How quickly are you looking to complete the sale? Urgent means under 60 days, Standard is 3-6 months, Long is 6+ months." /></Label>
-              <RadioGroup value={inputs.closingTimeline} onValueChange={(v) => update({ closingTimeline: v })} className="flex flex-col gap-2 sm:flex-row sm:gap-4">
-                {[
-                  { value: "urgent", label: "Urgent (<60 days)" },
-                  { value: "standard", label: "Standard (3-6 months)" },
-                  { value: "long", label: "Long (6+ months)" },
-                ].map((opt) => (
-                  <label key={opt.value} className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/10">
-                    <RadioGroupItem value={opt.value} />
-                    {opt.label}
-                  </label>
-                ))}
-              </RadioGroup>
-            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="payroll" className="text-sm text-muted-foreground">Annual Payroll Cost ($)</Label>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { SmartInput } from "@/components/ui/smart-input"
@@ -9,7 +9,7 @@ import { Slider } from "@/components/ui/slider"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Button } from "@/components/ui/button"
 import { ValuationDisclaimerModal } from "@/components/valuation-disclaimer-modal"
-import { ArrowRight, Calculator, Zap, DollarSign, AlertTriangle, TrendingUp, ShieldAlert, Download, Share2, Check } from "lucide-react"
+import { ArrowRight, Calculator, Zap, DollarSign, AlertTriangle, TrendingUp, ShieldAlert, Download, Share2, Check, Truck } from "lucide-react"
 import { FeedbackWidget } from "@/components/feedback-widget"
 import { InfoTip } from "@/components/ui/info-tip"
 import { downloadQuickValuePDF } from "@/lib/generate-pdf"
@@ -102,7 +102,9 @@ export default function QuickValuePage() {
   const [customers, setCustomers] = useState<number | null>(null)
   const [policies, setPolicies] = useState<number | null>(null)
   const [growth, setGrowth] = useState<string>("")
+  const [hasTrucking, setHasTrucking] = useState<boolean | null>(null)
   const [multiplier, setMultiplier] = useState(1.95)
+  const [multiplierManual, setMultiplierManual] = useState(false)
   const [showDisclaimer, setShowDisclaimer] = useState(false)
   const [resultsVisible, setResultsVisible] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
@@ -167,11 +169,31 @@ export default function QuickValuePage() {
       else if (ratio < 1.33) suggested -= 0.16
     }
 
+    // Trucking penalty — caps multiple and reduces suggested
+    if (hasTrucking === true) {
+      suggested -= 0.40
+      suggested = Math.min(suggested, 1.5)
+    }
+
     // Small revenue-tier micro-offset so it never snaps to a round number
     const revOffset = revenue > 2_000_000 ? 0.07 : revenue > 500_000 ? 0.03 : -0.04
     suggested += revOffset
 
-    suggested = Math.max(0.78, Math.min(3.0, parseFloat(suggested.toFixed(2))))
+    // ── Micro-Book Risk Penalty ────────────────────────────────────────────
+    // High volatility and concentration risk in hypersmall books.
+    // Applied after all other adjustments so it represents a final downward mod.
+    let microBookNote: string | null = null
+    if (policies !== null && policies > 0) {
+      if (policies < 50) {
+        suggested -= 0.35
+        microBookNote = "Multiplier adjusted downward due to high volatility risk inherent in micro-sized books (under 50 policies)."
+      } else if (policies <= 150) {
+        suggested -= 0.15
+        microBookNote = "Multiplier adjusted downward due to concentration risk in small books (51–150 policies)."
+      }
+    }
+
+    suggested = Math.max(0.78, Math.min(hasTrucking ? 1.5 : 3.0, parseFloat(suggested.toFixed(2))))
 
     // Central value
     const value = naturalRound(revenue * multiplier)
@@ -187,8 +209,15 @@ export default function QuickValuePage() {
     const tier = getTier(retention, bookType, revenue, growth, ratio)
     const gap  = getFullValGap(retention, bookType, growth)
 
-    return { value, lowValue, highValue, suggested, tier, gap, ratio }
-  }, [revenue, retention, bookType, multiplier, customers, policies, growth])
+    return { value, lowValue, highValue, suggested, tier, gap, ratio, microBookNote }
+  }, [revenue, retention, bookType, multiplier, customers, policies, growth, hasTrucking])
+
+  // Auto-snap slider to the suggested multiplier unless the user has manually overridden it
+  useEffect(() => {
+    if (!multiplierManual && estimate?.suggested) {
+      setMultiplier(estimate.suggested)
+    }
+  }, [estimate?.suggested, multiplierManual])
 
   const tierInfo = estimate ? TIER_MESSAGES[estimate.tier] : null
 
@@ -294,8 +323,8 @@ export default function QuickValuePage() {
           <Card className="border border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold text-foreground">
-                4. How has your revenue trended over the last 3 years?
-                <InfoTip text="Look at your last 3 years of revenue. Strong growth means 10%+ per year. Moderate is 3-9%. Flat means roughly the same each year." />
+                4. How has your revenue grown over the last 3 years?
+                <InfoTip text="Look at your last 3 years of revenue. Strong means 10%+ per year. Moderate is 3–9%. Flat means roughly the same each year." />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -305,10 +334,10 @@ export default function QuickValuePage() {
                 className="flex flex-col gap-2"
               >
                 {[
-                  { value: "strong",    label: "Strong Growth",   sub: "10%+ per year"        },
-                  { value: "moderate",  label: "Moderate Growth", sub: "3–9% per year"         },
-                  { value: "flat",      label: "Flat",            sub: "Roughly the same"      },
-                  { value: "declining", label: "Declining",       sub: "Revenue has decreased" },
+                  { value: "strong",    label: "Strong",    sub: "10%+ per year"         },
+                  { value: "moderate",  label: "Moderate",  sub: "3–9% per year"          },
+                  { value: "flat",      label: "Flat",      sub: "Roughly the same"       },
+                  { value: "declining", label: "Declining", sub: "Revenue has decreased"  },
                 ].map((opt) => (
                   <label
                     key={opt.value}
@@ -367,6 +396,48 @@ export default function QuickValuePage() {
             </CardContent>
           </Card>
 
+          {/* Specialty / High-Risk Commercial */}
+          <Card className="border border-border bg-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+                <Truck className="h-4 w-4 text-muted-foreground" />
+                6. Does your book include high-risk or specialty commercial niches?
+                <InfoTip text="Specialty and high-risk niches (trucking, heavy contractors, dedicated program business) can affect carrier renewal stability during an ownership transition. Buyers model this when pricing a deal." />
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <RadioGroup
+                value={hasTrucking === null ? "" : hasTrucking ? "yes" : "no"}
+                onValueChange={(v) => setHasTrucking(v === "yes")}
+                className="flex flex-col gap-2 sm:flex-row sm:gap-3"
+              >
+                {[
+                  {
+                    value: "no",
+                    label: "No — Standard lines only",
+                    sub: "Retail, offices, main street business, personal lines",
+                  },
+                  {
+                    value: "yes",
+                    label: "Yes — Specialty / High-Risk",
+                    sub: "Trucking, contracting, heavy auto, or dedicated industry programs",
+                  },
+                ].map((opt) => (
+                  <label
+                    key={opt.value}
+                    className="flex flex-1 cursor-pointer items-start gap-2 rounded-md border border-border px-4 py-3 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/10"
+                  >
+                    <RadioGroupItem value={opt.value} className="mt-0.5 shrink-0" />
+                    <span className="flex flex-col gap-0.5">
+                      <span className="font-medium">{opt.label}</span>
+                      <span className="text-muted-foreground text-xs">{opt.sub}</span>
+                    </span>
+                  </label>
+                ))}
+              </RadioGroup>
+            </CardContent>
+          </Card>
+
           {/* Multiplier Slider */}
           <Card className="border border-border bg-card">
             <CardHeader className="pb-3">
@@ -374,16 +445,20 @@ export default function QuickValuePage() {
                 Adjust Your Multiplier<InfoTip text="The revenue multiple applied to your annual revenue. Most P&C agencies trade between 1.5x and 2.5x depending on book quality." />
               </CardTitle>
               <p className="text-xs text-muted-foreground">
-                Drag to adjust. 
-                {estimate?.suggested && (
-                  <> Suggested for your inputs:{" "}
+                {multiplierManual ? (
+                  <>
+                    Overriding suggested value.{" "}
                     <button
                       type="button"
                       className="font-semibold text-primary underline-offset-2 hover:underline"
-                      onClick={() => setMultiplier(estimate.suggested)}
+                      onClick={() => { setMultiplierManual(false) }}
                     >
-                      {estimate.suggested.toFixed(2)}x
+                      Reset to suggested ({estimate?.suggested?.toFixed(2)}x)
                     </button>
+                  </>
+                ) : (
+                  <>
+                    Auto-set to suggested{estimate?.suggested ? ` (${estimate.suggested.toFixed(2)}x)` : ""}. Drag to override.
                   </>
                 )}
               </p>
@@ -396,12 +471,21 @@ export default function QuickValuePage() {
               </div>
               <Slider
                 value={[multiplier]}
-                onValueChange={([v]) => setMultiplier(parseFloat(v.toFixed(2)))}
+                onValueChange={([v]) => {
+                  setMultiplierManual(true)
+                  setMultiplier(parseFloat(v.toFixed(2)))
+                }}
                 min={0.75}
                 max={3.0}
                 step={0.01}
                 className="w-full"
               />
+              {estimate?.microBookNote && (
+                <p className="mt-3 flex items-start gap-1.5 rounded-md border border-amber-200/50 bg-amber-50/40 dark:border-amber-900/30 dark:bg-amber-950/20 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+                  <span className="mt-0.5 shrink-0 font-bold">Note:</span>
+                  {estimate.microBookNote}
+                </p>
+              )}
             </CardContent>
           </Card>
 
@@ -608,36 +692,36 @@ export default function QuickValuePage() {
 
       {showDisclaimer && (
         <ValuationDisclaimerModal
-          onContinue={async () => {
+          onContinue={() => {
+            // Immediately transition — do NOT await anything here.
+            // Clarity (and other DOM observers) must see the state change without a network-induced delay.
             setShowDisclaimer(false)
             setResultsVisible(true)
-            // Save to DB silently (no lead required for quick val)
+            // Save to DB fully in the background — fire and forget
             if (estimate) {
-              try {
-                await fetch("/api/save-quick-valuation", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    leadId: null,
-                    revenue,
-                    retention,
-                    bookType,
-                    growth,
-                    customers,
-                    policies,
-                    ratio: estimate.ratio,
-                    multiplier,
-                    suggested: estimate.suggested,
-                    lowValue: estimate.lowValue,
-                    midValue: estimate.value,
-                    highValue: estimate.highValue,
-                    tier: estimate.tier,
-                  }),
-                })
-                .then((r) => r.json())
-                .then((saved) => { if (saved?.leadId) setSavedLeadId(saved.leadId) })
-                .catch(() => {})
-              } catch { /* non-blocking */ }
+              fetch("/api/save-quick-valuation", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  leadId: null,
+                  revenue,
+                  retention,
+                  bookType,
+                  growth,
+                  customers,
+                  policies,
+                  ratio: estimate.ratio,
+                  multiplier,
+                  suggested: estimate.suggested,
+                  lowValue: estimate.lowValue,
+                  midValue: estimate.value,
+                  highValue: estimate.highValue,
+                  tier: estimate.tier,
+                }),
+              })
+              .then((r) => r.json())
+              .then((saved) => { if (saved?.leadId) setSavedLeadId(saved.leadId) })
+              .catch(() => {})
             }
           }}
         />

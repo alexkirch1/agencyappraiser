@@ -34,6 +34,8 @@ export interface ValuationInputs {
   totalWrittenPremium: number | null // for auto-calculating avg premium
   // Transition
   sellerTransitionMonths: number | null // 0-6, 6-12, 12-24
+  // Trucking book flag
+  hasTrucking: boolean | null // true = significant trucking/commercial auto exposure
   // Conditional (Full Agency only)
   closingTimeline: string // urgent | standard | long
   annualPayrollCost: number | null
@@ -44,6 +46,7 @@ export interface ValuationInputs {
 }
 
 export interface ValuationResults {
+  // Core calculation (before any adjustments)
   lowOffer: number
   highOffer: number
   coreScore: number
@@ -55,6 +58,13 @@ export interface ValuationResults {
   sdeRange: string
   riskLevel: { text: string; color: string }
   completenessNote: string | null // null = all key fields answered
+  microBookNote: string | null    // null = no micro-book penalty applied
+
+  // Split valuations for different audiences
+  userFacingLow: number    // Conservative/lower-middle for user to show when comparing
+  userFacingHigh: number   // Adequate (not max) offer for user to see
+  buyerFairValue: number   // True valuation for buyer analysis
+  buyerProfitableRange: { low: number; high: number } // What buyer should pay to stay profitable
 }
 
 export interface RiskAuditItem {
@@ -142,9 +152,12 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
     const captiveDiscount = 0.22
     const rawHigh = revLTM * captiveMultiple
     const rawLow  = revLTM * (captiveMultiple - 0.2)
+    const captiveLow = Math.max(0, rawLow) * (1 - captiveDiscount)
+    const captiveHigh = rawHigh * (1 - captiveDiscount)
+    
     return {
-      lowOffer:              Math.max(0, rawLow) * (1 - captiveDiscount),
-      highOffer:             rawHigh * (1 - captiveDiscount),
+      lowOffer:              captiveLow,
+      highOffer:             captiveHigh,
       coreScore:             captiveMultiple,
       calculatedMultiple:    captiveMultiple * TRANSACTION_MULTIPLIER,
       transactionMultiplier: TRANSACTION_MULTIPLIER,
@@ -154,6 +167,15 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
       sdeRange:              sde ? `${formatCurrency(sde * 3.0)} - ${formatCurrency(sde * 5.0)}` : "---",
       riskLevel:             { text: "CAPTIVE", color: "text-warning" },
       completenessNote:      null,
+      microBookNote:         null,
+      // Captive split valuations (same conservative approach)
+      userFacingLow: captiveLow,
+      userFacingHigh: Math.round(captiveHigh * 0.92),
+      buyerFairValue: revLTM * captiveMultiple,
+      buyerProfitableRange: {
+        low: Math.round(revLTM * captiveMultiple * 0.75),
+        high: Math.round(revLTM * captiveMultiple * 0.82),
+      },
     }
   }
 
@@ -278,7 +300,14 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
     else if (avgPrem >= 1500) avgPremScore = 0.02
     else if (avgPrem < 800)   avgPremScore = -0.03
   }
-  bookScore += concentrationScore + mixScore + polsPerCxScore + lossRatioScore + avgPremScore
+  // Trucking penalty — commercial auto / trucking books carry elevated loss ratios,
+  // carrier non-renewal risk, and are notoriously difficult to transfer to a buyer.
+  // Applied as a flat penalty off the book score and a hard cap on total score.
+  let truckingPenalty = 0
+  if (inputs.hasTrucking === true) {
+    truckingPenalty = 0.18
+  }
+  bookScore += concentrationScore + mixScore + polsPerCxScore + lossRatioScore + avgPremScore - truckingPenalty
   bookScore = Math.max(0.1, Math.min(0.75, bookScore))
   totalRawScore += bookScore
 
@@ -341,6 +370,28 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
   }
   scaledCoreScore = Math.max(desiredMin, Math.min(desiredAbsoluteMax, scaledCoreScore))
 
+  // Trucking hard cap — buyers apply a structural discount on trucking books
+  // due to unpredictable loss ratios and limited carrier options post-acquisition.
+  if (inputs.hasTrucking === true) {
+    scaledCoreScore = Math.min(scaledCoreScore, 1.5)
+  }
+
+  // ── Micro-Book Risk Penalty ────────────────────────────────────────────
+  // High volatility and concentration risk in hypersmall books.
+  // Applied as the final downward modifier before the transaction multiplier.
+  let microBookNote: string | null = null
+  const activePolicies = inputs.activePolicies
+  if (activePolicies !== null && activePolicies > 0) {
+    if (activePolicies < 50) {
+      scaledCoreScore -= 0.35
+      microBookNote = "Multiplier adjusted downward due to high volatility risk inherent in micro-sized books (under 50 policies)."
+    } else if (activePolicies <= 150) {
+      scaledCoreScore -= 0.15
+      microBookNote = "Multiplier adjusted downward due to concentration risk in small books (51–150 policies)."
+    }
+  }
+  scaledCoreScore = Math.max(desiredMin, Math.min(desiredAbsoluteMax, scaledCoreScore))
+
   const finalMultiple = scaledCoreScore * TRANSACTION_MULTIPLIER
 
   // Apply a 20–25% customer attrition discount to the offer band.
@@ -354,6 +405,30 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
   let lowOffer = Math.max(0, rawLowOffer) * (1 - CUSTOMER_LOSS_DISCOUNT) * (1 - completenessDiscount)
   if (lowOffer > highOffer) lowOffer = highOffer * 0.9
 
+  // ── User-Facing Valuations (Conservative) ──────────────────────────────
+  // Show the user a lower-middle range so real offers pleasantly surprise them.
+  // User sees ~85% of true value on the low end, ~95% on the high (not the max).
+  const userFacingLow = lowOffer  // Already conservative
+  const userFacingHigh = Math.round(highOffer * 0.92)  // 8% haircut from max to keep realistic
+
+  // ── Admin/Buyer True Value ─────────────────────────────────────────────
+  // What the agency is truly worth (before customer loss discount applied to user offer).
+  const buyerFairValue = Math.round(revLTM * finalMultiple * (1 - completenessDiscount))
+  
+  // Profitable buyer ranges depend on their cost of capital and strategy.
+  // Typically: 25–35% cash, 65–75% earnout or seller note.
+  // A buyer needs 15–25% margin to be profitable (break-even on transition risk + integration costs).
+  const buyerCostOfCapital = 0.08   // 8% annual cost of capital on the financed portion
+  const buyerMarginNeeded = 0.18    // 18% margin on full price (safe mid-range)
+  
+  // Buyer's maximum they can pay while staying profitable:
+  // = Fair Value * (1 - buyerMarginNeeded)
+  const buyerMaxPrice = Math.round(buyerFairValue * (1 - buyerMarginNeeded))
+  
+  // Buyer's minimum comfortable offer (what they'd bid knowing they need an edge):
+  // = Fair Value * 0.75 (25% discount from true value is standard entry bid)
+  const buyerMinPrice = Math.round(buyerFairValue * 0.75)
+
   return {
     lowOffer,
     highOffer,
@@ -366,6 +441,16 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
     sdeRange: sde ? `${formatCurrency(sde * 5.0)} - ${formatCurrency(sde * 9.0)}` : "---",
     riskLevel: getRiskLevel(finalMultiple),
     completenessNote,
+    microBookNote,
+    // User-facing (conservative)
+    userFacingLow,
+    userFacingHigh,
+    // Buyer true value and profitable range
+    buyerFairValue,
+    buyerProfitableRange: {
+      low: buyerMinPrice,
+      high: buyerMaxPrice,
+    },
   }
 }
 
@@ -530,6 +615,18 @@ export function runRiskAudit(inputs: ValuationInputs): RiskAuditResult {
     strengthCount++
   } else if (mix < 20 && mix > 0) {
     items.push({ level: "Info", title: "Personal Lines Focus", problem: "Your book is primarily Personal Lines.", psychology: "Personal lines are stable but can be labor-intensive. Buyers may discount slightly for the service load.", mitigation: "Cross-sell commercial policies to existing homeowners." })
+  }
+
+  // 5b. Trucking / Commercial Auto exposure
+  if (inputs.hasTrucking === true) {
+    items.push({
+      level: "High Risk",
+      title: "Trucking / Commercial Auto Exposure",
+      problem: "Books with significant trucking or heavy commercial auto exposure are among the hardest to transfer. Carriers frequently non-renew these accounts during ownership changes, and loss ratios are volatile.",
+      psychology: "Buyers view trucking books as a liability, not an asset. They price in the risk that key carrier appointments won't survive the acquisition, which compresses the multiple significantly.",
+      mitigation: "Quantify what % of your revenue is trucking. If it's under 15%, consider running-off or reassigning those accounts before going to market. Above 15%, expect buyers to request a 20–30% price concession or require an extended earnout period.",
+    })
+    highCount++
   }
 
   // 6. Office Structure

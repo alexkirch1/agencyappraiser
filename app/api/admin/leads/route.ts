@@ -28,6 +28,7 @@ export async function GET() {
         l.archived,
         l.archive_reason,
         l.archived_at,
+        l.notes,
         fv.low_offer,
         fv.high_offer,
         fv.core_score,
@@ -167,7 +168,7 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json()
-    const { id, stage, archived, archive_reason } = body
+    const { id, stage, archived, archive_reason, notes } = body
 
     if (!id || isNaN(Number(id))) {
       return NextResponse.json({ error: "Invalid lead id" }, { status: 400 })
@@ -183,6 +184,12 @@ export async function PATCH(request: Request) {
             last_activity = NOW()
         WHERE id = ${Number(id)}
       `
+      return NextResponse.json({ success: true })
+    }
+
+    // Handle notes update
+    if (typeof notes === 'string') {
+      await sql`UPDATE leads SET notes = ${notes}, last_activity = NOW() WHERE id = ${Number(id)}`
       return NextResponse.json({ success: true })
     }
 

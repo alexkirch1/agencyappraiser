@@ -112,16 +112,32 @@ async function getPipedriveCustomFields(): Promise<Record<string, string>> {
 
     // Map each logical key with multiple search patterns (most specific first)
     const mappings: [string, string[]][] = [
-      ["revenue", ["annual revenue", "revenue ltm", "revenue", "total revenue"]],
-      ["sde", ["sde", "ebitda", "sde / ebitda", "sde/ebitda", "seller discretionary"]],
-      ["retention", ["retention rate", "retention %", "retention"]],
-      ["policyMix", ["commercial lines mix", "commercial mix", "policy mix", "commercial %"]],
-      ["concentration", ["client concentration", "concentration", "top client %"]],
-      ["state", ["primary state", "state", "location"]],
-      ["employees", ["employee count", "employees", "number of employees", "staff"]],
-      ["carrierDiv", ["carrier diversification", "carrier div", "top carrier %"]],
-      ["scope", ["scope of sale", "scope", "sale type", "deal type"]],
-      ["yearEstablished", ["year established", "year est", "founded", "established"]],
+      ["revenue",          ["total annual commissions", "annual commissions/revenue (ltm)", "revenue ltm", "annual revenue", "revenue"]],
+      ["revenueY2",        ["annual commissions/revenue (y-2)", "revenue y-2", "y-2 revenue"]],
+      ["revenueY3",        ["annual commissions/revenue (y-3)", "revenue y-3", "y-3 revenue"]],
+      ["sde",              ["seller's discretionary earnings", "sde", "ebitda", "adj. ebitda"]],
+      ["retention",        ["client/policy retention rate", "retention rate", "retention %", "retention"]],
+      ["policyMix",        ["policy mix (revenue % commercial)", "commercial lines mix", "policy mix", "commercial %"]],
+      ["concentration",    ["client concentration", "concentration", "top 10 clients"]],
+      ["state",            ["primary state of operation", "primary state", "state", "location"]],
+      ["employees",        ["total number of employees", "employee count", "employees", "ftes"]],
+      ["carrierDiv",       ["carrier diversification (revenue % from top 3", "carrier diversification", "carrier div"]],
+      ["scope",            ["scope of sale", "scope", "sale type", "deal type"]],
+      ["yearEstablished",  ["year agency established", "year established", "year est", "founded"]],
+      ["topCarriers",      ["top 5 carriers", "top carriers", "carriers (comma"]],
+      ["closingTimeline",  ["closing timeline", "timeline", "time to close"]],
+      ["calculatedMultiple",["calculated multiple", "multiple"]],
+      ["lowOffer",         ["low offer"]],
+      ["highOffer",        ["high offer"]],
+      ["ownerCompensation",["owners compensation", "owner compensation", "owner comp"]],
+      ["annualPayroll",    ["annual payroll cost", "annual payroll", "payroll"]],
+      ["staffRetentionRisk",["staff retention risk", "staff risk"]],
+      ["avgClientTenure",  ["average client tenure", "avg client tenure", "client tenure"]],
+      ["officeStructure",  ["office structure", "office type"]],
+      ["agencyDescription",["agency description", "specialty", "niche"]],
+      ["rpe",              ["revenue per employee", "rpe"]],
+      ["newBusinessValue", ["new business value", "new business"]],
+      ["ownerCompensation",["owners compensation", "owner compensation", "owner comp"]],
     ]
 
     for (const [logicalKey, patterns] of mappings) {
@@ -320,29 +336,65 @@ export async function POST(req: Request) {
         const customFields: Record<string, string | number | null> = {}
         if (valuationData) {
           const num = (v: unknown) => (v != null && v !== "" ? Number(v) : null)
-          const revenueLTM = num(valuationData.revenueLTM)
-          const sdeEbitda = num(valuationData.sdeEbitda)
-          const retentionRate = num(valuationData.retentionRate)
-          const policyMix = num(valuationData.policyMix)
-          const clientConcentration = num(valuationData.clientConcentration)
-          const employeeCount = num(valuationData.employeeCount)
-          const carrierDiv = num(valuationData.carrierDiversification)
-          const yearEstablished = num(valuationData.yearEstablished)
+          const str = (v: unknown) => (v != null && v !== "" ? String(v) : null)
 
-          if (revenueLTM) customFields.revenue = revenueLTM
-          if (sdeEbitda) customFields.sde = sdeEbitda
-          if (retentionRate) customFields.retention = retentionRate
-          if (policyMix) customFields.policyMix = policyMix
-          if (clientConcentration) customFields.concentration = clientConcentration
-          if (valuationData.primaryState) customFields.state = String(valuationData.primaryState)
-          if (employeeCount) customFields.employees = employeeCount
-          if (carrierDiv) customFields.carrierDiv = carrierDiv
-          if (yearEstablished) customFields.yearEstablished = yearEstablished
-          if (valuationData.scopeOfSale != null) {
-            const scopeLabels: Record<number, string> = { 1: "Full Agency", 0.95: "Book Purchase", 0.9: "Fragmented" }
-            customFields.scope = scopeLabels[Number(valuationData.scopeOfSale)] || String(valuationData.scopeOfSale)
+          const revenueLTM        = num(valuationData.revenueLTM)
+          const sdeEbitda         = num(valuationData.sdeEbitda)
+          const retentionRate     = num(valuationData.retentionRate)
+          const policyMix         = num(valuationData.policyMix)
+          const clientConcentration = num(valuationData.clientConcentration)
+          const employeeCount     = num(valuationData.employeeCount)
+          const carrierDiv        = num(valuationData.carrierDiversification)
+          const yearEstablished   = num(valuationData.yearEstablished)
+          const ownerComp         = num(valuationData.ownerCompensation)
+          const annualPayroll     = num(valuationData.annualPayroll)
+          const avgClientTenure   = num(valuationData.avgClientTenure)
+          const revenueY2         = num(valuationData.revenueY2)
+          const revenueY3         = num(valuationData.revenueY3)
+          const calcMultiple      = num(valuationData.calculatedMultiple)
+          const lowOffer          = num(valuationData.lowOffer)
+          const highOffer         = num(valuationData.highOffer)
+
+          // Numeric fields
+          if (revenueLTM)         customFields.revenue             = revenueLTM
+          if (revenueY2)          customFields.revenueY2           = revenueY2
+          if (revenueY3)          customFields.revenueY3           = revenueY3
+          if (sdeEbitda)          customFields.sde                 = sdeEbitda
+          if (retentionRate)      customFields.retention           = retentionRate
+          if (policyMix)          customFields.policyMix           = policyMix
+          if (clientConcentration)customFields.concentration       = clientConcentration
+          if (employeeCount)      customFields.employees           = employeeCount
+          if (carrierDiv)         customFields.carrierDiv          = carrierDiv
+          if (yearEstablished)    customFields.yearEstablished     = yearEstablished
+          if (ownerComp)          customFields.ownerCompensation   = ownerComp
+          if (annualPayroll)      customFields.annualPayroll       = annualPayroll
+          if (avgClientTenure)    customFields.avgClientTenure     = avgClientTenure
+          if (calcMultiple)       customFields.calculatedMultiple  = calcMultiple
+          if (lowOffer)           customFields.lowOffer            = lowOffer
+          if (highOffer)          customFields.highOffer           = highOffer
+
+          // Revenue Per Employee — computed here so Pipedrive always gets the derived value
+          if (revenueLTM && employeeCount && employeeCount > 0) {
+            customFields.rpe = Math.round(revenueLTM / employeeCount)
           }
-          // Note: "source" is intentionally omitted — Pipedrive's "origin" field is system-generated and cannot be set via the API
+
+          // String / enum fields
+          if (valuationData.primaryState)   customFields.state              = str(valuationData.primaryState)!
+          if (valuationData.topCarriers)     customFields.topCarriers        = str(valuationData.topCarriers)!
+          if (valuationData.closingTimeline) customFields.closingTimeline    = str(valuationData.closingTimeline)!
+          if (valuationData.staffRetentionRisk) customFields.staffRetentionRisk = str(valuationData.staffRetentionRisk)!
+          if (valuationData.officeStructure) customFields.officeStructure    = str(valuationData.officeStructure)!
+          if (valuationData.agencyDescription) customFields.agencyDescription = str(valuationData.agencyDescription)!
+          if (valuationData.newBusinessValue) customFields.newBusinessValue  = str(valuationData.newBusinessValue)!
+
+          // Scope of Sale — convert multiplier value to a human-readable label
+          if (valuationData.scopeOfSale != null) {
+            const scopeLabels: Record<string, string> = {
+              "1": "Full Agency", "0.95": "Book Purchase", "0.9": "Fragmented",
+            }
+            customFields.scope = scopeLabels[String(valuationData.scopeOfSale)] ?? str(valuationData.scopeOfSale)!
+          }
+          // Note: "source"/"origin" is system-generated by Pipedrive and cannot be set via the API
         }
         const dealId = await createPipedriveDeal({
           title: dealTitle,

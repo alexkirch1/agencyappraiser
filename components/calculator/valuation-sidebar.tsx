@@ -30,26 +30,29 @@ export function ValuationSidebar({ results, riskAudit }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Offer Range */}
+      {/* Offer Range — User-facing (conservative) */}
       <Card className="border-primary/30 bg-card">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-            Estimated Value Range
+            Your Estimated Value Range
           </CardTitle>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Conservative estimate — real offers typically exceed the high end
+          </p>
         </CardHeader>
         <CardContent className="pt-0">
           <div className="flex flex-wrap items-end gap-x-3 gap-y-1">
             <div className="flex flex-col">
               <span className="text-xs text-muted-foreground">Low</span>
               <span className="text-xl font-bold text-success sm:text-2xl">
-                {formatCurrency(results.lowOffer)}
+                {formatCurrency(results.userFacingLow)}
               </span>
             </div>
             <span className="mb-1 text-lg text-muted-foreground">—</span>
             <div className="flex flex-col">
               <span className="text-xs text-muted-foreground">High</span>
               <span className="text-xl font-bold text-success sm:text-2xl">
-                {formatCurrency(results.highOffer)}
+                {formatCurrency(results.userFacingHigh)}
               </span>
             </div>
           </div>
@@ -120,6 +123,17 @@ export function ValuationSidebar({ results, riskAudit }: Props) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Micro-book risk penalty note */}
+      {results.microBookNote && (
+        <div className="flex items-start gap-2 rounded-md border border-amber-200/50 bg-amber-50/40 dark:border-amber-900/30 dark:bg-amber-950/20 px-3 py-2.5">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
+          <p className="text-[11px] leading-relaxed text-amber-800 dark:text-amber-200">
+            <span className="font-semibold">Note:</span>{" "}
+            {results.microBookNote}
+          </p>
+        </div>
+      )}
 
       {/* Completeness note */}
       {results.completenessNote && (
