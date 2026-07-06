@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { SmartInput } from "@/components/ui/smart-input"
@@ -104,6 +104,7 @@ export default function QuickValuePage() {
   const [growth, setGrowth] = useState<string>("")
   const [hasTrucking, setHasTrucking] = useState<boolean | null>(null)
   const [multiplier, setMultiplier] = useState(1.95)
+  const [multiplierManual, setMultiplierManual] = useState(false)
   const [showDisclaimer, setShowDisclaimer] = useState(false)
   const [resultsVisible, setResultsVisible] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
@@ -196,6 +197,13 @@ export default function QuickValuePage() {
 
     return { value, lowValue, highValue, suggested, tier, gap, ratio }
   }, [revenue, retention, bookType, multiplier, customers, policies, growth, hasTrucking])
+
+  // Auto-snap slider to the suggested multiplier unless the user has manually overridden it
+  useEffect(() => {
+    if (!multiplierManual && estimate?.suggested) {
+      setMultiplier(estimate.suggested)
+    }
+  }, [estimate?.suggested, multiplierManual])
 
   const tierInfo = estimate ? TIER_MESSAGES[estimate.tier] : null
 
@@ -374,13 +382,13 @@ export default function QuickValuePage() {
             </CardContent>
           </Card>
 
-          {/* Trucking / Commercial Auto */}
+          {/* Specialty / High-Risk Commercial */}
           <Card className="border border-border bg-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
                 <Truck className="h-4 w-4 text-muted-foreground" />
-                6. Do you write trucking or heavy commercial auto?
-                <InfoTip text="Trucking and heavy commercial auto (semi-trucks, fleets, owner-operators) carry elevated loss ratios and are frequently non-renewed by carriers during an ownership change. Answering yes applies a significant valuation penalty." />
+                6. Does your book include high-risk or specialty commercial niches?
+                <InfoTip text="Specialty and high-risk niches (trucking, heavy contractors, dedicated program business) can affect carrier renewal stability during an ownership transition. Buyers model this when pricing a deal." />
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
@@ -390,27 +398,29 @@ export default function QuickValuePage() {
                 className="flex flex-col gap-2 sm:flex-row sm:gap-3"
               >
                 {[
-                  { value: "no",  label: "No trucking",        sub: "Standard P&C book" },
-                  { value: "yes", label: "Yes, trucking/fleet", sub: "Semi-trucks, fleets, owner-operators" },
+                  {
+                    value: "no",
+                    label: "No — Standard lines only",
+                    sub: "Retail, offices, main street business, personal lines",
+                  },
+                  {
+                    value: "yes",
+                    label: "Yes — Specialty / High-Risk",
+                    sub: "Trucking, contracting, heavy auto, or dedicated industry programs",
+                  },
                 ].map((opt) => (
                   <label
                     key={opt.value}
-                    className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/10"
+                    className="flex flex-1 cursor-pointer items-start gap-2 rounded-md border border-border px-4 py-3 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/10"
                   >
-                    <RadioGroupItem value={opt.value} />
-                    <span>
-                      {opt.label}
-                      <span className="ml-2 text-muted-foreground text-xs">{opt.sub}</span>
+                    <RadioGroupItem value={opt.value} className="mt-0.5 shrink-0" />
+                    <span className="flex flex-col gap-0.5">
+                      <span className="font-medium">{opt.label}</span>
+                      <span className="text-muted-foreground text-xs">{opt.sub}</span>
                     </span>
                   </label>
                 ))}
               </RadioGroup>
-              {hasTrucking === true && (
-                <p className="flex items-start gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                  Trucking exposure reduces your suggested multiple and caps it at 1.5x. Buyers price in carrier non-renewal risk and volatile loss ratios on these accounts.
-                </p>
-              )}
             </CardContent>
           </Card>
 
@@ -421,16 +431,20 @@ export default function QuickValuePage() {
                 Adjust Your Multiplier<InfoTip text="The revenue multiple applied to your annual revenue. Most P&C agencies trade between 1.5x and 2.5x depending on book quality." />
               </CardTitle>
               <p className="text-xs text-muted-foreground">
-                Drag to adjust. 
-                {estimate?.suggested && (
-                  <> Suggested for your inputs:{" "}
+                {multiplierManual ? (
+                  <>
+                    Overriding suggested value.{" "}
                     <button
                       type="button"
                       className="font-semibold text-primary underline-offset-2 hover:underline"
-                      onClick={() => setMultiplier(estimate.suggested)}
+                      onClick={() => { setMultiplierManual(false) }}
                     >
-                      {estimate.suggested.toFixed(2)}x
+                      Reset to suggested ({estimate?.suggested?.toFixed(2)}x)
                     </button>
+                  </>
+                ) : (
+                  <>
+                    Auto-set to suggested{estimate?.suggested ? ` (${estimate.suggested.toFixed(2)}x)` : ""}. Drag to override.
                   </>
                 )}
               </p>
@@ -443,7 +457,10 @@ export default function QuickValuePage() {
               </div>
               <Slider
                 value={[multiplier]}
-                onValueChange={([v]) => setMultiplier(parseFloat(v.toFixed(2)))}
+                onValueChange={([v]) => {
+                  setMultiplierManual(true)
+                  setMultiplier(parseFloat(v.toFixed(2)))
+                }}
                 min={0.75}
                 max={3.0}
                 step={0.01}
