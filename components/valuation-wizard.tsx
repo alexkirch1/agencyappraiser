@@ -27,23 +27,23 @@ const step1Choices: Choice[] = [
 
 const step2Choices: Choice[] = [
   {
-    icon: Upload,
-    label: "Upload an EZLynx report for instant extraction",
-    sub: "Connect your AMS and we parse the data automatically",
-  },
-  {
     icon: Zap,
     label: "Answer 5 quick questions for a 60-second ballpark range",
-    sub: "Fast estimate — ideal if you just want a number to start with",
+    sub: "No documents needed. Ideal if you just want an instant baseline value to start with.",
+  },
+  {
+    icon: Upload,
+    label: "Upload an EZLynx report for instant extraction",
+    sub: "Securely parse your production data to auto-calculate market value.",
   },
   {
     icon: Calculator,
     label: "Complete a comprehensive 7-category risk scorecard",
-    sub: "Full weighted analysis covering retention, risk, operations, and deal structure",
+    sub: "A deep M&A-grade analysis covering retention, operational risk, and deal structure.",
   },
 ]
 
-const step2Routes = ["/ams", "/quick-value", "/calculator"]
+const step2Routes = ["/quick-value", "/ams", "/calculator"]
 
 export function ValuationWizard() {
   const router = useRouter()
@@ -116,6 +116,7 @@ export function ValuationWizard() {
         {choices.map((choice, i) => {
           const Icon = choice.icon
           const isHovered = hoveredIndex === i
+          const isFeatured = step === 2 && i === 0
           return (
             <button
               key={i}
@@ -123,27 +124,36 @@ export function ValuationWizard() {
               onMouseEnter={() => setHoveredIndex(i)}
               onMouseLeave={() => setHoveredIndex(null)}
               className={`group flex w-full items-start gap-4 rounded-xl border px-5 py-4 text-left transition-all duration-150 ${
-                isHovered
+                isFeatured
+                  ? isHovered
+                    ? "border-primary bg-primary/8 shadow-md"
+                    : "border-primary bg-primary/5 shadow-sm"
+                  : isHovered
                   ? "border-primary/60 bg-primary/5 shadow-sm"
                   : "border-border bg-card hover:border-primary/40"
               }`}
             >
               <div
                 className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                  isHovered ? "bg-primary/15" : "bg-muted"
+                  isHovered || isFeatured ? "bg-primary/15" : "bg-muted"
                 }`}
               >
                 <Icon
                   className={`h-4 w-4 transition-colors ${
-                    isHovered ? "text-primary" : "text-muted-foreground"
+                    isHovered || isFeatured ? "text-primary" : "text-muted-foreground"
                   }`}
                 />
               </div>
 
               <div className="flex-1 min-w-0">
+                {isFeatured && (
+                  <span className="mb-1.5 inline-block rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                    ⚡ Fastest &amp; Most Popular
+                  </span>
+                )}
                 <p
                   className={`text-sm font-semibold leading-snug transition-colors ${
-                    isHovered ? "text-primary" : "text-foreground"
+                    isHovered || isFeatured ? "text-primary" : "text-foreground"
                   }`}
                 >
                   {choice.label}
@@ -155,7 +165,7 @@ export function ValuationWizard() {
 
               <ArrowRight
                 className={`mt-1.5 h-4 w-4 shrink-0 transition-all duration-150 ${
-                  isHovered
+                  isHovered || isFeatured
                     ? "translate-x-0.5 text-primary"
                     : "text-muted-foreground/30"
                 }`}
