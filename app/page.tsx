@@ -39,9 +39,6 @@ export default function HomePage() {
             Most independent insurance agencies are priced on gut feel. Our tools analyze your retention, book quality, risk, and carrier mix to show you what buyers will actually pay.
           </p>
 
-          <p className="mt-6 text-xs font-medium text-muted-foreground">
-            Select what you want to value below to get started
-          </p>
         </div>
       </section>
 

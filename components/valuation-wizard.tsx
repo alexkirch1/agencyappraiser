@@ -34,7 +34,7 @@ const step2Choices: Choice[] = [
   {
     icon: Upload,
     label: "Upload an EZLynx report for instant extraction",
-    sub: "Securely parse your production data to auto-calculate market value.",
+    sub: "Drag and drop your exported report to auto-fill your agency data instantly.",
   },
   {
     icon: Calculator,
