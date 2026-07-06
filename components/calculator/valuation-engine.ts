@@ -58,7 +58,8 @@ export interface ValuationResults {
   sdeRange: string
   riskLevel: { text: string; color: string }
   completenessNote: string | null // null = all key fields answered
-  
+  microBookNote: string | null    // null = no micro-book penalty applied
+
   // Split valuations for different audiences
   userFacingLow: number    // Conservative/lower-middle for user to show when comparing
   userFacingHigh: number   // Adequate (not max) offer for user to see
@@ -166,6 +167,7 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
       sdeRange:              sde ? `${formatCurrency(sde * 3.0)} - ${formatCurrency(sde * 5.0)}` : "---",
       riskLevel:             { text: "CAPTIVE", color: "text-warning" },
       completenessNote:      null,
+      microBookNote:         null,
       // Captive split valuations (same conservative approach)
       userFacingLow: captiveLow,
       userFacingHigh: Math.round(captiveHigh * 0.92),
@@ -374,6 +376,22 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
     scaledCoreScore = Math.min(scaledCoreScore, 1.5)
   }
 
+  // ── Micro-Book Risk Penalty ────────────────────────────────────────────
+  // High volatility and concentration risk in hypersmall books.
+  // Applied as the final downward modifier before the transaction multiplier.
+  let microBookNote: string | null = null
+  const activePolicies = inputs.activePolicies
+  if (activePolicies !== null && activePolicies > 0) {
+    if (activePolicies < 50) {
+      scaledCoreScore -= 0.35
+      microBookNote = "Multiplier adjusted downward due to high volatility risk inherent in micro-sized books (under 50 policies)."
+    } else if (activePolicies <= 150) {
+      scaledCoreScore -= 0.15
+      microBookNote = "Multiplier adjusted downward due to concentration risk in small books (51–150 policies)."
+    }
+  }
+  scaledCoreScore = Math.max(desiredMin, Math.min(desiredAbsoluteMax, scaledCoreScore))
+
   const finalMultiple = scaledCoreScore * TRANSACTION_MULTIPLIER
 
   // Apply a 20–25% customer attrition discount to the offer band.
@@ -423,6 +441,7 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
     sdeRange: sde ? `${formatCurrency(sde * 5.0)} - ${formatCurrency(sde * 9.0)}` : "---",
     riskLevel: getRiskLevel(finalMultiple),
     completenessNote,
+    microBookNote,
     // User-facing (conservative)
     userFacingLow,
     userFacingHigh,

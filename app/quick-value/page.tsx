@@ -179,6 +179,20 @@ export default function QuickValuePage() {
     const revOffset = revenue > 2_000_000 ? 0.07 : revenue > 500_000 ? 0.03 : -0.04
     suggested += revOffset
 
+    // ── Micro-Book Risk Penalty ────────────────────────────────────────────
+    // High volatility and concentration risk in hypersmall books.
+    // Applied after all other adjustments so it represents a final downward mod.
+    let microBookNote: string | null = null
+    if (policies !== null && policies > 0) {
+      if (policies < 50) {
+        suggested -= 0.35
+        microBookNote = "Multiplier adjusted downward due to high volatility risk inherent in micro-sized books (under 50 policies)."
+      } else if (policies <= 150) {
+        suggested -= 0.15
+        microBookNote = "Multiplier adjusted downward due to concentration risk in small books (51–150 policies)."
+      }
+    }
+
     suggested = Math.max(0.78, Math.min(hasTrucking ? 1.5 : 3.0, parseFloat(suggested.toFixed(2))))
 
     // Central value
@@ -195,7 +209,7 @@ export default function QuickValuePage() {
     const tier = getTier(retention, bookType, revenue, growth, ratio)
     const gap  = getFullValGap(retention, bookType, growth)
 
-    return { value, lowValue, highValue, suggested, tier, gap, ratio }
+    return { value, lowValue, highValue, suggested, tier, gap, ratio, microBookNote }
   }, [revenue, retention, bookType, multiplier, customers, policies, growth, hasTrucking])
 
   // Auto-snap slider to the suggested multiplier unless the user has manually overridden it
@@ -466,6 +480,12 @@ export default function QuickValuePage() {
                 step={0.01}
                 className="w-full"
               />
+              {estimate?.microBookNote && (
+                <p className="mt-3 flex items-start gap-1.5 rounded-md border border-amber-200/50 bg-amber-50/40 dark:border-amber-900/30 dark:bg-amber-950/20 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+                  <span className="mt-0.5 shrink-0 font-bold">Note:</span>
+                  {estimate.microBookNote}
+                </p>
+              )}
             </CardContent>
           </Card>
 

@@ -124,6 +124,17 @@ export function ValuationSidebar({ results, riskAudit }: Props) {
         </CardContent>
       </Card>
 
+      {/* Micro-book risk penalty note */}
+      {results.microBookNote && (
+        <div className="flex items-start gap-2 rounded-md border border-amber-200/50 bg-amber-50/40 dark:border-amber-900/30 dark:bg-amber-950/20 px-3 py-2.5">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
+          <p className="text-[11px] leading-relaxed text-amber-800 dark:text-amber-200">
+            <span className="font-semibold">Note:</span>{" "}
+            {results.microBookNote}
+          </p>
+        </div>
+      )}
+
       {/* Completeness note */}
       {results.completenessNote && (
         <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2.5">
