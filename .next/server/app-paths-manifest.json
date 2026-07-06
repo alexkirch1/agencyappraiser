@@ -1,6 +1,4 @@
 {
-  "/ams/page": "app/ams/page.js",
   "/api/auth/me/route": "app/api/auth/me/route.js",
-  "/page": "app/page.js",
-  "/quick-value/page": "app/quick-value/page.js"
+  "/page": "app/page.js"
 }

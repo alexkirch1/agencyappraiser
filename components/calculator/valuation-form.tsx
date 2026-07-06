@@ -307,36 +307,23 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
             <p className="mt-1 text-xs text-muted-foreground/70">% of premium that is Commercial Lines</p>
           </div>
 
-          {/* Trucking / Commercial Auto exposure */}
-          <div>
-            <Label className="mb-2 block text-sm text-muted-foreground">
-              Do you specialize in or write any trucking, fleet, or heavy commercial auto business?
-              <InfoTip text="Trucking and fleet accounts (semi-trucks, owner-operators, heavy commercial vehicles) are a distinct market segment. Buyers typically model carrier renewal risk and loss volatility, which may affect valuation multiples for heavily weighted books." />
+          {/* Specialized Niches / Program Business */}
+          <div id="field-agencyNiches">
+            <Label htmlFor="agencyNiches" className="text-sm text-muted-foreground">
+              Specialized Niches or Program Business
+              <InfoTip text="Buyers pay attention to niche concentration — both positively (strong program expertise commands a premium) and for carrier renewal risk (e.g. heavy trucking or construction books). List any industries where you write a meaningful volume." />
             </Label>
-            <RadioGroup
-              value={inputs.hasTrucking === null ? "" : inputs.hasTrucking ? "yes" : "no"}
-              onValueChange={(v) => update({ hasTrucking: v === "yes" })}
-              className="flex gap-3"
-            >
-              {[
-                { value: "no",  label: "No — primarily standard commercial/personal lines" },
-                { value: "yes", label: "Yes — we do write trucking or fleet business" },
-              ].map((opt) => (
-                <label
-                  key={opt.value}
-                  className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/10"
-                >
-                  <RadioGroupItem value={opt.value} />
-                  <span>{opt.label}</span>
-                </label>
-              ))}
-            </RadioGroup>
-            {inputs.hasTrucking === true && (
-              <p className="mt-2 flex items-center gap-1.5 rounded-md border border-amber-200/50 bg-amber-50/30 dark:border-amber-900/30 dark:bg-amber-950/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
-                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                Trucking and fleet business is a specialized market. Most buyers adjust their underwriting assumptions for this segment — we&apos;ll model it in your valuation.
-              </p>
-            )}
+            <input
+              id="agencyNiches"
+              type="text"
+              placeholder="e.g., None, or list niches here"
+              value={inputs.agencyDescription ?? ""}
+              onChange={(e) => update({ agencyDescription: e.target.value })}
+              className="mt-1.5 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            />
+            <p className="mt-1 text-xs text-muted-foreground/70">
+              Do you specialize in or write a significant volume for specific industries? (e.g., restaurants, trucking, construction, agriculture)
+            </p>
           </div>
           <div id="field-clientConcentration">
             <Label htmlFor="concentration" className="text-sm text-muted-foreground">
