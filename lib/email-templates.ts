@@ -432,3 +432,263 @@ export function dripEmail3(data: {
     subject: `One last thing about your agency valuation`,
   }
 }
+
+// ─── Quick Valuation: Agent report email ─────────────────────────────────────
+
+export function quickValuationAgentEmail(data: {
+  firstName: string
+  agencyName?: string
+  lowValue: number
+  highValue: number
+  suggested: number
+  tier: string
+  revenue: number
+  retention?: number
+  policies?: number
+  leadId: number
+}) {
+  const fmt = (n: number) =>
+    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n)
+  const midValue = Math.round((data.lowValue + data.highValue) / 2)
+  const unsubUrl = `${BASE_URL}/api/send-drip-email?lead=${data.leadId}&seq=all`
+
+  const html = layout(`
+    <h1 style="margin:0 0 4px;font-size:24px;font-weight:700;color:${DARK_TEXT};">Hi ${data.firstName},</h1>
+    <p style="margin:0 0 24px;font-size:15px;color:${MUTED_TEXT};line-height:1.6;">
+      Here&apos;s your quick agency valuation report from Agency Appraiser${data.agencyName ? ` for <strong style="color:${DARK_TEXT};">${data.agencyName}</strong>` : ""}.
+      This estimate is based on the inputs you provided and current M&amp;A market data.
+    </p>
+
+    <!-- Estimated value range -->
+    <div style="background:linear-gradient(135deg,#0ea5e915,#0ea5e908);border:1px solid #0ea5e930;border-radius:12px;padding:24px;margin-bottom:20px;text-align:center;">
+      <p style="margin:0 0 6px;font-size:12px;font-weight:600;color:${MUTED_TEXT};text-transform:uppercase;letter-spacing:0.5px;">Your Estimated Agency Value</p>
+      <p style="margin:0;font-size:38px;font-weight:800;color:${BRAND_COLOR};line-height:1;">${fmt(midValue)}</p>
+      <p style="margin:8px 0 0;font-size:13px;color:${MUTED_TEXT};">Range: ${fmt(data.lowValue)} &ndash; ${fmt(data.highValue)}</p>
+    </div>
+
+    <!-- Key metrics -->
+    <table width="100%" cellpadding="0" cellspacing="4" style="margin-bottom:24px;">
+      <tr>
+        ${statBox("Suggested Multiple", `${data.suggested.toFixed(2)}x`)}
+        ${statBox("Annual Revenue", fmt(data.revenue))}
+        ${data.retention != null ? statBox("Retention Rate", `${data.retention}%`) : ""}
+        ${data.policies != null ? statBox("Active Policies", data.policies.toLocaleString()) : ""}
+      </tr>
+    </table>
+
+    <div style="background:${BG};border:1px solid ${BORDER};border-left:3px solid ${BRAND_COLOR};border-radius:6px;padding:14px 16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;color:${DARK_TEXT};line-height:1.6;">
+        <strong>Important:</strong> This is a 60-second ballpark estimate. Your actual market value depends on factors like
+        carrier mix, owner dependency, and deal structure. The full calculator gives you a 7-category M&amp;A-grade analysis.
+      </p>
+    </div>
+
+    <!-- CTA: Schedule a call -->
+    <a href="https://calendly.com/agencyappraiser"
+       style="display:block;text-align:center;background:${BRAND_COLOR};color:#fff;text-decoration:none;padding:15px 24px;border-radius:8px;font-weight:700;font-size:16px;margin-bottom:12px;">
+      Schedule a Free Consultation Call
+    </a>
+    <a href="${BASE_URL}/calculator"
+       style="display:block;text-align:center;background:${DARK_TEXT};color:#fff;text-decoration:none;padding:13px 24px;border-radius:8px;font-weight:600;font-size:14px;margin-bottom:24px;">
+      Run the Full Valuation Calculator
+    </a>
+
+    <p style="margin:0 0 4px;font-size:14px;color:${DARK_TEXT};font-weight:600;">Alex Kirchhoff</p>
+    <p style="margin:0;font-size:13px;color:${MUTED_TEXT};">Agency Appraiser &mdash; Independent Insurance Agency M&amp;A</p>
+    <p style="margin:20px 0 0;font-size:12px;color:${MUTED_TEXT};">
+      Questions? Reply to this email &mdash; we read every one.<br/>
+      <a href="${unsubUrl}" style="color:${MUTED_TEXT};text-decoration:underline;">Unsubscribe from follow-up emails</a>
+    </p>
+  `, `Your agency valuation: ${fmt(midValue)} at ${data.suggested.toFixed(2)}x — Agency Appraiser`)
+
+  return {
+    from: FROM,
+    html,
+    subject: `Your Agency Valuation Report - AgencyAppraiser`,
+  }
+}
+
+// ─── Quick Valuation: Admin notification email ───────────────────────────────
+
+export function quickValuationAdminEmail(data: {
+  leadName: string
+  leadEmail: string
+  leadPhone?: string
+  agencyName?: string
+  leadId: number
+  // Inputs
+  revenue: number
+  retention?: number
+  bookType?: string
+  growth?: string
+  customers?: number
+  policies?: number
+  ratio?: number
+  hasTrucking?: boolean
+  // Calculated
+  multiplier: number
+  suggested: number
+  lowValue: number
+  highValue: number
+  tier: string
+}) {
+  const fmt = (n: number) =>
+    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n)
+  const midValue = Math.round((data.lowValue + data.highValue) / 2)
+
+  function row(label: string, value: string | number | null | undefined) {
+    if (value == null || value === "") return ""
+    return `
+    <tr>
+      <td style="padding:9px 14px;font-size:13px;color:${MUTED_TEXT};font-weight:500;border-bottom:1px solid ${BORDER};background:${BG};width:45%;">${label}</td>
+      <td style="padding:9px 14px;font-size:13px;color:${DARK_TEXT};font-weight:600;border-bottom:1px solid ${BORDER};background:#fff;">${value}</td>
+    </tr>`
+  }
+
+  const html = layout(`
+    <div style="display:inline-block;background:#f59e0b22;border:1px solid #f59e0b44;border-radius:20px;padding:4px 12px;font-size:12px;color:#b45309;font-weight:600;margin-bottom:16px;letter-spacing:0.3px;">
+      NEW QUICK VALUATION LEAD
+    </div>
+    <h1 style="margin:0 0 4px;font-size:24px;font-weight:700;color:${DARK_TEXT};">${data.leadName}</h1>
+    <p style="margin:0 0 20px;font-size:14px;color:${MUTED_TEXT};">${data.agencyName || "Independent Agency"} &mdash; Quick Valuation Tool</p>
+
+    <!-- Valuation summary -->
+    <table width="100%" cellpadding="0" cellspacing="4" style="margin-bottom:20px;">
+      <tr>
+        ${statBox("Low", fmt(data.lowValue))}
+        ${statBox("Mid Value", fmt(midValue))}
+        ${statBox("High", fmt(data.highValue))}
+      </tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="4" style="margin-bottom:24px;">
+      <tr>
+        ${statBox("Suggested Multiple", `${data.suggested.toFixed(2)}x`)}
+        ${statBox("Applied Multiple", `${data.multiplier.toFixed(2)}x`)}
+        ${statBox("Tier", data.tier)}
+      </tr>
+    </table>
+
+    <!-- All submitted fields -->
+    <p style="margin:0 0 10px;font-size:12px;font-weight:700;color:${MUTED_TEXT};text-transform:uppercase;letter-spacing:0.5px;">Submitted Form Data</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${BORDER};border-radius:8px;border-collapse:collapse;overflow:hidden;margin-bottom:24px;">
+      ${row("Lead ID", `#${data.leadId}`)}
+      ${row("Name", data.leadName)}
+      ${row("Email", data.leadEmail)}
+      ${row("Phone", data.leadPhone)}
+      ${row("Agency Name", data.agencyName)}
+      ${row("Annual Revenue (LTM)", fmt(data.revenue))}
+      ${row("Retention Rate", data.retention != null ? `${data.retention}%` : null)}
+      ${row("Book Type", data.bookType)}
+      ${row("Revenue Growth Trend", data.growth)}
+      ${row("Active Customers", data.customers?.toLocaleString())}
+      ${row("Active Policies", data.policies?.toLocaleString())}
+      ${row("Policy/Customer Ratio", data.ratio != null ? data.ratio.toFixed(2) : null)}
+      ${row("Specialty / High-Risk Niches", data.hasTrucking === true ? "Yes" : data.hasTrucking === false ? "No" : null)}
+    </table>
+
+    <!-- Admin CTAs -->
+    <a href="${BASE_URL}/admin"
+       style="display:block;text-align:center;background:${DARK_TEXT};color:#fff;text-decoration:none;padding:14px 24px;border-radius:8px;font-weight:600;font-size:15px;margin-bottom:10px;">
+      View in Admin Dashboard
+    </a>
+    <a href="mailto:${data.leadEmail}?subject=Your Agency Valuation - Agency Appraiser"
+       style="display:block;text-align:center;background:${BRAND_COLOR};color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;font-size:14px;">
+      Reply to ${data.leadName}
+    </a>
+    <p style="margin:16px 0 0;font-size:12px;color:${MUTED_TEXT};text-align:center;">
+      Submitted ${new Date().toLocaleString("en-US", { timeZone: "America/New_York", dateStyle: "medium", timeStyle: "short" })} ET
+    </p>
+  `, `Quick valuation: ${data.leadName} — ${fmt(midValue)} @ ${data.suggested.toFixed(2)}x`)
+
+  return {
+    from: FROM,
+    html,
+    subject: `New Valuation Lead: ${data.agencyName || data.leadName} / ${data.leadEmail}`,
+  }
+}
+
+// ─── Full Valuation: Agent report email ──────────────────────────────────────
+
+export function fullValuationAgentEmail(data: {
+  firstName: string
+  agencyName?: string
+  leadEmail: string
+  lowOffer: number
+  highOffer: number
+  calculatedMultiple: number
+  riskGrade: string
+  revenueLTM?: number
+  retentionRate?: number
+  leadId: number
+}) {
+  const fmt = (n: number) =>
+    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n)
+  const midOffer = Math.round((data.lowOffer + data.highOffer) / 2)
+  const unsubUrl = `${BASE_URL}/api/send-drip-email?lead=${data.leadId}&seq=all`
+
+  const gradeColor: Record<string, string> = {
+    "A+": "#16a34a", A: "#16a34a", B: "#0ea5e9", C: "#f59e0b", D: "#ef4444", F: "#dc2626",
+  }
+  const gColor = gradeColor[data.riskGrade] ?? MUTED_TEXT
+
+  const html = layout(`
+    <h1 style="margin:0 0 4px;font-size:24px;font-weight:700;color:${DARK_TEXT};">Hi ${data.firstName},</h1>
+    <p style="margin:0 0 24px;font-size:15px;color:${MUTED_TEXT};line-height:1.6;">
+      Your comprehensive agency valuation report is ready${data.agencyName ? ` for <strong style="color:${DARK_TEXT};">${data.agencyName}</strong>` : ""}.
+      This is an M&amp;A-grade analysis based on your 7-category risk scorecard and current market transaction data.
+    </p>
+
+    <!-- Estimated value range -->
+    <div style="background:linear-gradient(135deg,#0ea5e915,#0ea5e908);border:1px solid #0ea5e930;border-radius:12px;padding:24px;margin-bottom:20px;text-align:center;">
+      <p style="margin:0 0 6px;font-size:12px;font-weight:600;color:${MUTED_TEXT};text-transform:uppercase;letter-spacing:0.5px;">Your Estimated Agency Value</p>
+      <p style="margin:0;font-size:38px;font-weight:800;color:${BRAND_COLOR};line-height:1;">${fmt(midOffer)}</p>
+      <p style="margin:8px 0 0;font-size:13px;color:${MUTED_TEXT};">Conservative range: ${fmt(data.lowOffer)} &ndash; ${fmt(data.highOffer)}</p>
+    </div>
+
+    <!-- Key metrics -->
+    <table width="100%" cellpadding="0" cellspacing="4" style="margin-bottom:24px;">
+      <tr>
+        ${statBox("Revenue Multiple", `${data.calculatedMultiple.toFixed(2)}x`)}
+        ${data.revenueLTM ? statBox("Annual Revenue", fmt(data.revenueLTM)) : ""}
+        ${data.retentionRate != null ? statBox("Retention Rate", `${data.retentionRate}%`) : ""}
+        <td style="text-align:center;padding:12px 8px;">
+          <div style="background:${BG};border:1px solid ${BORDER};border-radius:8px;padding:14px 12px;">
+            <div style="font-size:20px;font-weight:700;color:${gColor};">${data.riskGrade}</div>
+            <div style="font-size:11px;color:${MUTED_TEXT};margin-top:4px;text-transform:uppercase;letter-spacing:0.5px;">Risk Grade</div>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <div style="background:${BG};border:1px solid ${BORDER};border-left:3px solid #16a34a;border-radius:6px;padding:14px 16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;color:${DARK_TEXT};line-height:1.6;">
+        <strong>Note on your estimate:</strong> We apply a conservative adjustment to the figures shown here. Real
+        offers from qualified buyers typically come in at or above the high end of your range. We do this intentionally
+        so the first offer you receive feels like a positive surprise, not a disappointment.
+      </p>
+    </div>
+
+    <!-- Schedule call CTA -->
+    <a href="https://calendly.com/agencyappraiser"
+       style="display:block;text-align:center;background:${BRAND_COLOR};color:#fff;text-decoration:none;padding:15px 24px;border-radius:8px;font-weight:700;font-size:16px;margin-bottom:12px;">
+      Schedule a Free Consultation Call
+    </a>
+    <a href="${BASE_URL}/calculator"
+       style="display:block;text-align:center;background:${DARK_TEXT};color:#fff;text-decoration:none;padding:13px 24px;border-radius:8px;font-weight:600;font-size:14px;margin-bottom:24px;">
+      View Your Full Report Online
+    </a>
+
+    <p style="margin:0 0 4px;font-size:14px;color:${DARK_TEXT};font-weight:600;">Alex Kirchhoff</p>
+    <p style="margin:0;font-size:13px;color:${MUTED_TEXT};">Agency Appraiser &mdash; Independent Insurance Agency M&amp;A</p>
+    <p style="margin:20px 0 0;font-size:12px;color:${MUTED_TEXT};">
+      Questions? Reply to this email &mdash; we read every one.<br/>
+      <a href="${unsubUrl}" style="color:${MUTED_TEXT};text-decoration:underline;">Unsubscribe from follow-up emails</a>
+    </p>
+  `, `Your full agency valuation: ${fmt(midOffer)} at ${data.calculatedMultiple.toFixed(2)}x — Agency Appraiser`)
+
+  return {
+    from: FROM,
+    html,
+    subject: `Your Agency Valuation Report - AgencyAppraiser`,
+  }
+}
