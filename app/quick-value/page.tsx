@@ -136,21 +136,21 @@ export default function QuickValuePage() {
     // Designed so a truly poor agency lands below 1x and a top-tier agency
     // reaches 2.0x+. Each category contributes a realistic spread.
     //
-    // Baseline: 1.09 (middle-of-road, unanswered)
+    // Baseline: 1.30 (middle-of-road, unanswered)
     //
     // Retention:   high=+0.41  average=+0.12  low=-0.31
     // Book type:   commercial=+0.29  mixed=+0.07  personal=-0.18
     // Growth:      strong=+0.33  moderate=+0.10  flat=-0.09  declining=-0.34
     // Ratio:       good(>1.75)=+0.12  bad(<1.33)=-0.16
     //
-    // Worst case:  1.09 - 0.31 - 0.18 - 0.34 - 0.16 = 0.10  (floor 0.78 after clamp)
-    // Best case:   1.09 + 0.41 + 0.29 + 0.33 + 0.12 = 2.24  (ceil 2.3 after rev bump)
+    // Worst case:  1.30 - 0.31 - 0.18 - 0.34 - 0.16 = 0.31  (floor 0.78 after clamp)
+    // Best case:   1.30 + 0.41 + 0.29 + 0.33 + 0.12 = 2.45  (ceil 2.4 after clamp)
 
     const ratio = (customers && policies && customers > 0)
       ? parseFloat((policies / customers).toFixed(2))
       : null
 
-    let suggested = 1.09
+    let suggested = 1.30
     if (retention === "high")          suggested += 0.41
     else if (retention === "average")  suggested += 0.12
     else if (retention === "low")      suggested -= 0.31
@@ -193,7 +193,7 @@ export default function QuickValuePage() {
       }
     }
 
-    suggested = Math.max(0.78, Math.min(hasTrucking ? 1.5 : 3.0, parseFloat(suggested.toFixed(2))))
+    suggested = Math.max(0.78, Math.min(hasTrucking ? 1.5 : 2.4, parseFloat(suggested.toFixed(2))))
 
     // Central value
     const value = naturalRound(revenue * multiplier)
@@ -204,7 +204,7 @@ export default function QuickValuePage() {
     const lowSpread  = 0.15 + ((revenue % 13) / 13) * 0.03
     const highSpread = 0.18 + ((revenue % 11) / 11) * 0.06
     const lowValue   = naturalRound(revenue * Math.max(0.75, suggested * (1 - lowSpread)))
-    const highValue  = naturalRound(revenue * Math.min(3.0,  suggested * (1 + highSpread)))
+    const highValue  = naturalRound(revenue * Math.min(2.4,  suggested * (1 + highSpread)))
 
     const tier = getTier(retention, bookType, revenue, growth, ratio)
     const gap  = getFullValGap(retention, bookType, growth)

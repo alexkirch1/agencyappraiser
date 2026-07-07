@@ -346,12 +346,12 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
   }
 
   // --- FINAL RESULTS ---
-  // Sweet-spot range: 0.75–1.75 (a 3.0 is reserved for truly exceptional agencies).
+  // Sweet-spot range: 0.75–1.75 (a 2.4 is reserved for truly exceptional agencies).
   // We scale raw scores so the *center of gravity* lands in 0.75–1.75.
   // Only agencies with an unusually high raw score break above 1.75.
   const desiredMin = 0.75
   const desiredSweetSpotMax = 1.75
-  const desiredAbsoluteMax = 3.0
+  const desiredAbsoluteMax = 2.4
 
   // Map raw score into 0.75–1.75 for typical agencies.
   // A raw score that previously mapped to 3.0 now maps to ~2.2 (exceptional but plausible).
@@ -394,10 +394,10 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
 
   const finalMultiple = scaledCoreScore * TRANSACTION_MULTIPLIER
 
-  // Apply a 20–25% customer attrition discount to the offer band.
-  // This reflects the real-world expectation that a buyer will lose some clients
+  // Apply a 25% customer attrition discount to the offer band.
+  // This reflects our exact expectation that a buyer will lose 25% of clients
   // through the transition, so the offer should price that risk in.
-  const CUSTOMER_LOSS_DISCOUNT = 0.22 // midpoint of 20–25%
+  const CUSTOMER_LOSS_DISCOUNT = 0.25 // exact 25% transition attrition
   const rawHighOffer = revLTM * finalMultiple
   const rawLowOffer = revLTM * (finalMultiple - 0.25)
 
@@ -407,9 +407,9 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
 
   // ── User-Facing Valuations (Conservative) ──────────────────────────────
   // Show the user a lower-middle range so real offers pleasantly surprise them.
-  // User sees ~85% of true value on the low end, ~95% on the high (not the max).
-  const userFacingLow = lowOffer  // Already conservative
-  const userFacingHigh = Math.round(highOffer * 0.92)  // 8% haircut from max to keep realistic
+  // Standard 15% transition haircut applied to the high-line to keep the ceiling realistic.
+  const userFacingLow = lowOffer  // Already conservative (25% attrition baked in)
+  const userFacingHigh = Math.round(highOffer * (1 - 0.15))  // 15% transition haircut
 
   // ── Admin/Buyer True Value ─────────────────────────────────────────────
   // What the agency is truly worth (before customer loss discount applied to user offer).
