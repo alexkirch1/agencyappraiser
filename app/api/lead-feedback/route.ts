@@ -11,9 +11,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 })
     }
 
+    // Append the new feedback to any existing notes rather than overwriting
     await sql`
       UPDATE leads
-      SET notes = ${feedback}
+      SET notes = CASE
+        WHEN notes IS NULL OR notes = '' THEN ${`Valuation feedback: ${feedback}`}
+        ELSE notes || E'\n' || ${`Valuation feedback: ${feedback}`}
+      END
       WHERE id = ${leadId}
     `
 

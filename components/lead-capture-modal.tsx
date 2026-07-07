@@ -20,12 +20,11 @@ const REFERRAL_OPTIONS = [
 ]
 
 const FEEDBACK_OPTIONS = [
-  "Just exploring — not ready to sell yet",
-  "Actively looking to sell in the next 12 months",
-  "Comparing offers — already have a buyer in mind",
-  "Curious about my agency's value for planning purposes",
-  "Looking to acquire, not sell",
-  "Other",
+  "Feels spot on with my expectations",
+  "Feels a bit lower than expected",
+  "Feels a bit higher than expected",
+  "I have a suggestion to improve the tool",
+  "Other / general comments",
 ]
 
 interface LeadData {
@@ -223,7 +222,7 @@ export function LeadCaptureModal({
               </span>
             </div>
             <p className="text-center text-sm text-muted-foreground mt-1">
-              Where are you in the process of selling your agency?
+              How accurate does this estimated valuation range feel based on your market knowledge?
             </p>
           </CardHeader>
           <CardContent>
