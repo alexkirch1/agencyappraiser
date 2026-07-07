@@ -6,7 +6,7 @@ import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/lib/use-auth"
-import { GoogleAnalytics } from "@next/third-parties/google"
+
 
 const FB_PIXEL_ID = process.env.NEXT_PUBLIC_FACEBOOK_PIXEL_ID
 const CLARITY_ID = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID
@@ -110,10 +110,10 @@ export default function RootLayout({
           <Script id="ms-clarity" strategy="afterInteractive">
             {`
               (function() {
-                var host = window.location.hostname;
-                var isProduction = host === "agencyappraiser.com" || host === "www.agencyappraiser.com";
-                var isDev = host === "localhost" || host === "127.0.0.1" || host.indexOf(".vercel.app") !== -1;
-                if (!isProduction || isDev) return;
+                var isProduction = typeof window !== 'undefined' &&
+                  (window.location.hostname === 'www.agencyappraiser.com' ||
+                   window.location.hostname === 'agencyappraiser.com');
+                if (!isProduction) return;
                 (function(c,l,a,r,i,t,y){
                   c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
                   t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
@@ -130,10 +130,10 @@ export default function RootLayout({
             <Script id="fb-pixel" strategy="afterInteractive">
               {`
                 (function() {
-                  var host = window.location.hostname;
-                  var isProduction = host === "agencyappraiser.com" || host === "www.agencyappraiser.com";
-                  var isDev = host === "localhost" || host === "127.0.0.1" || host.indexOf(".vercel.app") !== -1;
-                  if (!isProduction || isDev) return;
+                  var isProduction = typeof window !== 'undefined' &&
+                    (window.location.hostname === 'www.agencyappraiser.com' ||
+                     window.location.hostname === 'agencyappraiser.com');
+                  if (!isProduction) return;
                   !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
                   n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
                   n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
@@ -164,8 +164,28 @@ export default function RootLayout({
             <Footer />
           </AuthProvider>
         </ThemeProvider>
+        {/* Google Analytics GA4 — domain-locked: only fires on agencyappraiser.com */}
         {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
-          <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}`}
+              strategy="afterInteractive"
+            />
+            <Script id="ga4-init" strategy="afterInteractive">
+              {`
+                (function() {
+                  var isProduction = typeof window !== 'undefined' &&
+                    (window.location.hostname === 'www.agencyappraiser.com' ||
+                     window.location.hostname === 'agencyappraiser.com');
+                  if (!isProduction) return;
+                  window.dataLayer = window.dataLayer || [];
+                  function gtag(){dataLayer.push(arguments);}
+                  gtag('js', new Date());
+                  gtag('config', '${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}');
+                })();
+              `}
+            </Script>
+          </>
         )}
       </body>
     </html>
