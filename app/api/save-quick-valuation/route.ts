@@ -30,7 +30,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json()
-    const { leadId, revenue, retention, bookType, growth, customers, policies, ratio, multiplier, suggested, lowValue, midValue, highValue, tier } = body
+    const { leadId, revenue, retention, bookType, growth, customers, policies, ratio, multiplier, suggested, lowValue, midValue, highValue, tier, isSuspiciousData } = body
 
     // Validate numeric fields are numbers and within plausible bounds
     const numericFields: Record<string, unknown> = { revenue, retention, customers, policies, ratio, multiplier, suggested, lowValue, midValue, highValue }
@@ -106,7 +106,10 @@ export async function POST(req: Request) {
             highValue: highValue ?? 0,
             tier: tier ?? "Standard",
           })
-          await sendEmail(ADMIN_EMAIL, adminPayload.subject, adminPayload.html, adminPayload.from, lead.email)
+          const adminSubject = isSuspiciousData
+            ? `⚠️ SUSPICIOUS DATA FLAG — ${adminPayload.subject}`
+            : adminPayload.subject
+          await sendEmail(ADMIN_EMAIL, adminSubject, adminPayload.html, adminPayload.from, lead.email)
         }
       } catch (emailErr) {
         // Non-fatal — log but never crash the save response

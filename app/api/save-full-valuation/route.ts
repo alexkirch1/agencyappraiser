@@ -11,7 +11,7 @@ const NOTIFY_EMAIL = "alex@rockyquote.com"
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { leadId, inputs, results } = body
+    const { leadId, inputs, results, isSuspiciousData } = body
     const user = await getCurrentUser()
 
     const rows = await sql`
@@ -85,11 +85,12 @@ export async function POST(req: Request) {
             retentionRate: inputs?.retentionRate ?? undefined,
             leadId,
           })
-          // Send admin notification
+          // Send admin notification — prepend suspicious flag if ratio was unrealistic
+          const adminSubject = isSuspiciousData ? `⚠️ SUSPICIOUS DATA FLAG — ${subject}` : subject
           await fetch("https://api.resend.com/emails", {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${RESEND_API_KEY}` },
-            body: JSON.stringify({ from, to: [NOTIFY_EMAIL], reply_to: lead.email, subject, html }),
+            body: JSON.stringify({ from, to: [NOTIFY_EMAIL], reply_to: lead.email, subject: adminSubject, html }),
           })
 
           // Send agent valuation report email

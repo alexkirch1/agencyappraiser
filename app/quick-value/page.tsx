@@ -209,7 +209,17 @@ export default function QuickValuePage() {
     const tier = getTier(retention, bookType, revenue, growth, ratio)
     const gap  = getFullValGap(retention, bookType, growth)
 
-    return { value, lowValue, highValue, suggested, tier, gap, ratio, microBookNote }
+    // ── Data Sanity Check ─────────────────────────────────────────────────
+    // Flag unrealistic policy-to-customer ratios for admin visibility
+    let isSuspiciousData = false
+    if (customers && customers > 0 && policies && policies > 0) {
+      const policyRatio = policies / customers
+      if (policyRatio > 5 || policies < customers * 0.8) {
+        isSuspiciousData = true
+      }
+    }
+
+    return { value, lowValue, highValue, suggested, tier, gap, ratio, microBookNote, isSuspiciousData }
   }, [revenue, retention, bookType, multiplier, customers, policies, growth, hasTrucking])
 
   // Auto-snap slider to the suggested multiplier unless the user has manually overridden it
@@ -392,6 +402,14 @@ export default function QuickValuePage() {
                   <span className="text-xs text-muted-foreground">Policies per customer</span>
                   <span className="font-mono text-sm font-bold text-foreground">{estimate.ratio.toFixed(2)}</span>
                 </div>
+              )}
+              {estimate?.isSuspiciousData && (
+                <p className="mt-3 flex items-start gap-2 rounded-md border border-amber-300/50 bg-amber-50/40 dark:border-amber-700/40 dark:bg-amber-950/20 px-3 py-2.5 text-xs text-amber-800 dark:text-amber-200">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    <strong>Unrealistic Ratio Detected:</strong> Your policy-to-customer ratio looks unusually high or low for a standard P&amp;C book. Please verify your entries.
+                  </span>
+                </p>
               )}
             </CardContent>
           </Card>
@@ -717,6 +735,7 @@ export default function QuickValuePage() {
                   midValue: estimate.value,
                   highValue: estimate.highValue,
                   tier: estimate.tier,
+                  isSuspiciousData: estimate.isSuspiciousData ?? false,
                 }),
               })
               .then((r) => r.json())
