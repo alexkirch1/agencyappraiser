@@ -410,36 +410,40 @@ export function DealSimulator({
             )}
           </div>
 
-          {/* Payout period — changes commission % to keep total reasonable */}
+          {/* Payout period — sets cash split and commission to model real M&A risk shift */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Earnout Period (adjusts commission %):</span>
-              <span className="text-xs text-muted-foreground italic">
-                {blendEarnoutYears === suggestedBlendCommPct / blendCommPct ? "Recommended" : ""}
+              <span className="text-xs text-muted-foreground">Earnout Period:</span>
+              <span className="text-[10px] text-muted-foreground italic">
+                Adjusts cash split and commission rate
               </span>
             </div>
             <div className="flex items-center gap-2">
-              {[1, 2].map((y) => {
-                // Calculate what commission % would be needed for this year count
-                // to roughly match the target total (keep around current blendTotalValue)
-                const adjustedComm = Math.min(90, Math.max(15, Math.round((blendCommPct * blendEarnoutYears / y) / 5) * 5))
-                return (
-                  <Button
-                    key={y}
-                    size="sm"
-                    variant={blendEarnoutYears === y ? "default" : "outline"}
-                    className="h-7 px-3 text-xs flex-1"
-                    onClick={() => {
-                      setBlendEarnoutYears(y)
-                      setBlendCommPct(adjustedComm)
-                    }}
-                  >
-                    <span className="block">{y} {y === 1 ? "Year" : "Years"}</span>
-                    <span className="block text-[10px] opacity-70">{adjustedComm}% comm</span>
-                  </Button>
-                )
-              })}
+              {([
+                { y: 1, cashPct: 70, commPct: 80, hint: "70% cash / 80% comm" },
+                { y: 2, cashPct: 50, commPct: 40, hint: "50% cash / 40% comm" },
+              ] as const).map(({ y, cashPct, commPct, hint }) => (
+                <Button
+                  key={y}
+                  size="sm"
+                  variant={blendEarnoutYears === y ? "default" : "outline"}
+                  className="h-auto px-3 py-2 text-xs flex-1 flex-col"
+                  onClick={() => {
+                    setBlendEarnoutYears(y)
+                    setBlendCashPct(cashPct)
+                    setBlendCommPct(commPct)
+                  }}
+                >
+                  <span className="block font-semibold">{y} {y === 1 ? "Year" : "Years"}</span>
+                  <span className="block text-[10px] opacity-70 mt-0.5">{hint}</span>
+                </Button>
+              ))}
             </div>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              {blendEarnoutYears === 1
+                ? "1-year earnout: higher cash at close (70%) with aggressive commission (80%) — seller takes less risk, buyer pays more upfront."
+                : "2-year earnout: lower cash at close (50%) with conservative commission (40%) — buyer spreads risk, seller earns over time."}
+            </p>
           </div>
 
           {/* Per-year breakdown */}
