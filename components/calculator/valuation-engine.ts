@@ -43,6 +43,8 @@ export interface ValuationInputs {
   staffRetentionRisk: string // secure | moderate | high
   newBusinessValue: number | null
   avgClientTenure: number | null
+  // Seller expectation
+  targetPayout: number | null // seller's desired purchase price / target valuation
 }
 
 export interface ValuationResults {

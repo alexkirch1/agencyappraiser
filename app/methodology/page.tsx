@@ -2,12 +2,13 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowRight, BarChart2, BookOpen, ShieldCheck, TrendingUp, Users, Layers, DollarSign, Clock } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+
 import { Button } from "@/components/ui/button"
 
 export const metadata: Metadata = {
   title: "Our Methodology | Agency Appraiser",
   description:
-    "Learn how Agency Appraiser calculates insurance agency valuations — 7 scoring categories, industry benchmark multiples, and real M&A transaction data.",
+    "Learn how Agency Appraiser calculates insurance agency valuations — 7 scoring categories built from real M&A transaction data, covering financial performance, book quality, and operational risk.",
 }
 
 const CATEGORIES = [
@@ -97,12 +98,7 @@ const CATEGORIES = [
   },
 ]
 
-const MULTIPLE_TABLE = [
-  { label: "Personal Lines Dominant, Smaller Book", range: "1.0x – 1.6x", color: "text-destructive" },
-  { label: "Mixed Book, Average Retention", range: "1.6x – 2.0x", color: "text-warning" },
-  { label: "Strong Commercial, Good Growth", range: "2.0x – 2.2x", color: "text-success" },
-  { label: "Premium Commercial, High Retention, Growing", range: "2.2x – 2.4x", color: "text-primary" },
-]
+
 
 export default function MethodologyPage() {
   return (
@@ -119,80 +115,17 @@ export default function MethodologyPage() {
         </h1>
         <p className="mt-4 max-w-2xl text-pretty text-lg leading-relaxed text-muted-foreground">
           Agency Appraiser uses a 7-category scoring model built from real insurance agency M&A
-          transaction data. Every adjustment to your multiple maps to a factor that buyers and lenders
-          actually underwrite when placing a bid.
+          transaction data. Every factor in the model maps directly to what buyers and lenders
+          actually underwrite when evaluating an independent agency acquisition.
         </p>
       </div>
-
-      {/* How the formula works */}
-      <section className="mb-12">
-        <h2 className="mb-4 text-2xl font-bold text-foreground">The Core Formula</h2>
-        <Card className="border-primary/20 bg-card">
-          <CardContent className="pt-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
-              <div className="flex-1 rounded-lg border border-border bg-secondary/40 px-4 py-3 text-center">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Base</p>
-                <p className="mt-1 text-xl font-bold text-foreground">SDE / EBITDA</p>
-              </div>
-              <span className="text-center text-2xl font-bold text-muted-foreground">×</span>
-              <div className="flex-1 rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-center">
-                <p className="text-xs uppercase tracking-wide text-primary">Multiplier</p>
-                <p className="mt-1 text-xl font-bold text-primary">1.0x – 2.4x</p>
-              </div>
-              <span className="text-center text-2xl font-bold text-muted-foreground">=</span>
-              <div className="flex-1 rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-center">
-                <p className="text-xs uppercase tracking-wide text-success">Valuation</p>
-                <p className="mt-1 text-xl font-bold text-success">Offer Range</p>
-              </div>
-            </div>
-            <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-              We use annual revenue as the base — specifically the last 12 months — because it is the
-              most consistently available and comparable metric across independent agency transactions.
-              The multiplier is then built up across all seven scoring categories, with each factor
-              applying a directional adjustment based on what buyers and lenders actually underwrite
-              when evaluating an acquisition. Higher-quality books in every category earn a higher
-              final multiple.
-            </p>
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* Industry benchmark multiples */}
-      <section className="mb-12">
-        <h2 className="mb-2 text-2xl font-bold text-foreground">Industry Benchmark Multiples</h2>
-        <p className="mb-4 text-sm text-muted-foreground">
-          Based on observed transaction data for independent insurance agencies in the United States.
-        </p>
-        <div className="overflow-hidden rounded-lg border border-border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-secondary/40">
-                <th className="px-4 py-3 text-left font-semibold text-foreground">Agency Profile</th>
-                <th className="px-4 py-3 text-right font-semibold text-foreground">Revenue Multiple Range</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {MULTIPLE_TABLE.map((row) => (
-                <tr key={row.label} className="bg-card hover:bg-secondary/20 transition-colors">
-                  <td className="px-4 py-3 text-muted-foreground">{row.label}</td>
-                  <td className={`px-4 py-3 text-right font-bold tabular-nums ${row.color}`}>{row.range}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          Captive agents (State Farm, Allstate, etc.) are not included — captive books have very limited
-          transferable value and are outside this model.
-        </p>
-      </section>
 
       {/* 7 Categories */}
       <section className="mb-12">
         <h2 className="mb-2 text-2xl font-bold text-foreground">The 7 Scoring Categories</h2>
         <p className="mb-6 text-sm text-muted-foreground">
-          Each category drives a directional adjustment to your final multiple — some factors carry more
-          weight than others based on how buyers and lenders actually underwrite agency acquisitions.
+          Each category drives a directional adjustment to your final valuation — some factors carry
+          more weight than others based on how buyers and lenders actually underwrite agency acquisitions.
         </p>
         <div className="flex flex-col gap-4">
           {CATEGORIES.map((cat) => (
@@ -236,7 +169,7 @@ export default function MethodologyPage() {
           </li>
           <li className="flex items-start gap-2">
             <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-warning" />
-            Multiples shown are based on observed independent agency transactions. Captive agents, surplus lines specialists, and specialty MGAs may fall outside these ranges.
+            Valuations are based on observed independent agency transactions. Captive agents, surplus lines specialists, and specialty MGAs may fall outside this model.
           </li>
           <li className="flex items-start gap-2">
             <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-warning" />

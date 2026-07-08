@@ -530,6 +530,23 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
                 <SmartInput id="clientTenure" inputType="count" placeholder="e.g. 8" value={inputs.avgClientTenure} onValueChange={(v) => update({ avgClientTenure: v })} className="mt-1.5" max={99} />
               </div>
             </div>
+            <div>
+              <Label htmlFor="targetPayout" className="text-sm font-medium text-foreground">
+                What is your target valuation or desired purchase price for this sale?
+                <span className="ml-1 text-destructive">*</span>
+              </Label>
+              <SmartInput
+                id="targetPayout"
+                inputType="currency"
+                placeholder="$0.00"
+                value={inputs.targetPayout}
+                onValueChange={(v) => update({ targetPayout: v })}
+                className="mt-1.5"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Enter the total sale price you are hoping to achieve for your agency.
+              </p>
+            </div>
           </CardContent>
         </Card>
       )}

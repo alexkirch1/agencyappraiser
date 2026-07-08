@@ -123,14 +123,14 @@ export function ValuationWizard() {
               onClick={() => handleChoice(i)}
               onMouseEnter={() => setHoveredIndex(i)}
               onMouseLeave={() => setHoveredIndex(null)}
-              className={`group flex w-full items-start gap-4 rounded-xl border px-5 py-4 text-left transition-all duration-150 ${
+              className={`group flex w-full items-start gap-4 rounded-xl border-2 px-5 py-4 text-left transition-all duration-150 ${
                 isFeatured
                   ? isHovered
-                    ? "border-primary bg-primary/8 shadow-lg ring-1 ring-primary/30 dark:shadow-primary/15"
-                    : "border-primary bg-primary/5 shadow-md ring-1 ring-primary/20 dark:shadow-primary/10"
+                    ? "border-primary bg-primary/8 shadow-lg ring-4 ring-primary/20 dark:ring-primary/15"
+                    : "border-primary bg-primary/5 shadow-md ring-2 ring-primary/15"
                   : isHovered
-                  ? "border-primary/60 bg-primary/5 shadow-md ring-1 ring-primary/20 dark:border-primary/50 dark:shadow-primary/10"
-                  : "border-slate-200 bg-card shadow-sm hover:border-slate-300 hover:shadow-md dark:border-border dark:hover:border-slate-600 dark:hover:shadow-primary/10"
+                  ? "border-blue-600 bg-primary/5 shadow-lg ring-4 ring-blue-50/50 dark:border-blue-500 dark:ring-blue-900/30"
+                  : "border-slate-300 bg-card shadow-lg dark:border-slate-600"
               }`}
             >
               <div

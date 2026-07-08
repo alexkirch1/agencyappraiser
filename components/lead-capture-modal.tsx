@@ -20,11 +20,10 @@ const REFERRAL_OPTIONS = [
 ]
 
 const FEEDBACK_OPTIONS = [
-  "Feels spot on with my expectations",
-  "Feels a bit lower than expected",
-  "Feels a bit higher than expected",
-  "I have a suggestion to improve the tool",
-  "Other / general comments",
+  "Excellent & Fast",
+  "Good / Easy to Use",
+  "Okay / Average",
+  "Confusing / Needs Improvement",
 ]
 
 interface LeadData {
@@ -222,7 +221,7 @@ export function LeadCaptureModal({
               </span>
             </div>
             <p className="text-center text-sm text-muted-foreground mt-1">
-              How accurate does this estimated valuation range feel based on your market knowledge?
+              How smooth was your experience navigating our website and using the valuation tool today?
             </p>
           </CardHeader>
           <CardContent>

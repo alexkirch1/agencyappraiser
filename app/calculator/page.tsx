@@ -53,6 +53,7 @@ const defaultInputs: ValuationInputs = {
   newBusinessValue: null,
   avgClientTenure: null,
   hasTrucking: null,
+  targetPayout: null,
 }
 
 // Only truly required fields — the engine handles missing optional fields gracefully

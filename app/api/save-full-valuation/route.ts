@@ -63,6 +63,20 @@ export async function POST(req: Request) {
       `
     }
 
+    // Append the seller's target payout to the lead notes so it surfaces in the admin drawer
+    if (leadId && inputs?.targetPayout != null) {
+      const fmt = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`
+      const targetNote = `Seller target payout: ${fmt(inputs.targetPayout)}`
+      await sql`
+        UPDATE leads
+        SET notes = CASE
+          WHEN notes IS NULL OR notes = '' THEN ${targetNote}
+          ELSE notes || E'\n' || ${targetNote}
+        END
+        WHERE id = ${leadId}
+      `
+    }
+
     // Send admin notification with the full valuation details
     if (RESEND_API_KEY && results?.lowOffer != null && results?.highOffer != null && leadId) {
       try {
@@ -83,6 +97,7 @@ export async function POST(req: Request) {
             revenueLTM: inputs?.revenueLTM ?? undefined,
             sdeEbitda: inputs?.sdeEbitda ?? undefined,
             retentionRate: inputs?.retentionRate ?? undefined,
+            targetPayout: inputs?.targetPayout ?? undefined,
             leadId,
           })
           // Send admin notification — prepend suspicious flag if ratio was unrealistic
