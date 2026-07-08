@@ -4,10 +4,25 @@ import { NextResponse } from "next/server"
 import sql from "@/lib/db"
 import { isAdminAuthenticated } from "@/lib/admin-auth"
 
+// Ensure the deleted_at column exists — safe to run on every cold start.
+// Uses IF NOT EXISTS so it's a no-op once the column is present.
+async function ensureDeletedAtColumn() {
+  try {
+    await sql`
+      ALTER TABLE leads
+        ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE NULL
+    `
+  } catch {
+    // Silently ignore — column already exists or DB is read-only in this context.
+  }
+}
+
 export async function GET() {
   if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+
+  await ensureDeletedAtColumn()
 
   try {
     const leads = await sql`
