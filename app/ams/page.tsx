@@ -22,6 +22,8 @@ export default function AmsPage() {
   const [showManual, setShowManual] = useState(true)
   const [showLeadCapture, setShowLeadCapture] = useState(false)
   const [leadCaptured, setLeadCaptured] = useState(false)
+  const [amsRequest, setAmsRequest] = useState("")
+  const [amsRequestSent, setAmsRequestSent] = useState(false)
   const hasShownModal = useRef(false)
 
   const results = useMemo(() => {
@@ -78,11 +80,11 @@ High Offer: ${formatCurrency(results.highOffer)}`
             </span>
           </div>
           <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
-            Agency Management System Report
+            Agency Management System Valuation
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Upload an EZLynx report for automatic data extraction, or fill in your agency metrics
-            manually. We use your book data to estimate your agency&apos;s market value.
+            Upload a report from your agency management system for automatic data extraction, or fill
+            in your agency metrics manually. We use your book data to estimate your agency&apos;s market value.
           </p>
         </div>
 
@@ -91,11 +93,11 @@ High Offer: ${formatCurrency(results.highOffer)}`
           {/* Left — form column */}
           <div className="flex flex-1 flex-col gap-6 min-w-0">
 
-            {/* EZLynx upload */}
+            {/* AMS Report Upload */}
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
                 <FileSpreadsheet className="h-4 w-4 text-primary" />
-                <h2 className="text-sm font-semibold text-foreground">EZLynx Report Upload</h2>
+                <h2 className="text-sm font-semibold text-foreground">Agency Management System Report Upload</h2>
                 <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                   Automatic
                 </span>
@@ -149,18 +151,43 @@ High Offer: ${formatCurrency(results.highOffer)}`
               </Card>
             )}
 
-            {/* Info note about other AMS systems */}
+            {/* Fallback request card */}
             <Card className="border-border bg-secondary/30">
-              <CardContent className="px-4 py-3 flex items-start gap-3">
-                <Database className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                <div>
-                  <p className="text-xs font-semibold text-foreground">More AMS systems coming soon</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Automatic parsing is currently supported for EZLynx. Support for Applied Epic,
-                    HawkSoft, QQ Catalyst, and other systems is in development. Use manual entry
-                    in the meantime.
-                  </p>
+              <CardContent className="px-4 py-4 flex flex-col gap-3">
+                <div className="flex items-start gap-3">
+                  <Database className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Don&apos;t see your system?</p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                      If your data report isn&apos;t loading properly, submit a request to get your specific
+                      agency management system integrated.
+                    </p>
+                  </div>
                 </div>
+                {amsRequestSent ? (
+                  <p className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-xs font-medium text-success">
+                    Request received — we&apos;ll follow up when your system is supported.
+                  </p>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={amsRequest}
+                      onChange={(e) => setAmsRequest(e.target.value)}
+                      placeholder="e.g. Applied Epic, HawkSoft, QQ Catalyst..."
+                      className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                    <Button
+                      size="sm"
+                      disabled={!amsRequest.trim()}
+                      onClick={() => {
+                        if (amsRequest.trim()) setAmsRequestSent(true)
+                      }}
+                    >
+                      Submit Request
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

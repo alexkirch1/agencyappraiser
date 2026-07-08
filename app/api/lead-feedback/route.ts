@@ -15,8 +15,8 @@ export async function POST(req: Request) {
     await sql`
       UPDATE leads
       SET notes = CASE
-        WHEN notes IS NULL OR notes = '' THEN ${`Valuation feedback: ${feedback}`}
-        ELSE notes || E'\n' || ${`Valuation feedback: ${feedback}`}
+        WHEN notes IS NULL OR notes = '' THEN ${`Website experience feedback: ${feedback}`}
+        ELSE notes || E'\n' || ${`Website experience feedback: ${feedback}`}
       END
       WHERE id = ${leadId}
     `

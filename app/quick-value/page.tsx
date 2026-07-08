@@ -136,21 +136,21 @@ export default function QuickValuePage() {
     // Designed so a truly poor agency lands below 1x and a top-tier agency
     // reaches 2.0x+. Each category contributes a realistic spread.
     //
-    // Baseline: 1.09 (middle-of-road, unanswered)
+    // Baseline: 1.30 (middle-of-road, unanswered)
     //
     // Retention:   high=+0.41  average=+0.12  low=-0.31
     // Book type:   commercial=+0.29  mixed=+0.07  personal=-0.18
     // Growth:      strong=+0.33  moderate=+0.10  flat=-0.09  declining=-0.34
     // Ratio:       good(>1.75)=+0.12  bad(<1.33)=-0.16
     //
-    // Worst case:  1.09 - 0.31 - 0.18 - 0.34 - 0.16 = 0.10  (floor 0.78 after clamp)
-    // Best case:   1.09 + 0.41 + 0.29 + 0.33 + 0.12 = 2.24  (ceil 2.3 after rev bump)
+    // Worst case:  1.30 - 0.31 - 0.18 - 0.34 - 0.16 = 0.31  (floor 0.78 after clamp)
+    // Best case:   1.30 + 0.41 + 0.29 + 0.33 + 0.12 = 2.45  (ceil 2.4 after clamp)
 
     const ratio = (customers && policies && customers > 0)
       ? parseFloat((policies / customers).toFixed(2))
       : null
 
-    let suggested = 1.09
+    let suggested = 1.30
     if (retention === "high")          suggested += 0.41
     else if (retention === "average")  suggested += 0.12
     else if (retention === "low")      suggested -= 0.31
@@ -193,7 +193,7 @@ export default function QuickValuePage() {
       }
     }
 
-    suggested = Math.max(0.78, Math.min(hasTrucking ? 1.5 : 3.0, parseFloat(suggested.toFixed(2))))
+    suggested = Math.max(0.78, Math.min(hasTrucking ? 1.5 : 2.4, parseFloat(suggested.toFixed(2))))
 
     // Central value
     const value = naturalRound(revenue * multiplier)
@@ -204,12 +204,22 @@ export default function QuickValuePage() {
     const lowSpread  = 0.15 + ((revenue % 13) / 13) * 0.03
     const highSpread = 0.18 + ((revenue % 11) / 11) * 0.06
     const lowValue   = naturalRound(revenue * Math.max(0.75, suggested * (1 - lowSpread)))
-    const highValue  = naturalRound(revenue * Math.min(3.0,  suggested * (1 + highSpread)))
+    const highValue  = naturalRound(revenue * Math.min(2.4,  suggested * (1 + highSpread)))
 
     const tier = getTier(retention, bookType, revenue, growth, ratio)
     const gap  = getFullValGap(retention, bookType, growth)
 
-    return { value, lowValue, highValue, suggested, tier, gap, ratio, microBookNote }
+    // ── Data Sanity Check ─────────────────────────────────────────────────
+    // Flag unrealistic policy-to-customer ratios for admin visibility
+    let isSuspiciousData = false
+    if (customers && customers > 0 && policies && policies > 0) {
+      const policyRatio = policies / customers
+      if (policyRatio > 5 || policies < customers * 0.8) {
+        isSuspiciousData = true
+      }
+    }
+
+    return { value, lowValue, highValue, suggested, tier, gap, ratio, microBookNote, isSuspiciousData }
   }, [revenue, retention, bookType, multiplier, customers, policies, growth, hasTrucking])
 
   // Auto-snap slider to the suggested multiplier unless the user has manually overridden it
@@ -392,6 +402,14 @@ export default function QuickValuePage() {
                   <span className="text-xs text-muted-foreground">Policies per customer</span>
                   <span className="font-mono text-sm font-bold text-foreground">{estimate.ratio.toFixed(2)}</span>
                 </div>
+              )}
+              {estimate?.isSuspiciousData && (
+                <p className="mt-3 flex items-start gap-2 rounded-md border border-amber-300/50 bg-amber-50/40 dark:border-amber-700/40 dark:bg-amber-950/20 px-3 py-2.5 text-xs text-amber-800 dark:text-amber-200">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    <strong>Unrealistic Ratio Detected:</strong> Your policy-to-customer ratio looks unusually high or low for a standard P&amp;C book. Please verify your entries.
+                  </span>
+                </p>
               )}
             </CardContent>
           </Card>
@@ -717,6 +735,7 @@ export default function QuickValuePage() {
                   midValue: estimate.value,
                   highValue: estimate.highValue,
                   tier: estimate.tier,
+                  isSuspiciousData: estimate.isSuspiciousData ?? false,
                 }),
               })
               .then((r) => r.json())

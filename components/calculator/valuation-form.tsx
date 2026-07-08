@@ -206,6 +206,7 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
                 { value: "strong", label: "Strong (Non-Compete/Solicit)" },
                 { value: "weak", label: "Weak / Informal" },
                 { value: "none", label: "None" },
+                { value: "solo", label: "N/A — Solo Owner (No Employees)" },
               ].map((opt) => (
                 <label key={opt.value} className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/10">
                   <RadioGroupItem value={opt.value} />
@@ -371,6 +372,18 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
                 </span>
               </div>
             )}
+            {inputs.activeCustomers && inputs.activeCustomers > 0 && inputs.activePolicies && inputs.activePolicies > 0 && (() => {
+              const policyRatio = inputs.activePolicies / inputs.activeCustomers
+              const suspicious = policyRatio > 5 || inputs.activePolicies < inputs.activeCustomers * 0.8
+              return suspicious ? (
+                <p className="mt-2 flex items-start gap-2 rounded-md border border-amber-300/50 bg-amber-50/40 dark:border-amber-700/40 dark:bg-amber-950/20 px-3 py-2.5 text-xs text-amber-800 dark:text-amber-200">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    <strong>Unrealistic Ratio Detected:</strong> Your policy-to-customer ratio looks unusually high or low for a standard P&amp;C book. Please verify your entries.
+                  </span>
+                </p>
+              ) : null
+            })()}
           </div>
           <div>
             <Label htmlFor="lossRatio" className="text-sm text-muted-foreground">
@@ -516,6 +529,23 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
                 <Label htmlFor="clientTenure" className="text-sm text-muted-foreground">Avg Client Tenure (years)<InfoTip text="On average, how many years have your clients been with your agency? Longer tenure suggests loyalty and lower churn risk." /></Label>
                 <SmartInput id="clientTenure" inputType="count" placeholder="e.g. 8" value={inputs.avgClientTenure} onValueChange={(v) => update({ avgClientTenure: v })} className="mt-1.5" max={99} />
               </div>
+            </div>
+            <div>
+              <Label htmlFor="targetPayout" className="text-sm font-medium text-foreground">
+                What is your target valuation or desired purchase price for this sale?
+                <span className="ml-1 text-destructive">*</span>
+              </Label>
+              <SmartInput
+                id="targetPayout"
+                inputType="currency"
+                placeholder="$0.00"
+                value={inputs.targetPayout}
+                onValueChange={(v) => update({ targetPayout: v })}
+                className="mt-1.5"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Enter the total sale price you are hoping to achieve for your agency.
+              </p>
             </div>
           </CardContent>
         </Card>

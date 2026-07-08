@@ -43,6 +43,8 @@ export interface ValuationInputs {
   staffRetentionRisk: string // secure | moderate | high
   newBusinessValue: number | null
   avgClientTenure: number | null
+  // Seller expectation
+  targetPayout: number | null // seller's desired purchase price / target valuation
 }
 
 export interface ValuationResults {
@@ -221,7 +223,7 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
 
   // 3. LEGAL
   let legalScore = 0.12
-  if (producerAgreements === "strong") legalScore += 0.08
+  if (producerAgreements === "strong" || producerAgreements === "solo") legalScore += 0.08
   else if (producerAgreements === "none") legalScore -= 0.07
   if (eoClaims > 0) legalScore -= Math.min(0.15, eoClaims * 0.05)
   legalScore = Math.max(0.05, Math.min(0.2, legalScore))
@@ -314,9 +316,12 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
   // 6. OPS
   let opsScore = 0.05
   if (rpe !== null && rpe >= 200000) opsScore += 0.05
+  // Carrier concentration: high concentration (low diversification score) is a POSITIVE signal
+  // for our buy-side thesis — streamlined carrier mix = simpler, cheaper post-close transition.
   if (carrierDiv !== null) {
-    if (carrierDiv < 40) opsScore += 0.05
-    else if (carrierDiv <= 70) opsScore += 0.02
+    if (carrierDiv < 40) opsScore += 0.05      // High concentration — optimal operational efficiency
+    else if (carrierDiv < 65) opsScore += 0.02  // Moderate — acceptable
+    // Highly diversified (>=65) receives no bonus — more complexity to manage post-close
   }
   // Seller transition commitment scoring
   if (inputs.sellerTransitionMonths !== null) {
@@ -346,12 +351,12 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
   }
 
   // --- FINAL RESULTS ---
-  // Sweet-spot range: 0.75–1.75 (a 3.0 is reserved for truly exceptional agencies).
+  // Sweet-spot range: 0.75–1.75 (a 2.4 is reserved for truly exceptional agencies).
   // We scale raw scores so the *center of gravity* lands in 0.75–1.75.
   // Only agencies with an unusually high raw score break above 1.75.
   const desiredMin = 0.75
   const desiredSweetSpotMax = 1.75
-  const desiredAbsoluteMax = 3.0
+  const desiredAbsoluteMax = 2.4
 
   // Map raw score into 0.75–1.75 for typical agencies.
   // A raw score that previously mapped to 3.0 now maps to ~2.2 (exceptional but plausible).
@@ -394,10 +399,10 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
 
   const finalMultiple = scaledCoreScore * TRANSACTION_MULTIPLIER
 
-  // Apply a 20–25% customer attrition discount to the offer band.
-  // This reflects the real-world expectation that a buyer will lose some clients
+  // Apply a 25% customer attrition discount to the offer band.
+  // This reflects our exact expectation that a buyer will lose 25% of clients
   // through the transition, so the offer should price that risk in.
-  const CUSTOMER_LOSS_DISCOUNT = 0.22 // midpoint of 20–25%
+  const CUSTOMER_LOSS_DISCOUNT = 0.25 // exact 25% transition attrition
   const rawHighOffer = revLTM * finalMultiple
   const rawLowOffer = revLTM * (finalMultiple - 0.25)
 
@@ -407,9 +412,9 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
 
   // ── User-Facing Valuations (Conservative) ──────────────────────────────
   // Show the user a lower-middle range so real offers pleasantly surprise them.
-  // User sees ~85% of true value on the low end, ~95% on the high (not the max).
-  const userFacingLow = lowOffer  // Already conservative
-  const userFacingHigh = Math.round(highOffer * 0.92)  // 8% haircut from max to keep realistic
+  // Standard 15% transition haircut applied to the high-line to keep the ceiling realistic.
+  const userFacingLow = lowOffer  // Already conservative (25% attrition baked in)
+  const userFacingHigh = Math.round(highOffer * (1 - 0.15))  // 15% transition haircut
 
   // ── Admin/Buyer True Value ─────────────────────────────────────────────
   // What the agency is truly worth (before customer loss discount applied to user offer).

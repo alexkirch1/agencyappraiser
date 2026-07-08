@@ -82,6 +82,7 @@ export function fullValuationNotificationEmail(data: {
   revenueLTM?: number
   sdeEbitda?: number
   retentionRate?: number
+  targetPayout?: number
   leadId: number
 }) {
   const fmt = (n: number) =>
@@ -124,10 +125,16 @@ export function fullValuationNotificationEmail(data: {
     </table>
 
     ${data.sdeEbitda ? `
-    <div style="background:${BG};border:1px solid ${BORDER};border-left:3px solid #8b5cf6;border-radius:6px;padding:12px 16px;margin-bottom:24px;">
+    <div style="background:${BG};border:1px solid ${BORDER};border-left:3px solid #8b5cf6;border-radius:6px;padding:12px 16px;margin-bottom:12px;">
       <span style="font-size:12px;color:${MUTED_TEXT};font-weight:500;">SDE / EBITDA</span>
       <span style="float:right;font-size:13px;font-weight:700;color:${DARK_TEXT};">${fmt(data.sdeEbitda)}</span>
     </div>` : ""}
+
+    ${data.targetPayout ? `
+    <div style="background:#fefce8;border:1px solid #fde047;border-left:3px solid #ca8a04;border-radius:6px;padding:12px 16px;margin-bottom:24px;">
+      <span style="font-size:12px;color:#92400e;font-weight:600;">Seller Target Payout</span>
+      <span style="float:right;font-size:13px;font-weight:700;color:#92400e;">${fmt(data.targetPayout)}</span>
+    </div>` : "<div style='margin-bottom:24px;'></div>"}
 
     <!-- CTA -->
     <a href="${BASE_URL}/admin"

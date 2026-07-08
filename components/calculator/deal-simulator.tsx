@@ -162,8 +162,8 @@ export function DealSimulator({
   const [blendCommPct, setBlendCommPct] = useState(suggestedBlendCommPct)
   const [blendEarnoutYears, setBlendEarnoutYears] = useState(Math.max(1, smartDefaults.years - 1))
 
-  // Full earnout — commission % of LTM revenue paid each year
-  const suggestedFullCommPct = smartDefaults.commPct
+  // Full earnout — fixed 80% commission: seller takes all risk, earns the premium rate
+  const suggestedFullCommPct = 80
   const [fullCommPct, setFullCommPct] = useState(suggestedFullCommPct)
   const [fullEarnoutYears, setFullEarnoutYears] = useState(smartDefaults.years)
 
@@ -172,25 +172,38 @@ export function DealSimulator({
   // Baseline: All Cash = highOffer
   const allCashValue = highOffer
 
-  // Annual earnout payment = LTM Revenue × commissionPct
-  // This models real insurance book earnouts: seller earns a commission override
-  // on the book's annual revenue for N years.
-  const annualFullPayment = ltmRevenue > 0 ? ltmRevenue * (fullCommPct / 100) : highOffer * 0.35
-  const annualBlendPayment = ltmRevenue > 0 ? ltmRevenue * (blendCommPct / 100) : highOffer * 0.25
+  // ── Full Earnout ─────────────────────────────────────────────────────────
+  // Seller takes ALL the risk — no cash upfront — so they earn a premium 80%
+  // commission on LTM revenue each year. This must always be the ceiling.
+  //
+  // Formula: annualPayment = LTM Revenue × 80%
+  //          Total = annualPayment × years
+  const FULL_EARNOUT_COMM_PCT = 80
+  const annualFullPayment = ltmRevenue > 0 ? ltmRevenue * (FULL_EARNOUT_COMM_PCT / 100) : highOffer * 0.55
+  const fullYearlyPayments = Array.from({ length: fullEarnoutYears }, () => annualFullPayment)
+  const fullEarnoutTotal = fullYearlyPayments.reduce((a, b) => a + b, 0)
+  const fullTotalValue = fullEarnoutTotal
 
-  // Cash + Earnout
+  // ── Cash + Earnout ────────────────────────────────────────────────────────
+  // The earnout portion is weighted by how much of the deal is deferred.
+  // Since the seller is only deferring (blendEarnoutPct%) of their value,
+  // the earnout commission is scaled by blendEarnoutPct/100 so the hybrid
+  // payout always sits between All Cash (floor) and Full Earnout (ceiling).
+  //
+  // Formula: cashAtClose = highOffer × cashPct
+  //          annualEarnout = LTM Revenue × commPct × (earnoutPct / 100)
+  //          blendTotal = cashAtClose + annualEarnout × years
   const blendCashAtClose = highOffer * (blendCashPct / 100)
+  const earnoutWeight = blendEarnoutPct / 100
+  const annualBlendPayment = ltmRevenue > 0
+    ? ltmRevenue * (blendCommPct / 100) * earnoutWeight
+    : highOffer * 0.25 * earnoutWeight
   const blendYearlyPayments = Array.from({ length: blendEarnoutYears }, () => annualBlendPayment)
   const blendEarnoutTotal = blendYearlyPayments.reduce((a, b) => a + b, 0)
   const blendTotalValue = blendCashAtClose + blendEarnoutTotal
 
   // Warn if total earnout payout exceeds 2.5× highOffer (unrealistic)
   const blendEarnoutOverflow = blendTotalValue > highOffer * 2.5
-
-  // Full Earnout — no cash at close, pure commission income over N years
-  const fullYearlyPayments = Array.from({ length: fullEarnoutYears }, () => annualFullPayment)
-  const fullEarnoutTotal = fullYearlyPayments.reduce((a, b) => a + b, 0)
-  const fullTotalValue = fullEarnoutTotal
 
   // Active values
   const activeTotal =
@@ -462,7 +475,7 @@ export function DealSimulator({
                   <span className="text-sm font-semibold text-foreground">{formatCurrency(payment)}</span>
                 </div>
                 <span className="text-[11px] text-muted-foreground/70">
-                  {ltmRevenue > 0 ? formatCurrency(Math.round(ltmRevenue)) : "LTM"} revenue × {blendCommPct}% commission
+                  {ltmRevenue > 0 ? formatCurrency(Math.round(ltmRevenue)) : "LTM"} rev × {blendCommPct}% comm × {blendEarnoutPct}% deferred = {formatCurrency(Math.round(annualBlendPayment))}
                 </span>
               </div>
             ))}
@@ -569,7 +582,7 @@ export function DealSimulator({
                   <span className="text-sm font-semibold text-foreground">{formatCurrency(payment)}</span>
                 </div>
                 <span className="text-[11px] text-muted-foreground/70">
-                  {ltmRevenue > 0 ? formatCurrency(Math.round(ltmRevenue)) : "LTM"} revenue × {fullCommPct}% commission
+                  {ltmRevenue > 0 ? formatCurrency(Math.round(ltmRevenue)) : "LTM"} revenue × {FULL_EARNOUT_COMM_PCT}% commission (premium rate — no cash at close)
                 </span>
               </div>
             ))}

@@ -53,6 +53,7 @@ const defaultInputs: ValuationInputs = {
   newBusinessValue: null,
   avgClientTenure: null,
   hasTrucking: null,
+  targetPayout: null,
 }
 
 // Only truly required fields — the engine handles missing optional fields gracefully
@@ -236,6 +237,12 @@ function CalculatorContent() {
         body: JSON.stringify({
           leadId: id,
           inputs,
+          isSuspiciousData: inputs.activeCustomers && inputs.activeCustomers > 0 && inputs.activePolicies && inputs.activePolicies > 0
+            ? (() => {
+                const r = inputs.activePolicies / inputs.activeCustomers
+                return r > 5 || inputs.activePolicies < inputs.activeCustomers * 0.8
+              })()
+            : false,
           results: calcResults ? {
             lowOffer: calcResults.lowOffer,
             highOffer: calcResults.highOffer,

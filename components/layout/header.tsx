@@ -11,9 +11,9 @@ import { useEasterEggs } from "@/lib/easter-eggs"
 
 const navItems = [
   { href: "/", label: "Home" },
-  { href: "/calculator", label: "Agency & Book" },
-  { href: "/carrier", label: "Carrier Portfolios" },
-  { href: "/ams", label: "EZLynx Valuation", badge: "Beta" },
+  { href: "/calculator", label: "Agency & Book Valuation" },
+  { href: "/carrier", label: "Carrier Book Valuation" },
+  { href: "/ams", label: "Agency Management System Valuation", badge: "Beta" },
   { href: "/methodology", label: "Methodology" },
 ]
 
