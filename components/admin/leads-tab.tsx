@@ -490,7 +490,7 @@ function buildBuyerIntelligence(lead: LeadRow): BuyerIntel {
     }
   }
 
-  // ── 10. Trucking / commercial auto ────────────────────────────────────────
+  // ── 10. Trucking / commercial auto ───────────────────────��────────────────
   const isTrucking = lead.policy_mix && parseFloat(lead.policy_mix) >= 50 && lead.top_carriers?.toLowerCase().match(/progressive|canal|great american/)
   if (isTrucking || lead.agency_description?.toLowerCase().includes("truck")) {
     maxPoints += 5
@@ -791,6 +791,7 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
   const [notesValue, setNotesValue] = useState<string>("")
   const [notesSaving, setNotesSaving] = useState(false)
   const [notesSaved, setNotesSaved] = useState(false)
+  const [undoToast, setUndoToast] = useState<{ id: number; name: string; timer: ReturnType<typeof setTimeout> } | null>(null)
   const { mutate: mutateIntel } = useMarketIntel()
 
   const fetchLeads = useCallback(async () => {
@@ -828,6 +829,14 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
     }
   }, [])
 
+  const dismissUndoToast = useCallback((timer?: ReturnType<typeof setTimeout>) => {
+    if (timer) clearTimeout(timer)
+    setUndoToast((prev) => {
+      if (prev) clearTimeout(prev.timer)
+      return null
+    })
+  }, [])
+
   const trashLead = async (id: number) => {
     setDeletingId(id)
     try {
@@ -843,6 +852,12 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
       setLeads((prev) => prev.filter((l) => l.id !== id))
       setViewingLead(null)
       refreshStats()
+      // Show undo toast — auto-dismiss after 6 seconds
+      setUndoToast((prev) => {
+        if (prev) clearTimeout(prev.timer)
+        const timer = setTimeout(() => setUndoToast(null), 6000)
+        return { id, name: trashed?.agency_name ?? trashed?.name ?? "Lead", timer }
+      })
     } catch {
       alert("Failed to move lead to trash. Please try again.")
     } finally {
@@ -851,6 +866,11 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
   }
 
   const restoreFromTrash = async (id: number) => {
+    // Dismiss undo toast if this is the undo action
+    setUndoToast((prev) => {
+      if (prev) clearTimeout(prev.timer)
+      return null
+    })
     try {
       const res = await fetch("/api/admin/leads", {
         method: "PATCH",
@@ -1083,6 +1103,48 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Undo toast — appears after a lead is moved to trash */}
+      {undoToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 flex items-center gap-3 rounded-lg border border-border bg-popover px-4 py-3 shadow-lg text-sm text-foreground animate-in slide-in-from-bottom-4 duration-200"
+        >
+          <Trash2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span>
+            <span className="font-medium">{undoToast.name}</span> moved to Trash.
+          </span>
+          <button
+            onClick={() => restoreFromTrash(undoToast.id)}
+            className="ml-1 font-semibold text-primary underline-offset-2 hover:underline focus:outline-none"
+          >
+            Undo
+          </button>
+          <button
+            onClick={() => dismissUndoToast()}
+            aria-label="Dismiss"
+            className="ml-1 rounded p-0.5 text-muted-foreground hover:text-foreground focus:outline-none"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Restore Last Deleted button — visible only when trash has items */}
+      {trashedLeads.length > 0 && (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-muted-foreground"
+            onClick={() => restoreFromTrash(trashedLeads[0].id)}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Restore Last Deleted
+          </Button>
+        </div>
+      )}
+
       {/* Horizon Pipeline summary */}
       {deals.length > 0 && (
         <div
