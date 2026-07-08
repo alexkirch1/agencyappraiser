@@ -28,6 +28,7 @@ export async function GET() {
         l.archived,
         l.archive_reason,
         l.archived_at,
+        l.deleted_at,
         l.notes,
         fv.low_offer,
         fv.high_offer,
@@ -80,26 +81,40 @@ export async function GET() {
       LEFT JOIN full_valuations  fv ON fv.lead_id = l.id
       LEFT JOIN quick_valuations qv ON qv.lead_id = l.id
       LEFT JOIN quiz_submissions qs ON qs.lead_id = l.id
+      WHERE l.deleted_at IS NULL
       ORDER BY l.created_at DESC
       LIMIT 200
+    `
+
+    // Fetch trashed leads (soft-deleted, within 30-day window)
+    const trashedLeads = await sql`
+      SELECT
+        l.id, l.name, l.email, l.phone, l.agency_name, l.tool_used,
+        l.estimated_value, l.created_at, l.stage, l.deleted_at,
+        l.archived, l.archive_reason, l.archived_at, l.notes
+      FROM leads l
+      WHERE l.deleted_at IS NOT NULL
+        AND l.deleted_at >= NOW() - INTERVAL '30 days'
+      ORDER BY l.deleted_at DESC
     `
 
     // Also fetch summary stats with smarter metrics (exclude archived leads from pipeline)
     const stats = await sql`
       SELECT
-        (SELECT COUNT(*) FROM leads WHERE archived = false)              AS total_leads,
+        (SELECT COUNT(*) FROM leads WHERE archived = false AND deleted_at IS NULL) AS total_leads,
+        (SELECT COUNT(*) FROM leads WHERE deleted_at IS NOT NULL AND deleted_at >= NOW() - INTERVAL '30 days') AS trash_count,
         (SELECT COUNT(*) FROM full_valuations)    AS full_valuations,
         (SELECT COUNT(*) FROM quick_valuations)   AS quick_valuations,
         (SELECT COUNT(*) FROM quiz_submissions)   AS quiz_submissions,
-        (SELECT AVG(estimated_value) FROM leads WHERE estimated_value IS NOT NULL AND archived = false)::NUMERIC(15,2) AS avg_value,
-        (SELECT SUM(estimated_value) FROM leads WHERE estimated_value IS NOT NULL AND archived = false)::NUMERIC(15,2) AS total_pipeline_value,
-        (SELECT COUNT(*) FROM leads WHERE created_at >= NOW() - INTERVAL '7 days' AND archived = false) AS leads_this_week,
-        (SELECT COUNT(*) FROM leads WHERE created_at >= NOW() - INTERVAL '30 days' AND archived = false) AS leads_this_month,
-        (SELECT COUNT(*) FROM leads WHERE stage = 'won' AND archived = false) AS won_leads,
-        (SELECT COUNT(*) FROM leads WHERE stage = 'lost' AND archived = false) AS lost_leads,
-        (SELECT COUNT(*) FROM leads WHERE stage NOT IN ('won', 'lost', 'new') AND archived = false) AS engaged_leads,
-        (SELECT AVG(estimated_value) FROM leads WHERE stage = 'won' AND estimated_value IS NOT NULL AND archived = false)::NUMERIC(15,2) AS avg_won_value,
-        (SELECT SUM(estimated_value) FROM leads WHERE stage = 'won' AND estimated_value IS NOT NULL AND archived = false)::NUMERIC(15,2) AS total_won_value
+        (SELECT AVG(estimated_value) FROM leads WHERE estimated_value IS NOT NULL AND archived = false AND deleted_at IS NULL)::NUMERIC(15,2) AS avg_value,
+        (SELECT SUM(estimated_value) FROM leads WHERE estimated_value IS NOT NULL AND archived = false AND deleted_at IS NULL)::NUMERIC(15,2) AS total_pipeline_value,
+        (SELECT COUNT(*) FROM leads WHERE created_at >= NOW() - INTERVAL '7 days' AND archived = false AND deleted_at IS NULL) AS leads_this_week,
+        (SELECT COUNT(*) FROM leads WHERE created_at >= NOW() - INTERVAL '30 days' AND archived = false AND deleted_at IS NULL) AS leads_this_month,
+        (SELECT COUNT(*) FROM leads WHERE stage = 'won' AND archived = false AND deleted_at IS NULL) AS won_leads,
+        (SELECT COUNT(*) FROM leads WHERE stage = 'lost' AND archived = false AND deleted_at IS NULL) AS lost_leads,
+        (SELECT COUNT(*) FROM leads WHERE stage NOT IN ('won', 'lost', 'new') AND archived = false AND deleted_at IS NULL) AS engaged_leads,
+        (SELECT AVG(estimated_value) FROM leads WHERE stage = 'won' AND estimated_value IS NOT NULL AND archived = false AND deleted_at IS NULL)::NUMERIC(15,2) AS avg_won_value,
+        (SELECT SUM(estimated_value) FROM leads WHERE stage = 'won' AND estimated_value IS NOT NULL AND archived = false AND deleted_at IS NULL)::NUMERIC(15,2) AS total_won_value
     `
 
     // Stage distribution (exclude archived)
@@ -109,7 +124,7 @@ export async function GET() {
         COUNT(*) as count,
         SUM(estimated_value)::NUMERIC(15,2) as value
       FROM leads
-      WHERE archived = false
+      WHERE archived = false AND deleted_at IS NULL
       GROUP BY stage
       ORDER BY 
         CASE stage
@@ -131,7 +146,7 @@ export async function GET() {
         COUNT(*) as count,
         SUM(estimated_value)::NUMERIC(15,2) as value
       FROM leads
-      WHERE archived = false
+      WHERE archived = false AND deleted_at IS NULL
       GROUP BY tool_used
       ORDER BY count DESC
     `
@@ -143,13 +158,14 @@ export async function GET() {
         COUNT(*) as count,
         SUM(estimated_value)::NUMERIC(15,2) as value
       FROM leads
-      WHERE created_at >= NOW() - INTERVAL '8 weeks' AND archived = false
+      WHERE created_at >= NOW() - INTERVAL '8 weeks' AND archived = false AND deleted_at IS NULL
       GROUP BY DATE_TRUNC('week', created_at)
       ORDER BY week ASC
     `
 
     return NextResponse.json({ 
       leads, 
+      trashedLeads,
       stats: stats[0],
       stageStats,
       sourceStats,
@@ -168,10 +184,28 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json()
-    const { id, stage, archived, archive_reason, notes } = body
+    const { id, stage, archived, archive_reason, notes, restore, trash } = body
 
     if (!id || isNaN(Number(id))) {
       return NextResponse.json({ error: "Invalid lead id" }, { status: 400 })
+    }
+
+    // Handle soft-delete (move to trash)
+    if (trash === true) {
+      await sql`
+        UPDATE leads SET deleted_at = NOW(), last_activity = NOW()
+        WHERE id = ${Number(id)}
+      `
+      return NextResponse.json({ success: true })
+    }
+
+    // Handle restore from trash
+    if (restore === true) {
+      await sql`
+        UPDATE leads SET deleted_at = NULL, last_activity = NOW()
+        WHERE id = ${Number(id)}
+      `
+      return NextResponse.json({ success: true })
     }
 
     // Handle archive/unarchive
@@ -221,6 +255,11 @@ export async function DELETE(request: Request) {
     const { id } = await request.json()
     if (!id || isNaN(Number(id))) {
       return NextResponse.json({ error: "Invalid lead id" }, { status: 400 })
+    }
+    // Only permanently delete leads that are already in the trash
+    const [lead] = await sql`SELECT deleted_at FROM leads WHERE id = ${Number(id)}`
+    if (!lead || lead.deleted_at === null) {
+      return NextResponse.json({ error: "Lead must be in Trash before permanent deletion" }, { status: 400 })
     }
     // Cascade: delete child rows first, then the lead
     await sql`DELETE FROM full_valuations  WHERE lead_id = ${Number(id)}`

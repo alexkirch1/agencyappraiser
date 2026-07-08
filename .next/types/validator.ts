@@ -335,6 +335,15 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
+// Validate ../../app/api/purge-trash/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/purge-trash">> = Specific
+  const handler = {} as typeof import("../../app/api/purge-trash/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../app/api/save-full-valuation/route.ts
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/save-full-valuation">> = Specific
