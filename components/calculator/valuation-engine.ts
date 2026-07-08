@@ -221,7 +221,7 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
 
   // 3. LEGAL
   let legalScore = 0.12
-  if (producerAgreements === "strong") legalScore += 0.08
+  if (producerAgreements === "strong" || producerAgreements === "solo") legalScore += 0.08
   else if (producerAgreements === "none") legalScore -= 0.07
   if (eoClaims > 0) legalScore -= Math.min(0.15, eoClaims * 0.05)
   legalScore = Math.max(0.05, Math.min(0.2, legalScore))
@@ -314,9 +314,12 @@ export function calculateValuation(inputs: ValuationInputs): ValuationResults | 
   // 6. OPS
   let opsScore = 0.05
   if (rpe !== null && rpe >= 200000) opsScore += 0.05
+  // Carrier concentration: high concentration (low diversification score) is a POSITIVE signal
+  // for our buy-side thesis — streamlined carrier mix = simpler, cheaper post-close transition.
   if (carrierDiv !== null) {
-    if (carrierDiv < 40) opsScore += 0.05
-    else if (carrierDiv <= 70) opsScore += 0.02
+    if (carrierDiv < 40) opsScore += 0.05      // High concentration — optimal operational efficiency
+    else if (carrierDiv < 65) opsScore += 0.02  // Moderate — acceptable
+    // Highly diversified (>=65) receives no bonus — more complexity to manage post-close
   }
   // Seller transition commitment scoring
   if (inputs.sellerTransitionMonths !== null) {

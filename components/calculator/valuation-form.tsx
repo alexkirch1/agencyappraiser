@@ -206,6 +206,7 @@ export function ValuationForm({ inputs, onChange, invalidFields = [] }: Props) {
                 { value: "strong", label: "Strong (Non-Compete/Solicit)" },
                 { value: "weak", label: "Weak / Informal" },
                 { value: "none", label: "None" },
+                { value: "solo", label: "N/A — Solo Owner (No Employees)" },
               ].map((opt) => (
                 <label key={opt.value} className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm text-foreground transition-colors has-[data-state=checked]:border-primary has-[data-state=checked]:bg-primary/10">
                   <RadioGroupItem value={opt.value} />

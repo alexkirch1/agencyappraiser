@@ -389,15 +389,16 @@ function buildBuyerIntelligence(lead: LeadRow): BuyerIntel {
   maxPoints += 15
   if (carrierDiv !== null) {
     const carrierNames = lead.top_carriers ? ` (${lead.top_carriers})` : ""
-    if (carrierDiv >= 65) {
-      signals.push({ level: "green", label: "Carrier Diversification", detail: `Strong carrier mix at ${carrierDiv}%${carrierNames}. Well-spread appointments reduce post-close non-renewal risk.` })
+    if (carrierDiv < 40) {
+      // High concentration = optimal for our buy-side thesis
+      signals.push({ level: "green", label: "Streamlined Carrier Mix", detail: `High carrier concentration observed${carrierNames}. This represents maximum operational efficiency and an incredibly simple, low-overhead post-close transition for our portfolio.` })
       scorePoints += 15
-    } else if (carrierDiv >= 40) {
-      signals.push({ level: "yellow", label: "Carrier Concentration", detail: `Moderate carrier concentration (score: ${carrierDiv}%)${carrierNames}. Ask which carrier holds the largest share of premium and what happens if that appointment is lost.` })
+    } else if (carrierDiv < 65) {
+      signals.push({ level: "yellow", label: "Carrier Mix", detail: `Moderate carrier spread (score: ${carrierDiv}%)${carrierNames}. Post-close transition will require standard appointment management across multiple carriers.` })
       scorePoints += 8
     } else {
-      signals.push({ level: "red", label: "Carrier Concentration", detail: `High carrier concentration (score: ${carrierDiv}%)${carrierNames}. Over-reliance on one carrier is a top risk in P&C acquisitions — a single non-renewal could eliminate 40–60% of premium post-close. Request carrier volume breakdown.` })
-      scorePoints += 2
+      signals.push({ level: "yellow", label: "Carrier Diversification", detail: `Highly diversified carrier mix (score: ${carrierDiv}%)${carrierNames}. More appointments to manage post-close — verify none are at risk of non-renewal.` })
+      scorePoints += 6
     }
   } else if (lead.top_carriers) {
     signals.push({ level: "yellow", label: "Carriers", detail: `Appointed with ${lead.top_carriers}. Concentration data not quantified — ask for premium split by carrier.` })
@@ -1612,7 +1613,9 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
                   <Row label="Staff Retention Risk" value={viewingLead.staff_retention_risk} />
                   <Row label="Producer Agreements" value={viewingLead.producer_agreements} />
                   <Row label="E&O Claims" value={viewingLead.eo_claims != null ? viewingLead.eo_claims.toString() : null} />
-                  <Row label="Scope of Sale" value={viewingLead.scope_of_sale ? `${fmtStat(viewingLead.scope_of_sale)}%` : null} />
+                  <Row label="Scope of Sale" value={viewingLead.scope_of_sale
+                    ? ({ "1": "Full Agency", "1.0": "Full Agency", "0.95": "Book Purchase", "0.9": "Fragmented Assets", "0.90": "Fragmented Assets" } as Record<string, string>)[String(parseFloat(viewingLead.scope_of_sale))] ?? viewingLead.scope_of_sale
+                    : null} />
                   <Row label="Closing Timeline" value={viewingLead.closing_timeline} />
                 </Section>
               )}
