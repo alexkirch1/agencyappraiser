@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect, Suspense } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { ValuationForm } from "@/components/calculator/valuation-form"
 import { ValuationSidebar } from "@/components/calculator/valuation-sidebar"
 import { LeadCaptureModal } from "@/components/lead-capture-modal"
@@ -11,7 +11,7 @@ import { RiskAudit } from "@/components/calculator/risk-audit"
 import { calculateValuation, runRiskAudit, type ValuationInputs } from "@/components/calculator/valuation-engine"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Lock, Unlock, AlertCircle, ClipboardCheck, ArrowRight, Pencil, Download, ShieldCheck, Share2, Check } from "lucide-react"
+import { Lock, Unlock, AlertCircle, ClipboardCheck, ArrowRight, Pencil, Download, ShieldCheck, Share2, Check, Zap, BarChart2 } from "lucide-react"
 import Link from "next/link"
 import { downloadValuationPDF } from "@/lib/generate-pdf"
 import { MarketIntelPanel } from "@/components/market-intel-panel"
@@ -79,8 +79,133 @@ function getInvalidFieldKeys(inputs: ValuationInputs): string[] {
   }).map(({ key }) => key)
 }
 
+type ValuationMode = "quick" | "full" | null
+
+interface ModeCard {
+  icon: React.ElementType
+  mode: "quick" | "full"
+  badge?: string
+  label: string
+  sub: string
+}
+
+const MODE_CARDS: ModeCard[] = [
+  {
+    icon: Zap,
+    mode: "quick",
+    badge: "Fastest & Most Popular",
+    label: "Quick 60-Second Estimate",
+    sub: "Get an instant, directional multiplier range using just your top-line revenue and retention metrics.",
+  },
+  {
+    icon: BarChart2,
+    mode: "full",
+    label: "Full M&A-Grade Valuation",
+    sub: "Dive deep into financials, carrier mix, and operational risk for a precision buyout analysis.",
+  },
+]
+
+function ModeSelection({ onSelect }: { onSelect: (mode: "quick" | "full") => void }) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+
+  return (
+    <section className="mx-auto w-full max-w-2xl px-5 py-12 lg:px-8">
+      <div className="mb-8 text-center">
+        <h1 className="text-balance text-2xl font-bold text-foreground sm:text-3xl">
+          Agency &amp; Book Valuation
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Choose how you want to run your valuation.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        {MODE_CARDS.map((card, i) => {
+          const Icon = card.icon
+          const isHovered = hoveredIndex === i
+          const isFeatured = i === 0
+          return (
+            <button
+              key={card.mode}
+              onClick={() => onSelect(card.mode)}
+              onMouseEnter={() => setHoveredIndex(i)}
+              onMouseLeave={() => setHoveredIndex(null)}
+              className={`group flex w-full items-start gap-4 rounded-xl border-2 px-5 py-4 text-left transition-all duration-150 ${
+                isFeatured
+                  ? isHovered
+                    ? "border-primary bg-primary/8 shadow-lg ring-4 ring-primary/20 dark:ring-primary/15"
+                    : "border-primary bg-primary/5 shadow-md ring-2 ring-primary/15"
+                  : isHovered
+                  ? "border-blue-600 bg-primary/5 shadow-lg ring-4 ring-blue-50/50 dark:border-blue-500 dark:ring-blue-900/30"
+                  : "border-slate-300 bg-card shadow-lg dark:border-slate-600"
+              }`}
+            >
+              <div
+                className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                  isHovered || isFeatured ? "bg-primary/15" : "bg-muted"
+                }`}
+              >
+                <Icon
+                  className={`h-4 w-4 transition-colors ${
+                    isHovered || isFeatured ? "text-primary" : "text-muted-foreground"
+                  }`}
+                />
+              </div>
+
+              <div className="flex-1 min-w-0">
+                {card.badge && (
+                  <span className="mb-1.5 inline-block rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                    {card.badge}
+                  </span>
+                )}
+                <p
+                  className={`text-sm font-semibold leading-snug transition-colors ${
+                    isHovered || isFeatured ? "text-primary" : "text-foreground"
+                  }`}
+                >
+                  {card.label}
+                </p>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                  {card.sub}
+                </p>
+              </div>
+
+              <ArrowRight
+                className={`mt-1.5 h-4 w-4 shrink-0 transition-all duration-150 ${
+                  isHovered || isFeatured
+                    ? "translate-x-0.5 text-primary"
+                    : "text-muted-foreground/30"
+                }`}
+              />
+            </button>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 function CalculatorContent() {
+  const router = useRouter()
   const searchParams = useSearchParams()
+
+  // If the URL carries pre-filled params from quick-value, skip straight to full mode.
+  const hasPrefilledParams = !!(
+    searchParams.get("rev") ||
+    searchParams.get("retention") ||
+    searchParams.get("bookType") ||
+    searchParams.get("growth")
+  )
+  const [mode, setMode] = useState<ValuationMode>(hasPrefilledParams ? "full" : null)
+
+  const handleModeSelect = (selected: "quick" | "full") => {
+    if (selected === "quick") {
+      router.push("/quick-value")
+    } else {
+      setMode("full")
+    }
+  }
+
   const [inputs, setInputs] = useState<ValuationInputs>(() => {
     const newInputs = { ...defaultInputs }
     
@@ -286,9 +411,23 @@ function CalculatorContent() {
 
   const invalidKeys = (triedSubmit && (!submitted || editing)) ? getInvalidFieldKeys(inputs) : []
 
+  // Show mode-selection entry before the full form
+  if (mode === null) {
+    return <ModeSelection onSelect={handleModeSelect} />
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
       <div className="mb-8">
+        <div className="flex items-center gap-3 mb-1">
+          <button
+            onClick={() => setMode(null)}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowRight className="h-3 w-3 rotate-180" />
+            Change valuation type
+          </button>
+        </div>
         <h1 className="text-3xl font-bold tracking-tight text-foreground">Agency Valuation Calculator</h1>
         <p className="mt-2 text-muted-foreground">
           Our weighted scorecard analyzes 7 risk categories to calculate a data-driven valuation multiple.
