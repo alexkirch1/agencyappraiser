@@ -45,7 +45,7 @@ export function AmsUpload({ onParsed }: Props) {
     const isCSV = file.name.toLowerCase().endsWith(".csv")
     if (!isPDF && !isCSV) {
       setStatus("error")
-      setErrorMsg("Please upload a PDF or CSV export from EZLynx.")
+      setErrorMsg("Please upload a PDF or CSV export from your agency management system.")
       return
     }
 
@@ -59,7 +59,7 @@ export function AmsUpload({ onParsed }: Props) {
 
       if (count === 0) {
         setStatus("error")
-        setErrorMsg("The AI could not extract any fields from this report. Make sure you are uploading an EZLynx Agency Summary, Production Report, or Commission Report. You can fill in the fields manually below.")
+        setErrorMsg("The AI could not extract any fields from this report. Make sure you are uploading an Agency Summary, Production Report, or Commission Report from your agency management system. You can fill in the fields manually below.")
       } else {
         const conf = typeof data.confidence === "number" ? Math.min(99, data.confidence) : Math.min(98, Math.round((count / 12) * 78 + 20))
         setFieldsFound(count)
@@ -121,9 +121,9 @@ export function AmsUpload({ onParsed }: Props) {
                 <Upload className="h-6 w-6 text-primary" />
               </div>
               <div className="text-center">
-                <p className="text-sm font-medium text-foreground">Upload EZLynx Agency Summary or Production Report</p>
+                <p className="text-sm font-medium text-foreground">Upload an Agency Management System Report</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Export from EZLynx and drag and drop, or click to browse. AI will auto-fill the fields below.
+                  Export from your agency management system and drag and drop, or click to browse. AI will auto-fill the fields below.
                 </p>
               </div>
             </div>

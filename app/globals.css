@@ -143,6 +143,22 @@
   }
 }
 
+/* ── High-contrast primary buttons ───────────────────────────────────────── */
+/* Light mode: stronger border + drop shadow so buttons lift off white backgrounds */
+/* Dark mode: vibrant ring glow + deeper background depth for visibility */
+@layer components {
+  .btn-high-contrast {
+    @apply shadow-md ring-1 ring-primary/20
+      hover:shadow-lg hover:ring-primary/40
+      dark:ring-primary/30 dark:shadow-primary/10 dark:hover:ring-primary/60;
+  }
+  .card-selectable {
+    @apply border-border shadow-sm
+      hover:border-slate-300 hover:shadow-md
+      dark:border-border dark:hover:border-slate-600 dark:hover:shadow-primary/10;
+  }
+}
+
 /* Easter egg: scrolling ticker animation */
 @keyframes ticker {
   from { transform: translateX(0); }

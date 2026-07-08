@@ -126,11 +126,11 @@ export function ValuationWizard() {
               className={`group flex w-full items-start gap-4 rounded-xl border px-5 py-4 text-left transition-all duration-150 ${
                 isFeatured
                   ? isHovered
-                    ? "border-primary bg-primary/8 shadow-md"
-                    : "border-primary bg-primary/5 shadow-sm"
+                    ? "border-primary bg-primary/8 shadow-lg ring-1 ring-primary/30 dark:shadow-primary/15"
+                    : "border-primary bg-primary/5 shadow-md ring-1 ring-primary/20 dark:shadow-primary/10"
                   : isHovered
-                  ? "border-primary/60 bg-primary/5 shadow-sm"
-                  : "border-border bg-card hover:border-primary/40"
+                  ? "border-primary/60 bg-primary/5 shadow-md ring-1 ring-primary/20 dark:border-primary/50 dark:shadow-primary/10"
+                  : "border-slate-200 bg-card shadow-sm hover:border-slate-300 hover:shadow-md dark:border-border dark:hover:border-slate-600 dark:hover:shadow-primary/10"
               }`}
             >
               <div

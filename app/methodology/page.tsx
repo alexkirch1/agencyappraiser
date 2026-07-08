@@ -16,11 +16,11 @@ const CATEGORIES = [
     title: "Financial Performance",
     impact: "Highest impact",
     description:
-      "Revenue (LTM, Y-1, Y-2), SDE / EBITDA, and CAGR form the foundation. We use EBITDA as the base and apply a multiple rather than a simple revenue multiple, because profitability tells buyers how much they actually take home.",
+      "Buyers underwrite acquisitions on cash flow, not gross revenue. The financial category examines your last 12 months of revenue, multi-year growth trend, and owner earnings (SDE/EBITDA). A consistently profitable agency with rising revenue is the single most powerful signal a seller can show a buyer.",
     benchmarks: [
-      "EBITDA margin > 25% — strong buyer signal",
-      "Consistent 3-year CAGR — meaningfully lifts the multiple",
-      "Revenue > $1M — opens institutional buyer pool",
+      "Healthy owner earnings margin is the foundation every buyer starts with",
+      "Consistent multi-year revenue growth meaningfully strengthens the offer",
+      "Books above $1M in revenue access a significantly deeper buyer pool",
     ],
   },
   {
@@ -28,11 +28,11 @@ const CATEGORIES = [
     title: "Client Retention & Concentration",
     impact: "High impact",
     description:
-      "Retention rate and client concentration are the two most scrutinized metrics in any P&C agency transaction. A single client accounting for more than 10% of revenue is a material risk flag that buyers price into their offer.",
+      "Retention rate is the closest thing to a guaranteed income stream that exists in an insurance book. Buyers and lenders scrutinize it heavily because post-close attrition directly erodes the return on their investment. Client concentration matters equally — if one account represents a disproportionate share of revenue, the buyer is pricing in the risk that they lose it at renewal.",
     benchmarks: [
-      "Retention > 90% — notable upward impact on multiple",
-      "Top client < 5% of revenue — ideal concentration",
-      "Retention < 75% — significant downward pressure",
+      "High retention rates signal a sticky, relationship-driven book buyers will pay a premium for",
+      "Low client concentration means no single account can crater the deal value post-close",
+      "Low retention is one of the most consistent drivers of downward offer pressure in our data",
     ],
   },
   {
@@ -40,11 +40,11 @@ const CATEGORIES = [
     title: "Book Composition",
     impact: "Meaningful impact",
     description:
-      "Commercial lines books command higher multiples than personal lines because they carry larger average premiums, longer relationships, and lower churn. A 70%+ commercial book is considered premium by most acquirers.",
+      "Commercial lines books are valued higher than personal lines books because they carry larger average premiums, longer policy relationships, and meaningfully lower churn. Buyers also look at lines of business mix, average premium per policy, and specialty exposure — high-risk commercial lines like trucking carry their own discount due to volatile loss ratios and limited carrier options post-close.",
     benchmarks: [
-      "Commercial-dominant book — strong positive impact",
-      "Mixed book (40–70% commercial) — neutral baseline",
-      "Personal lines-dominant — moderate downward adjustment",
+      "Commercial-dominant books attract the strongest buyers and the widest bid range",
+      "Mixed books are the most common profile and serve as the neutral baseline",
+      "High-risk specialty lines are evaluated separately and typically discounted",
     ],
   },
   {
@@ -52,12 +52,11 @@ const CATEGORIES = [
     title: "Revenue Growth Trend",
     impact: "Meaningful impact",
     description:
-      "Buyers pay for momentum. Three consecutive years of growth — even moderate growth — meaningfully increases the multiple. Declining revenue is the single biggest red flag in a transaction and applies a material discount.",
+      "Buyers pay for momentum. An agency growing consistently — even at a modest rate — signals that the book will continue to expand under new ownership. Declining revenue is the single most disqualifying signal in a P&C agency transaction. It forces buyers to model attrition into every year of their hold, which compresses the offer at every step.",
     benchmarks: [
-      "Strong growth (10%+ / yr) — significant upward impact",
-      "Moderate growth (3–9% / yr) — positive impact",
-      "Flat — neutral",
-      "Declining — most significant discount factor in the model",
+      "Strong multi-year growth is the clearest sign of a healthy, scalable platform",
+      "Moderate steady growth is viewed positively and protects the valuation floor",
+      "Declining books require significant due diligence and almost always result in discounted offers",
     ],
   },
   {
@@ -65,11 +64,11 @@ const CATEGORIES = [
     title: "Operational Health & Risk",
     impact: "Moderate impact",
     description:
-      "E&O claims history, producer agreement structure, carrier diversification, and staff retention risk all factor in. An agency with documented processes, no E&O history, and strong producer agreements is far easier for a buyer to integrate.",
+      "Operations tells buyers how difficult the agency will be to run after they close. E&O claims history, producer agreement structures, carrier relationships, and key-person dependency all get scrutinized. An agency where the principal is the only relationship-holder introduces significant transition risk. Documented processes, strong producer agreements, and a streamlined carrier mix are all hallmarks of a high-quality operational profile.",
     benchmarks: [
-      "Zero E&O claims history — positive adjustment",
-      "No single carrier dominating revenue — healthy diversification",
-      "Documented processes + low staff key-person risk — premium profile",
+      "Clean E&O history removes a significant legal risk concern from buyer due diligence",
+      "Strong producer agreements protect the book from walking out the door post-sale",
+      "A streamlined carrier mix signals operational efficiency and an easier post-close transition",
     ],
   },
   {
@@ -77,32 +76,32 @@ const CATEGORIES = [
     title: "Transition & Deal Structure",
     impact: "Moderate impact",
     description:
-      "Seller transition length, closing urgency, and scope of sale (full agency vs. book-only) all adjust the final multiple. A longer, well-supported transition de-risks the deal for buyers and increases offer value.",
+      "The mechanics of how you sell matter as much as what you are selling. Buyers place significant value on seller transition length — a longer, well-supported handover de-risks the deal and gives the buyer confidence that clients will not leave simply because the owner did. The scope of the sale (full agency transfer vs. book-only purchase) and how urgently the seller needs to close both directly affect the final offer.",
     benchmarks: [
-      "Extended transition period — positive impact on confidence",
-      "Full agency sale vs. book-only — scope affects the multiplier",
-      "Seller urgency — can compress the final offer",
+      "An extended transition period is one of the clearest signals of a cooperative, low-risk seller",
+      "Full agency sales open more deal structures and buyer types than book-only transfers",
+      "Seller urgency reduces the buyer's sense of competition and typically compresses the price",
     ],
   },
   {
     icon: TrendingUp,
-    title: "Market & Longevity",
+    title: "Market Position & Longevity",
     impact: "Supporting factor",
     description:
-      "Agency age, primary state market conditions, and employee count signal stability and scalability. Agencies established 10+ years with diversified staff are viewed as durable platforms rather than one-person operations.",
+      "Agency age, office structure, and employee profile signal institutional durability. A 20-year-old agency with a diversified staff is viewed as a platform acquisition — not a roll-up risk. Virtual and hybrid operations score well because they represent lower post-close overhead. Newer agencies are not penalized by age alone, but they carry less proven track record for buyers to underwrite.",
     benchmarks: [
-      "25+ years established — premium stability signal",
-      "10–24 years — strong track record",
-      "Under 5 years — early stage profile, modest discount",
+      "Established agencies with deep community roots signal lower client flight risk",
+      "Virtual and hybrid models signal lower overhead and geographic flexibility",
+      "Newer agencies can still command strong multiples if the book quality and financials are strong",
     ],
   },
 ]
 
 const MULTIPLE_TABLE = [
-  { label: "Personal Lines Dominant, Small", range: "1.0x – 1.8x", color: "text-destructive" },
-  { label: "Mixed Book, Average Retention", range: "1.8x – 2.5x", color: "text-warning" },
-  { label: "Strong Commercial, Good Growth", range: "2.5x – 3.2x", color: "text-success" },
-  { label: "Premium Commercial, High Retention, Growing", range: "3.2x – 4.0x+", color: "text-primary" },
+  { label: "Personal Lines Dominant, Smaller Book", range: "1.0x – 1.6x", color: "text-destructive" },
+  { label: "Mixed Book, Average Retention", range: "1.6x – 2.0x", color: "text-warning" },
+  { label: "Strong Commercial, Good Growth", range: "2.0x – 2.2x", color: "text-success" },
+  { label: "Premium Commercial, High Retention, Growing", range: "2.2x – 2.4x", color: "text-primary" },
 ]
 
 export default function MethodologyPage() {
@@ -138,7 +137,7 @@ export default function MethodologyPage() {
               <span className="text-center text-2xl font-bold text-muted-foreground">×</span>
               <div className="flex-1 rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-center">
                 <p className="text-xs uppercase tracking-wide text-primary">Multiplier</p>
-                <p className="mt-1 text-xl font-bold text-primary">1.0x – 4.0x+</p>
+                <p className="mt-1 text-xl font-bold text-primary">1.0x – 2.4x</p>
               </div>
               <span className="text-center text-2xl font-bold text-muted-foreground">=</span>
               <div className="flex-1 rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-center">
@@ -147,11 +146,12 @@ export default function MethodologyPage() {
               </div>
             </div>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-              We use SDE (Seller Discretionary Earnings) or EBITDA as the base — not gross revenue —
-              because buyers finance acquisitions based on cash flow. The multiple is then built up
-              category by category from a neutral baseline of{" "}
-              <span className="font-semibold text-foreground">2.0x</span>, with positive and negative
-              adjustments applied for each scored factor.
+              We use annual revenue as the base — specifically the last 12 months — because it is the
+              most consistently available and comparable metric across independent agency transactions.
+              The multiplier is then built up across all seven scoring categories, with each factor
+              applying a directional adjustment based on what buyers and lenders actually underwrite
+              when evaluating an acquisition. Higher-quality books in every category earn a higher
+              final multiple.
             </p>
           </CardContent>
         </Card>
@@ -168,7 +168,7 @@ export default function MethodologyPage() {
             <thead>
               <tr className="border-b border-border bg-secondary/40">
                 <th className="px-4 py-3 text-left font-semibold text-foreground">Agency Profile</th>
-                <th className="px-4 py-3 text-right font-semibold text-foreground">EBITDA Multiple Range</th>
+                <th className="px-4 py-3 text-right font-semibold text-foreground">Revenue Multiple Range</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
