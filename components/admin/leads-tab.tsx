@@ -15,7 +15,7 @@ import {
   FolderKanban, Trophy, X, ChevronRight, ExternalLink, Trash2, Archive,
   ArrowUpRight, ArrowDownRight, Percent, Target, Clock, Calendar,
   LayoutGrid, List, GripVertical, Phone, Mail, ChevronDown, ArchiveRestore,
-  Lightbulb, AlertTriangle, CheckCircle2, HelpCircle, StickyNote, Save
+  Lightbulb, AlertTriangle, CheckCircle2, HelpCircle, StickyNote, Save, RotateCcw
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CompleteDealModal } from "@/components/admin/complete-deal-modal"
@@ -91,12 +91,15 @@ interface LeadRow {
   archived: boolean
   archive_reason: string | null
   archived_at: string | null
+  // Soft delete / trash
+  deleted_at: string | null
   // Notes
   notes: string | null
 }
 
 interface Stats {
   total_leads: string
+  trash_count: string
   full_valuations: string
   quick_valuations: string
   quiz_submissions: string
@@ -487,7 +490,7 @@ function buildBuyerIntelligence(lead: LeadRow): BuyerIntel {
     }
   }
 
-  // ── 10. Trucking / commercial auto ────────────────────────────────────────
+  // ── 10. Trucking / commercial auto ───────────────────────��────────────────
   const isTrucking = lead.policy_mix && parseFloat(lead.policy_mix) >= 50 && lead.top_carriers?.toLowerCase().match(/progressive|canal|great american/)
   if (isTrucking || lead.agency_description?.toLowerCase().includes("truck")) {
     maxPoints += 5
@@ -769,6 +772,7 @@ interface LeadsTabProps {
 
 export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdateDeal }: LeadsTabProps) {
   const [leads, setLeads] = useState<LeadRow[]>([])
+  const [trashedLeads, setTrashedLeads] = useState<LeadRow[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [stageStats, setStageStats] = useState<StageStats[]>([])
   const [sourceStats, setSourceStats] = useState<SourceStats[]>([])
@@ -782,9 +786,12 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
   const [archivingLead, setArchivingLead] = useState<LeadRow | null>(null)
   const [archiveLoading, setArchiveLoading] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
+  const [showTrash, setShowTrash] = useState(false)
+  const [purgingId, setPurgingId] = useState<number | null>(null)
   const [notesValue, setNotesValue] = useState<string>("")
   const [notesSaving, setNotesSaving] = useState(false)
   const [notesSaved, setNotesSaved] = useState(false)
+  const [undoToast, setUndoToast] = useState<{ id: number; name: string; timer: ReturnType<typeof setTimeout> } | null>(null)
   const { mutate: mutateIntel } = useMarketIntel()
 
   const fetchLeads = useCallback(async () => {
@@ -795,6 +802,7 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
       if (!res.ok) throw new Error("Failed to fetch")
       const data = await res.json()
       setLeads(data.leads ?? [])
+      setTrashedLeads(data.trashedLeads ?? [])
       setStats(data.stats ?? null)
       setStageStats(data.stageStats ?? [])
       setSourceStats(data.sourceStats ?? [])
@@ -821,9 +829,67 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
     }
   }, [])
 
-  const deleteLead = async (id: number) => {
-    if (!confirm("Permanently delete this lead and all associated data? This cannot be undone.")) return
+  const dismissUndoToast = useCallback((timer?: ReturnType<typeof setTimeout>) => {
+    if (timer) clearTimeout(timer)
+    setUndoToast((prev) => {
+      if (prev) clearTimeout(prev.timer)
+      return null
+    })
+  }, [])
+
+  const trashLead = async (id: number) => {
     setDeletingId(id)
+    try {
+      const res = await fetch("/api/admin/leads", {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ id, trash: true }),
+      })
+      if (!res.ok) throw new Error("Failed to move to trash")
+      const now = new Date().toISOString()
+      const trashed = leads.find((l) => l.id === id)
+      if (trashed) setTrashedLeads((prev) => [{ ...trashed, deleted_at: now }, ...prev])
+      setLeads((prev) => prev.filter((l) => l.id !== id))
+      setViewingLead(null)
+      refreshStats()
+      // Show undo toast — auto-dismiss after 6 seconds
+      setUndoToast((prev) => {
+        if (prev) clearTimeout(prev.timer)
+        const timer = setTimeout(() => setUndoToast(null), 6000)
+        return { id, name: trashed?.agency_name ?? trashed?.name ?? "Lead", timer }
+      })
+    } catch {
+      alert("Failed to move lead to trash. Please try again.")
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  const restoreFromTrash = async (id: number) => {
+    // Dismiss undo toast if this is the undo action
+    setUndoToast((prev) => {
+      if (prev) clearTimeout(prev.timer)
+      return null
+    })
+    try {
+      const res = await fetch("/api/admin/leads", {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ id, restore: true }),
+      })
+      if (!res.ok) throw new Error("Failed to restore")
+      const restored = trashedLeads.find((l) => l.id === id)
+      if (restored) setLeads((prev) => [{ ...restored, deleted_at: null }, ...prev])
+      setTrashedLeads((prev) => prev.filter((l) => l.id !== id))
+      refreshStats()
+    } catch {
+      alert("Failed to restore lead.")
+    }
+  }
+
+  const permanentlyDelete = async (id: number) => {
+    if (!confirm("Permanently delete this lead and all data? This cannot be undone.")) return
+    setPurgingId(id)
     try {
       const res = await fetch("/api/admin/leads", {
         method: "DELETE",
@@ -831,14 +897,12 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
         body: JSON.stringify({ id }),
       })
       if (!res.ok) throw new Error("Failed to delete")
-      setLeads((prev) => prev.filter((l) => l.id !== id))
-      setViewingLead(null)
-      // Refresh stats so counts/totals update immediately
+      setTrashedLeads((prev) => prev.filter((l) => l.id !== id))
       refreshStats()
     } catch {
-      alert("Failed to delete lead. Please try again.")
+      alert("Failed to permanently delete lead. Please try again.")
     } finally {
-      setDeletingId(null)
+      setPurgingId(null)
     }
   }
 
@@ -969,7 +1033,7 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
 
   // Derive all stats directly from local leads array so they update instantly on any mutation
   const derivedStats = useMemo(() => {
-    const active = leads.filter((l) => !l.archived)
+    const active = leads.filter((l) => !l.archived && !l.deleted_at)
     const now = new Date()
     const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
 
@@ -1039,6 +1103,48 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Undo toast — appears after a lead is moved to trash */}
+      {undoToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 flex items-center gap-3 rounded-lg border border-border bg-popover px-4 py-3 shadow-lg text-sm text-foreground animate-in slide-in-from-bottom-4 duration-200"
+        >
+          <Trash2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span>
+            <span className="font-medium">{undoToast.name}</span> moved to Trash.
+          </span>
+          <button
+            onClick={() => restoreFromTrash(undoToast.id)}
+            className="ml-1 font-semibold text-primary underline-offset-2 hover:underline focus:outline-none"
+          >
+            Undo
+          </button>
+          <button
+            onClick={() => dismissUndoToast()}
+            aria-label="Dismiss"
+            className="ml-1 rounded p-0.5 text-muted-foreground hover:text-foreground focus:outline-none"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Restore Last Deleted button — visible only when trash has items */}
+      {trashedLeads.length > 0 && (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-muted-foreground"
+            onClick={() => restoreFromTrash(trashedLeads[0].id)}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Restore Last Deleted
+          </Button>
+        </div>
+      )}
+
       {/* Horizon Pipeline summary */}
       {deals.length > 0 && (
         <div
@@ -1725,12 +1831,13 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                className="gap-1.5 text-muted-foreground border-border hover:bg-secondary hover:text-foreground"
                 disabled={deletingId === viewingLead.id}
-                onClick={() => deleteLead(viewingLead.id)}
+                onClick={() => trashLead(viewingLead.id)}
+                title="Move to Trash (recoverable for 30 days)"
               >
                 <Trash2 className="h-4 w-4" />
-                {deletingId === viewingLead.id ? "Deleting…" : "Delete"}
+                {deletingId === viewingLead.id ? "Moving…" : "Trash"}
               </Button>
               <Button
                 variant="outline"
@@ -1806,6 +1913,72 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
                       <ArchiveRestore className="h-3.5 w-3.5" />
                       Restore
                     </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Trash Bin Section */}
+      {trashedLeads.length > 0 && (
+        <div className="rounded-lg border border-destructive/20 overflow-hidden">
+          <button
+            onClick={() => setShowTrash((v) => !v)}
+            className="w-full flex items-center justify-between px-4 py-3 bg-destructive/5 hover:bg-destructive/10 transition-colors text-left"
+          >
+            <div className="flex items-center gap-2">
+              <Trash2 className="h-4 w-4 text-destructive/70" />
+              <span className="text-sm font-medium text-foreground">Trash</span>
+              <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">
+                {trashedLeads.length}
+              </span>
+              <span className="text-[11px] text-muted-foreground/60 ml-1">Auto-purges after 30 days</span>
+            </div>
+            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", showTrash && "rotate-180")} />
+          </button>
+          {showTrash && (
+            <div className="divide-y divide-border">
+              {trashedLeads.map((lead) => {
+                const deletedDate = lead.deleted_at ? new Date(lead.deleted_at) : null
+                const purgeDate = deletedDate ? new Date(deletedDate.getTime() + 30 * 24 * 60 * 60 * 1000) : null
+                const daysLeft = purgeDate ? Math.max(0, Math.ceil((purgeDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : null
+                return (
+                  <div key={lead.id} className="flex items-center justify-between px-4 py-3 bg-card hover:bg-secondary/20 transition-colors">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm text-muted-foreground truncate">{lead.agency_name ?? lead.name}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[11px] text-muted-foreground/60">{lead.name}</span>
+                        {daysLeft !== null && (
+                          <span className={cn(
+                            "text-[10px] font-medium",
+                            daysLeft <= 3 ? "text-destructive" : "text-muted-foreground/50"
+                          )}>
+                            Purges in {daysLeft}d
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="ml-3 flex items-center gap-1.5">
+                      <button
+                        onClick={() => restoreFromTrash(lead.id)}
+                        className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-primary transition-colors"
+                        title="Restore lead"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        Restore
+                      </button>
+                      <button
+                        onClick={() => permanentlyDelete(lead.id)}
+                        disabled={purgingId === lead.id}
+                        className="flex items-center gap-1 rounded-md border border-destructive/30 px-2.5 py-1.5 text-xs font-medium text-destructive/70 hover:text-destructive hover:border-destructive transition-colors disabled:opacity-50"
+                        title="Permanently delete"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        {purgingId === lead.id ? "Deleting…" : "Delete"}
+                      </button>
+                    </div>
                   </div>
                 )
               })}
