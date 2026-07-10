@@ -189,14 +189,15 @@ function CalculatorContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // If the URL carries pre-filled params from quick-value, skip straight to full mode.
+  // If the URL carries mode=full OR pre-filled params from quick-value, skip straight to full mode.
   const hasPrefilledParams = !!(
     searchParams.get("rev") ||
     searchParams.get("retention") ||
     searchParams.get("bookType") ||
     searchParams.get("growth")
   )
-  const [mode, setMode] = useState<ValuationMode>(hasPrefilledParams ? "full" : null)
+  const skipModeSelection = searchParams.get("mode") === "full" || hasPrefilledParams
+  const [mode, setMode] = useState<ValuationMode>(skipModeSelection ? "full" : null)
 
   const handleModeSelect = (selected: "quick" | "full") => {
     if (selected === "quick") {
