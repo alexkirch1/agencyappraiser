@@ -1,13 +1,26 @@
 "use client"
 
 import useSWR from "swr"
-import { Card, CardContent } from "@/components/ui/card"
+import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer,
+} from "recharts"
 import {
   Trash2, TrendingUp, TrendingDown, DollarSign,
   Target, Clock, CheckCircle2, XCircle, BarChart3,
   Percent, Users, Zap, FileText, Brain, RefreshCw,
-  MapPin, Flame,
+  MapPin, Flame, X, ChevronDown,
 } from "lucide-react"
 import type { Deal } from "./admin-dashboard"
 import { cn } from "@/lib/utils"
@@ -55,6 +68,21 @@ interface OverviewData {
   funnel: FunnelData
   topStates: { state: string; count: number }[]
   leadStages: { stage: string; count: number }[]
+}
+
+interface QuickValHistory {
+  date: string
+  count: number
+  day: string
+}
+
+interface QuickValEntry {
+  id: string
+  created_at: string
+  agency_description: string | null
+  revenue_ltm: number | null
+  low_offer: number | null
+  high_offer: number | null
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -174,6 +202,208 @@ function Skeleton({ className }: { className?: string }) {
   return <div className={cn("animate-pulse rounded-md bg-muted", className)} />
 }
 
+function EnhancedQuickValsCard({
+  value,
+  trend,
+  sparklineData,
+  isLoading,
+  onOpenDrawer,
+}: {
+  value: string | number
+  trend?: number
+  sparklineData?: QuickValHistory[]
+  isLoading: boolean
+  onOpenDrawer: () => void
+}) {
+  return (
+    <Card
+      className="cursor-pointer transition-all hover:shadow-md border-border col-span-2 sm:col-span-2"
+      onClick={onOpenDrawer}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <Zap className="h-3.5 w-3.5" />
+            <span className="text-[11px] font-semibold uppercase tracking-wide">Quick Valuations</span>
+          </div>
+          {trend !== undefined && trend > 0 && (
+            <span className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+              <TrendingUp className="h-2.5 w-2.5" />
+              +{trend} this week
+            </span>
+          )}
+        </div>
+        <p className="text-2xl font-extrabold text-foreground">{value}</p>
+        {!isLoading && sparklineData && sparklineData.length > 0 && (
+          <div className="mt-3 h-8 -mx-1">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={sparklineData}>
+                <CartesianGrid strokeDasharray="0" stroke="transparent" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--background))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "6px",
+                    fontSize: "11px",
+                  }}
+                  formatter={(value: any) => `${value} vals`}
+                  labelFormatter={(label: any) => `${label}`}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="count"
+                  stroke="hsl(var(--primary))"
+                  dot={false}
+                  strokeWidth={2}
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+        <p className="mt-2 text-xs text-muted-foreground">Click to view recent activity →</p>
+      </CardContent>
+    </Card>
+  )
+}
+
+function RecentActivityModal({
+  open,
+  onOpenChange,
+  entries,
+  isLoading,
+  dateFilter,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  entries?: QuickValEntry[]
+  isLoading: boolean
+  dateFilter: DateFilterType
+}) {
+  const filterLabel = dateFilterOptions.find((opt) => opt.value === dateFilter)?.label ?? "All Time"
+
+  const formatTimestamp = (dateStr: string) => {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMins / 60)
+    const diffDays = Math.floor(diffHours / 24)
+
+    if (diffMins < 60) return `${diffMins}m ago`
+    if (diffHours < 24) return `${diffHours}h ago`
+    if (diffDays < 7) return `${diffDays}d ago`
+
+    const options: Intl.DateTimeFormatOptions = {
+      month: "short",
+      day: "numeric",
+      year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    }
+    return date.toLocaleDateString("en-US", options)
+  }
+
+  const formatExactTime = (dateStr: string) => {
+    const date = new Date(dateStr)
+    const today = new Date()
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    let prefix = ""
+    if (date.toDateString() === today.toDateString()) {
+      prefix = "Today"
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      prefix = "Yesterday"
+    } else {
+      const options: Intl.DateTimeFormatOptions = {
+        month: "short",
+        day: "numeric",
+        year: date.getFullYear() !== today.getFullYear() ? "numeric" : undefined,
+      }
+      prefix = date.toLocaleDateString("en-US", options)
+    }
+
+    const timeOptions: Intl.DateTimeFormatOptions = {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    }
+    const time = date.toLocaleTimeString("en-US", timeOptions)
+    return `${prefix} at ${time}`
+  }
+
+  if (!open) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <Card className="w-full max-h-[80vh] overflow-hidden flex flex-col sm:max-w-md">
+        <CardHeader className="border-b border-border">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Recent Quick Valuations</CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">From {filterLabel.toLowerCase()}</p>
+            </div>
+            <button
+              onClick={() => onOpenChange(false)}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </CardHeader>
+
+        <CardContent className="flex-1 overflow-y-auto p-5">
+          <div className="space-y-3">
+            {isLoading ? (
+              <>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={i} className="h-16" />
+                ))}
+              </>
+            ) : entries && entries.length > 0 ? (
+              entries.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="flex items-start gap-3 rounded-lg border border-border p-3 transition-all hover:shadow-sm"
+                >
+                  <div className="mt-0.5 h-2 w-2 rounded-full bg-primary flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        {entry.agency_description || "Agency Valuation"}
+                      </p>
+                      <Badge variant="outline" className="text-[10px] flex-shrink-0">
+                        Standard
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      {formatExactTime(entry.created_at)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatTimestamp(entry.created_at)}
+                    </p>
+                    {entry.low_offer !== null && entry.high_offer !== null && (
+                      <p className="mt-2 text-xs font-medium text-primary">
+                        {fmtDollars(entry.low_offer)} – {fmtDollars(entry.high_offer)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-sm text-muted-foreground">No quick valuations {filterLabel.toLowerCase()}</p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 // ─── Horizon deal mini-row ────────────────────────────────────────────────────
 
 function getNextStatus(current: Deal["status"]): Deal["status"] {
@@ -192,10 +422,61 @@ const STATUS_STYLE: Record<Deal["status"], string> = {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
+type DateFilterType = "today" | "week" | "month" | "all"
+
+interface DateFilterOption {
+  value: DateFilterType
+  label: string
+}
+
+const dateFilterOptions: DateFilterOption[] = [
+  { value: "today", label: "Today" },
+  { value: "week", label: "This Week" },
+  { value: "month", label: "This Month" },
+  { value: "all", label: "All Time" },
+]
+
+function getDateRange(filter: DateFilterType): { start: Date; end: Date } {
+  const end = new Date()
+  const start = new Date()
+
+  switch (filter) {
+    case "today":
+      start.setHours(0, 0, 0, 0)
+      break
+    case "week":
+      start.setDate(start.getDate() - 7)
+      break
+    case "month":
+      start.setDate(start.getDate() - 30)
+      break
+    case "all":
+      start.setFullYear(2000)
+      break
+  }
+
+  return { start, end }
+}
+
 export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: OverviewTabProps) {
+  const [dateFilter, setDateFilter] = useState<DateFilterType>("week")
+  const [quickValsDrawerOpen, setQuickValsDrawerOpen] = useState(false)
+
   const { data, error, isLoading, mutate } = useSWR<OverviewData>("/api/admin/overview", fetcher, {
     refreshInterval: 60_000,
   })
+
+  const { data: quickValsHistory, isLoading: quickValsLoading } = useSWR<QuickValHistory[]>(
+    `/api/admin/analytics/quick-vals-history?filter=${dateFilter}`,
+    fetcher,
+    { revalidateOnFocus: false }
+  )
+
+  const { data: quickValsList, isLoading: quickValsListLoading } = useSWR<QuickValEntry[]>(
+    quickValsDrawerOpen ? `/api/admin/analytics/quick-vals-list?filter=${dateFilter}` : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  )
 
   const s = data?.stats
   const funnel = data?.funnel
@@ -218,16 +499,30 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
           <h2 className="text-lg font-bold text-foreground">Agency Overview</h2>
           <p className="text-xs text-muted-foreground">Live data from all tools and the database</p>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1.5 text-xs text-muted-foreground"
-          onClick={() => mutate()}
-          disabled={isLoading}
-        >
-          <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Select value={dateFilter} onValueChange={(val) => setDateFilter(val as DateFilterType)}>
+            <SelectTrigger className="w-[140px] h-9 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {dateFilterOptions.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-xs text-muted-foreground"
+            onClick={() => mutate()}
+            disabled={isLoading}
+          >
+            <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -286,7 +581,13 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
           Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-[76px]" />)
         ) : (
           <>
-            <StatCard label="Quick Vals" value={s?.totalQuickVals.toLocaleString() ?? "—"} icon={Zap} />
+            <EnhancedQuickValsCard
+              value={s?.totalQuickVals.toLocaleString() ?? "—"}
+              trend={s && s.totalQuickVals ? Math.max(0, (s.totalQuickVals - (s.fullValsLast30 ?? 0))) : undefined}
+              sparklineData={quickValsHistory}
+              isLoading={quickValsLoading}
+              onOpenDrawer={() => setQuickValsDrawerOpen(true)}
+            />
             <StatCard label="Quizzes" value={s?.totalQuizzes.toLocaleString() ?? "—"} icon={Brain} />
             <StatCard label="Avg Quiz Score" value={fmtPct(s?.avgQuizScore)} icon={Percent} />
             <StatCard label="Closed Deals" value={s?.totalClosedDeals.toLocaleString() ?? "—"} icon={CheckCircle2} highlight="success" />
@@ -297,6 +598,15 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
           </>
         )}
       </div>
+
+      {/* ── Recent Activity Modal ──────────────────────────────────────────── */}
+      <RecentActivityModal
+        open={quickValsDrawerOpen}
+        onOpenChange={setQuickValsDrawerOpen}
+        entries={quickValsList}
+        isLoading={quickValsListLoading}
+        dateFilter={dateFilter}
+      />
 
       {/* ── Funnel + Top States ─────────────────────────────────────────────── */}
       <div className="grid gap-4 lg:grid-cols-2">

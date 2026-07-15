@@ -595,6 +595,7 @@ export default function QuickValuePage() {
                       <Button asChild size="sm" variant="outline" className="w-full mt-2 gap-1.5 text-xs">
                         <Link href={(() => {
                           const params = new URLSearchParams()
+                          params.set("mode", "full")
                           if (revenue) params.set("rev", revenue.toString())
                           if (retention) params.set("retention", retention)
                           if (bookType) params.set("bookType", bookType)
@@ -689,6 +690,7 @@ export default function QuickValuePage() {
                     <Button asChild className="w-full gap-2" size="sm">
                       <Link href={(() => {
                         const params = new URLSearchParams()
+                        params.set("mode", "full")
                         if (revenue) params.set("rev", revenue.toString())
                         if (retention) params.set("retention", retention)
                         if (bookType) params.set("bookType", bookType)
