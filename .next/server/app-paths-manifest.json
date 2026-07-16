@@ -1,4 +1,8 @@
 {
-  "/blocked/page": "app/blocked/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/admin/page": "app/admin/page.js",
+  "/api/admin/auth/route": "app/api/admin/auth/route.js",
+  "/api/admin/overview/route": "app/api/admin/overview/route.js",
+  "/api/auth/me/route": "app/api/auth/me/route.js",
   "/page": "app/page.js"
 }
