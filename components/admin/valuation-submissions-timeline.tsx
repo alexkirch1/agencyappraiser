@@ -12,7 +12,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts"
-import { BarChart3, Loader } from "lucide-react"
+import { BarChart3 } from "lucide-react"
+import type { Deal } from "./admin-dashboard"
 
 interface TimelineDataPoint {
   date: string
@@ -24,34 +25,66 @@ interface TimelineDataPoint {
 
 type TimeframeFilter = "7D" | "30D" | "12M"
 
-// Generate mock data for the timeline
-function generateMockData(): TimelineDataPoint[] {
-  const data: TimelineDataPoint[] = []
-  const now = new Date()
+interface ValuationSubmissionsTimelineProps {
+  deals: Deal[]
+}
 
-  for (let i = 29; i >= 0; i--) {
-    const date = new Date(now)
-    date.setDate(date.getDate() - i)
-    const dayOfWeek = date.getDay()
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
-    const multiplier = isWeekend ? 0.6 : 1.0
-    const variance = Math.random() * 0.4 - 0.2
-    const finalMultiplier = Math.max(0.5, multiplier + variance)
-
-    const completed = Math.floor((8 + Math.random() * 8) * finalMultiplier)
-    const partial = Math.floor((2 + Math.random() * 4) * finalMultiplier)
-    const total = completed + partial
-
-    data.push({
-      date: date.toISOString().split("T")[0],
-      displayDate: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      completed,
-      partial,
-      total,
-    })
+// Convert deals to timeline data grouped by date
+function groupDealsByDate(deals: Deal[]): TimelineDataPoint[] {
+  if (!Array.isArray(deals) || deals.length === 0) {
+    // Return empty dataset for current date at 0
+    const today = new Date()
+    const dateStr = today.toISOString().split("T")[0]
+    const displayDate = today.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    return [{
+      date: dateStr,
+      displayDate,
+      completed: 0,
+      partial: 0,
+      total: 0,
+    }]
   }
 
-  return data
+  // Group deals by date
+  const dateMap = new Map<string, { completed: number; partial: number }>()
+
+  deals.forEach((deal) => {
+    // Use date_saved for grouping
+    const dateStr = deal.date_saved?.split("T")[0] || new Date().toISOString().split("T")[0]
+    
+    if (!dateMap.has(dateStr)) {
+      dateMap.set(dateStr, { completed: 0, partial: 0 })
+    }
+
+    const counts = dateMap.get(dateStr)!
+    if (deal.status === "completed") {
+      counts.completed += 1
+    } else {
+      counts.partial += 1
+    }
+  })
+
+  // Convert to array and sort chronologically
+  const sorted = Array.from(dateMap.entries())
+    .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
+    .map(([dateStr, counts]) => {
+      const date = new Date(dateStr)
+      return {
+        date: dateStr,
+        displayDate: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        completed: counts.completed,
+        partial: counts.partial,
+        total: counts.completed + counts.partial,
+      }
+    })
+
+  return sorted.length > 0 ? sorted : [{
+    date: new Date().toISOString().split("T")[0],
+    displayDate: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    completed: 0,
+    partial: 0,
+    total: 0,
+  }]
 }
 
 const CustomTooltip = (props: any) => {
@@ -76,13 +109,13 @@ const CustomTooltip = (props: any) => {
   )
 }
 
-export function ValuationSubmissionsTimeline() {
+export function ValuationSubmissionsTimeline({ deals }: ValuationSubmissionsTimelineProps) {
   const [timeframe, setTimeframe] = useState<TimeframeFilter>("30D")
 
-  // Generate mock data - ensure it's always an array
-  const rawData: TimelineDataPoint[] = Array.isArray(generateMockData())
-    ? generateMockData()
-    : []
+  // Group actual deals by date
+  const rawData: TimelineDataPoint[] = useMemo(() => {
+    return groupDealsByDate(deals)
+  }, [deals])
 
   // Dynamically filter data based on active timeframe using useMemo
   const filteredData = useMemo(() => {
@@ -90,11 +123,22 @@ export function ValuationSubmissionsTimeline() {
       return []
     }
 
+    const now = new Date()
+    const today = now.toISOString().split("T")[0]
+
     switch (timeframe) {
-      case "7D":
-        return rawData.slice(-7)
-      case "30D":
-        return rawData.slice(-30)
+      case "7D": {
+        const sevenDaysAgo = new Date(now)
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+        const cutoffDate = sevenDaysAgo.toISOString().split("T")[0]
+        return rawData.filter((d) => d.date >= cutoffDate)
+      }
+      case "30D": {
+        const thirtyDaysAgo = new Date(now)
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+        const cutoffDate = thirtyDaysAgo.toISOString().split("T")[0]
+        return rawData.filter((d) => d.date >= cutoffDate)
+      }
       case "12M":
         return rawData // Use full dataset for 12-month view
       default:
@@ -187,43 +231,34 @@ export function ValuationSubmissionsTimeline() {
 
         {/* Chart */}
         <div className="relative h-80 w-full rounded-lg border border-border bg-secondary/30 p-4">
-          {filteredData.length === 0 ? (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="flex flex-col items-center gap-2">
-                <Loader className="h-6 w-6 animate-spin text-muted-foreground" />
-                <p className="text-xs text-muted-foreground">Loading timeline...</p>
-              </div>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={filteredData} margin={{ top: 8, right: 8, left: -20, bottom: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis
-                  dataKey="displayDate"
-                  tick={{ fontSize: 11 }}
-                  stroke="hsl(var(--muted-foreground))"
-                />
-                <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                <Tooltip content={<CustomTooltip />} />
-                <Line
-                  type="monotone"
-                  dataKey="completed"
-                  stroke="hsl(var(--primary))"
-                  dot={false}
-                  strokeWidth={2}
-                  name="Completed"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="partial"
-                  stroke="hsl(22, 91%, 55%)"
-                  dot={false}
-                  strokeWidth={2}
-                  name="Partial/Abandoned"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={filteredData} margin={{ top: 8, right: 8, left: -20, bottom: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis
+                dataKey="displayDate"
+                tick={{ fontSize: 11 }}
+                stroke="hsl(var(--muted-foreground))"
+              />
+              <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+              <Tooltip content={<CustomTooltip />} />
+              <Line
+                type="monotone"
+                dataKey="completed"
+                stroke="hsl(var(--primary))"
+                dot={false}
+                strokeWidth={2}
+                name="Completed"
+              />
+              <Line
+                type="monotone"
+                dataKey="partial"
+                stroke="hsl(22, 91%, 55%)"
+                dot={false}
+                strokeWidth={2}
+                name="Partial/Abandoned"
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       </CardContent>
     </Card>
