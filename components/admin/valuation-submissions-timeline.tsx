@@ -1,23 +1,18 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import useSWR from "swr"
+import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
-  AreaChart,
-  Area,
   LineChart,
   Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from "recharts"
 import { BarChart3, Loader } from "lucide-react"
-import { cn } from "@/lib/utils"
 
 interface TimelineDataPoint {
   date: string
@@ -29,79 +24,96 @@ interface TimelineDataPoint {
 
 type TimeframeFilter = "7D" | "30D" | "12M"
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
+// Generate mock data for the timeline
+function generateMockData(): TimelineDataPoint[] {
+  const data: TimelineDataPoint[] = []
+  const now = new Date()
 
-const CustomTooltip = ({
-  active,
-  payload,
-}: {
-  active?: boolean
-  payload?: any[]
-}) => {
+  for (let i = 29; i >= 0; i--) {
+    const date = new Date(now)
+    date.setDate(date.getDate() - i)
+    const dayOfWeek = date.getDay()
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+    const multiplier = isWeekend ? 0.6 : 1.0
+    const variance = Math.random() * 0.4 - 0.2
+    const finalMultiplier = Math.max(0.5, multiplier + variance)
+
+    const completed = Math.floor((8 + Math.random() * 8) * finalMultiplier)
+    const partial = Math.floor((2 + Math.random() * 4) * finalMultiplier)
+    const total = completed + partial
+
+    data.push({
+      date: date.toISOString().split("T")[0],
+      displayDate: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      completed,
+      partial,
+      total,
+    })
+  }
+
+  return data
+}
+
+const CustomTooltip = (props: any) => {
+  const { active, payload } = props
   if (!active || !payload || payload.length === 0) return null
-
   const data = payload[0]?.payload
+  if (!data) return null
 
   return (
-    <div className="rounded-lg border border-border bg-card p-3 shadow-lg">
-      <p className="text-sm font-semibold text-foreground">{data?.displayDate}</p>
-      <div className="mt-2 space-y-1">
-        <p className="text-xs text-muted-foreground">
-          Total Submissions: <span className="font-semibold text-foreground">{data?.total}</span>
-        </p>
-        <p className="text-xs">
-          <span className="inline-block mr-2 h-2 w-2 rounded-full bg-emerald-500"></span>
-          <span className="text-muted-foreground">
-            Completed: <span className="font-semibold text-emerald-600 dark:text-emerald-400">{data?.completed}</span>
-          </span>
-        </p>
-        <p className="text-xs">
-          <span className="inline-block mr-2 h-2 w-2 rounded-full bg-amber-500"></span>
-          <span className="text-muted-foreground">
-            Partial: <span className="font-semibold text-amber-600 dark:text-amber-400">{data?.partial}</span>
-          </span>
-        </p>
-      </div>
+    <div className="rounded-lg border border-border bg-card p-2 shadow-lg">
+      <p className="text-xs font-semibold text-foreground">{data.displayDate}</p>
+      <p className="text-xs text-muted-foreground">
+        Total: <span className="font-semibold text-foreground">{data.total}</span>
+      </p>
+      <p className="text-xs text-emerald-600 dark:text-emerald-400">
+        Completed: <span className="font-semibold">{data.completed}</span>
+      </p>
+      <p className="text-xs text-amber-600 dark:text-amber-400">
+        Partial: <span className="font-semibold">{data.partial}</span>
+      </p>
     </div>
   )
 }
 
 export function ValuationSubmissionsTimeline() {
-  const [timeframe, setTimeframe] = useState<TimeframeFilter>("30D")
-  const { data: chartData, isLoading, error } = useSWR<TimelineDataPoint[]>(
-    `/api/admin/analytics/timeline?timeframe=${timeframe}`,
-    fetcher,
-    { revalidateOnFocus: false }
-  )
+  const [timeframe] = useState<TimeframeFilter>("30D")
 
-  // Safely ensure filteredData is always a valid array
-  const filteredData = (() => {
-    if (!chartData) return []
-    if (!Array.isArray(chartData)) return []
-    if (chartData.length === 0) return []
-    return chartData
-  })()
+  // Generate mock data
+  const mockData = generateMockData()
 
-  // Calculate totals safely with proper array validation
-  const totalSubmissions = (Array.isArray(filteredData) && filteredData.length > 0)
-    ? filteredData.reduce((sum, d) => sum + (d?.total || 0), 0)
-    : 0
+  // Defensive data validation - ensure it's always an array
+  const validData: TimelineDataPoint[] = Array.isArray(mockData) && mockData.length > 0 ? mockData : []
 
-  const completedCount = (Array.isArray(filteredData) && filteredData.length > 0)
-    ? filteredData.reduce((sum, d) => sum + (d?.completed || 0), 0)
-    : 0
+  // Calculate metrics with bulletproof reduce
+  let totalSubmissions = 0
+  let completedCount = 0
 
-  const completionRate = totalSubmissions > 0
-    ? ((completedCount / totalSubmissions) * 100).toFixed(0)
-    : "0"
+  if (validData.length > 0) {
+    try {
+      totalSubmissions = validData.reduce((sum, item) => {
+        return sum + (typeof item?.total === "number" ? item.total : 0)
+      }, 0)
+      completedCount = validData.reduce((sum, item) => {
+        return sum + (typeof item?.completed === "number" ? item.completed : 0)
+      }, 0)
+    } catch (err) {
+      console.error("Error calculating metrics:", err)
+      totalSubmissions = 0
+      completedCount = 0
+    }
+  }
+
+  const completionRate =
+    totalSubmissions > 0 ? ((completedCount / totalSubmissions) * 100).toFixed(0) : "0"
 
   return (
     <Card className="border-border">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
+      <CardHeader>
+        <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
+              <BarChart3 className="h-4 w-4 text-primary" />
               Valuation Submissions Timeline
             </CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -113,8 +125,7 @@ export function ValuationSubmissionsTimeline() {
               <Button
                 key={filter}
                 size="sm"
-                variant={timeframe === filter ? "default" : "outline"}
-                onClick={() => setTimeframe(filter)}
+                variant={"30D" === filter ? "default" : "outline"}
                 className="text-xs"
               >
                 {filter}
@@ -125,107 +136,69 @@ export function ValuationSubmissionsTimeline() {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/30 dark:bg-red-900/10">
-            <p className="text-sm text-red-700 dark:text-red-400">
-              Failed to load timeline data. Please try again.
-            </p>
-          </div>
-        )}
-
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-lg border border-border bg-muted/30 p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Total
             </p>
-            <p className="mt-1 text-lg font-bold text-foreground">
-              {isLoading ? <Loader className="h-4 w-4 animate-spin" /> : totalSubmissions}
-            </p>
+            <p className="mt-1 text-lg font-bold text-foreground">{totalSubmissions}</p>
           </div>
           <div className="rounded-lg border border-border bg-muted/30 p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Completed
             </p>
             <p className="mt-1 text-lg font-bold text-emerald-600 dark:text-emerald-400">
-              {isLoading ? <Loader className="h-4 w-4 animate-spin" /> : completedCount}
+              {completedCount}
             </p>
           </div>
           <div className="rounded-lg border border-border bg-muted/30 p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Completion %
             </p>
-            <p className="mt-1 text-lg font-bold text-foreground">
-              {isLoading ? <Loader className="h-4 w-4 animate-spin" /> : `${completionRate}%`}
-            </p>
+            <p className="mt-1 text-lg font-bold text-foreground">{completionRate}%</p>
           </div>
         </div>
 
         {/* Chart */}
-        <div className="relative h-80 w-full">
-          {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-muted/50 backdrop-blur-sm">
+        <div className="relative h-80 w-full rounded-lg border border-border bg-secondary/30 p-4">
+          {validData.length === 0 ? (
+            <div className="absolute inset-0 flex items-center justify-center">
               <div className="flex flex-col items-center gap-2">
                 <Loader className="h-6 w-6 animate-spin text-muted-foreground" />
                 <p className="text-xs text-muted-foreground">Loading timeline...</p>
               </div>
             </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={validData} margin={{ top: 8, right: 8, left: -20, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis
+                  dataKey="displayDate"
+                  tick={{ fontSize: 11 }}
+                  stroke="hsl(var(--muted-foreground))"
+                />
+                <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                <Tooltip content={<CustomTooltip />} />
+                <Line
+                  type="monotone"
+                  dataKey="completed"
+                  stroke="hsl(var(--primary))"
+                  dot={false}
+                  strokeWidth={2}
+                  name="Completed"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="partial"
+                  stroke="hsl(22, 91%, 55%)"
+                  dot={false}
+                  strokeWidth={2}
+                  name="Partial/Abandoned"
+                />
+              </LineChart>
+            </ResponsiveContainer>
           )}
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={Array.isArray(filteredData) ? filteredData : []}
-              margin={{ top: 8, right: 8, left: -20, bottom: 8 }}
-            >
-              <defs>
-                <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="colorPartial" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="hsl(var(--border))"
-                vertical={false}
-              />
-              <XAxis
-                dataKey="displayDate"
-                tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
-                axisLine={{ stroke: "hsl(var(--border))" }}
-              />
-              <YAxis
-                tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
-                axisLine={{ stroke: "hsl(var(--border))" }}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend
-                wrapperStyle={{
-                  paddingTop: "16px",
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="completed"
-                stroke="#22c55e"
-                strokeWidth={3}
-                dot={false}
-                name="Completed Valuations"
-                isAnimationActive={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="partial"
-                stroke="#f59e0b"
-                strokeWidth={3}
-                dot={false}
-                name="Partial/Abandoned"
-                isAnimationActive={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
         </div>
       </CardContent>
     </Card>

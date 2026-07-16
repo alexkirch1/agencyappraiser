@@ -421,7 +421,7 @@ const STATUS_STYLE: Record<Deal["status"], string> = {
   test: "bg-slate-100 text-slate-600 border border-slate-300 dark:bg-slate-900/20 dark:text-slate-400 dark:border-slate-700",
 }
 
-// ─── Main Component ───────────────────────────────────���───────────────────────
+// ─── Main Component ───────��───────────────────────────���───────────────────────
 
 type DateFilterType = "today" | "week" | "month" | "all"
 
