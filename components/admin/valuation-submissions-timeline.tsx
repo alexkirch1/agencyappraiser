@@ -74,11 +74,16 @@ export function ValuationSubmissionsTimeline() {
     { revalidateOnFocus: false }
   )
 
-  const filteredData = chartData || []
-  const totalSubmissions = filteredData.reduce((sum, d) => sum + d.total, 0)
+  // Ensure filteredData is always an array
+  const filteredData = Array.isArray(chartData) ? chartData : []
+  const totalSubmissions = filteredData.length > 0 
+    ? filteredData.reduce((sum, d) => sum + d.total, 0) 
+    : 0
+  const completedCount = filteredData.length > 0
+    ? filteredData.reduce((sum, d) => sum + d.completed, 0)
+    : 0
   const completionRate = totalSubmissions > 0 ? (
-    (filteredData.reduce((sum, d) => sum + d.completed, 0) / totalSubmissions) *
-    100
+    (completedCount / totalSubmissions) * 100
   ).toFixed(0) : "0"
 
   return (
@@ -134,7 +139,7 @@ export function ValuationSubmissionsTimeline() {
               Completed
             </p>
             <p className="mt-1 text-lg font-bold text-emerald-600 dark:text-emerald-400">
-              {isLoading ? <Loader className="h-4 w-4 animate-spin" /> : filteredData.reduce((sum, d) => sum + d.completed, 0)}
+              {isLoading ? <Loader className="h-4 w-4 animate-spin" /> : completedCount}
             </p>
           </div>
           <div className="rounded-lg border border-border bg-muted/30 p-3">
