@@ -31,7 +31,10 @@ interface ValuationSubmissionsTimelineProps {
 
 // Convert deals to timeline data grouped by date
 function groupDealsByDate(deals: Deal[]): TimelineDataPoint[] {
+  console.log("[v0] Timeline received deals:", deals)
+  
   if (!Array.isArray(deals) || deals.length === 0) {
+    console.log("[v0] No deals provided, returning empty chart")
     // Return empty dataset for current date at 0
     const today = new Date()
     const dateStr = today.toISOString().split("T")[0]
@@ -49,8 +52,24 @@ function groupDealsByDate(deals: Deal[]): TimelineDataPoint[] {
   const dateMap = new Map<string, { completed: number; partial: number }>()
 
   deals.forEach((deal) => {
-    // Use date_saved for grouping, ensure it's a valid date
-    const dateStr = deal.date_saved?.split("T")[0] || new Date().toISOString().split("T")[0]
+    // Robust date parsing: try multiple possible date fields
+    let dateStr: string | undefined
+    
+    if (deal.date_saved) {
+      dateStr = deal.date_saved.split("T")[0]
+    } else if ((deal as any).created_at) {
+      dateStr = (deal as any).created_at.split("T")[0]
+    } else if ((deal as any).createdAt) {
+      dateStr = (deal as any).createdAt.split("T")[0]
+    } else if ((deal as any).date) {
+      dateStr = (deal as any).date.split("T")[0]
+    }
+    
+    // Fallback to today's date if no valid date found
+    if (!dateStr) {
+      console.warn("[v0] Deal missing date field, using today:", deal.id)
+      dateStr = new Date().toISOString().split("T")[0]
+    }
     
     if (!dateMap.has(dateStr)) {
       dateMap.set(dateStr, { completed: 0, partial: 0 })
@@ -79,6 +98,8 @@ function groupDealsByDate(deals: Deal[]): TimelineDataPoint[] {
       }
     })
 
+  console.log("[v0] Grouped deals into timeline data:", sorted)
+  
   return sorted.length > 0 ? sorted : [{
     date: new Date().toISOString().split("T")[0],
     displayDate: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
@@ -111,12 +132,16 @@ const CustomTooltip = (props: any) => {
 }
 
 export function ValuationSubmissionsTimeline({ deals }: ValuationSubmissionsTimelineProps) {
+  console.log("[v0] ValuationSubmissionsTimeline component rendered with deals:", deals)
   const [timeframe, setTimeframe] = useState<TimeframeFilter>("30D")
 
   // Group actual deals by date
   const rawData: TimelineDataPoint[] = useMemo(() => {
     return groupDealsByDate(deals)
   }, [deals])
+  
+  const isEmpty = !Array.isArray(deals) || deals.length === 0
+  console.log("[v0] Timeline isEmpty:", isEmpty, "rawData length:", rawData.length)
 
   // Dynamically filter data based on active timeframe using useMemo
   const filteredData = useMemo(() => {
@@ -260,6 +285,20 @@ export function ValuationSubmissionsTimeline({ deals }: ValuationSubmissionsTime
               />
             </LineChart>
           </ResponsiveContainer>
+
+          {/* Empty state overlay */}
+          {isEmpty && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/5 backdrop-blur-sm dark:bg-white/5">
+              <div className="flex flex-col items-center gap-1">
+                <p className="text-sm font-medium text-muted-foreground">
+                  No valuations logged in this timeframe
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Submissions will appear here once you create deals
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
