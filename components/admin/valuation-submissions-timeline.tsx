@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import useSWR from "swr"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -15,7 +16,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts"
-import { BarChart3 } from "lucide-react"
+import { BarChart3, Loader } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface TimelineDataPoint {
@@ -28,89 +29,7 @@ interface TimelineDataPoint {
 
 type TimeframeFilter = "7D" | "30D" | "12M"
 
-// Generate realistic mock data for the past 30+ days
-function generateMockTimelineData(): TimelineDataPoint[] {
-  const data: TimelineDataPoint[] = []
-  const now = new Date()
-
-  for (let i = 30; i >= 0; i--) {
-    const date = new Date(now)
-    date.setDate(date.getDate() - i)
-
-    const dayOfWeek = date.getDay()
-    // Higher activity on weekdays, lower on weekends
-    const baseMultiplier = dayOfWeek === 0 || dayOfWeek === 6 ? 0.6 : 1.0
-
-    // Add some variance for natural peaks and valleys
-    const noise = Math.random() * 0.4 - 0.2
-    const multiplier = Math.max(0.5, baseMultiplier + noise)
-
-    // Base numbers with some randomness
-    const completed = Math.floor((8 + Math.random() * 8) * multiplier)
-    const partial = Math.floor((2 + Math.random() * 4) * multiplier)
-
-    const dateStr = date.toISOString().split("T")[0]
-    const displayDate = date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    })
-
-    data.push({
-      date: dateStr,
-      displayDate,
-      completed,
-      partial,
-      total: completed + partial,
-    })
-  }
-
-  return data
-}
-
-// Filter data based on timeframe
-function filterTimelineData(
-  data: TimelineDataPoint[],
-  filter: TimeframeFilter
-): TimelineDataPoint[] {
-  if (filter === "7D") {
-    return data.slice(-7)
-  } else if (filter === "30D") {
-    return data
-  } else {
-    // 12M - aggregate by week
-    const aggregated: TimelineDataPoint[] = []
-    let week: TimelineDataPoint[] = []
-
-    for (const point of data) {
-      week.push(point)
-      // Aggregate every ~4-5 days for 12M view
-      if (week.length === 4) {
-        const totalCompleted = week.reduce((sum, p) => sum + p.completed, 0)
-        const totalPartial = week.reduce((sum, p) => sum + p.partial, 0)
-        aggregated.push({
-          date: week[0].date,
-          displayDate: `${week[0].displayDate} - ${week[week.length - 1].displayDate}`,
-          completed: totalCompleted,
-          partial: totalPartial,
-          total: totalCompleted + totalPartial,
-        })
-        week = []
-      }
-    }
-    if (week.length > 0) {
-      const totalCompleted = week.reduce((sum, p) => sum + p.completed, 0)
-      const totalPartial = week.reduce((sum, p) => sum + p.partial, 0)
-      aggregated.push({
-        date: week[0].date,
-        displayDate: `${week[0].displayDate} - ${week[week.length - 1].displayDate}`,
-        completed: totalCompleted,
-        partial: totalPartial,
-        total: totalCompleted + totalPartial,
-      })
-    }
-    return aggregated
-  }
-}
+const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 const CustomTooltip = ({
   active,
@@ -149,14 +68,18 @@ const CustomTooltip = ({
 
 export function ValuationSubmissionsTimeline() {
   const [timeframe, setTimeframe] = useState<TimeframeFilter>("30D")
-  const allData = generateMockTimelineData()
-  const filteredData = filterTimelineData(allData, timeframe)
+  const { data: chartData, isLoading, error } = useSWR<TimelineDataPoint[]>(
+    `/api/admin/analytics/timeline?timeframe=${timeframe}`,
+    fetcher,
+    { revalidateOnFocus: false }
+  )
 
+  const filteredData = chartData || []
   const totalSubmissions = filteredData.reduce((sum, d) => sum + d.total, 0)
-  const completionRate = (
+  const completionRate = totalSubmissions > 0 ? (
     (filteredData.reduce((sum, d) => sum + d.completed, 0) / totalSubmissions) *
     100
-  ).toFixed(0)
+  ).toFixed(0) : "0"
 
   return (
     <Card className="border-border">
@@ -188,32 +111,52 @@ export function ValuationSubmissionsTimeline() {
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/30 dark:bg-red-900/10">
+            <p className="text-sm text-red-700 dark:text-red-400">
+              Failed to load timeline data. Please try again.
+            </p>
+          </div>
+        )}
+
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-lg border border-border bg-muted/30 p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Total
             </p>
-            <p className="mt-1 text-lg font-bold text-foreground">{totalSubmissions}</p>
+            <p className="mt-1 text-lg font-bold text-foreground">
+              {isLoading ? <Loader className="h-4 w-4 animate-spin" /> : totalSubmissions}
+            </p>
           </div>
           <div className="rounded-lg border border-border bg-muted/30 p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Completed
             </p>
             <p className="mt-1 text-lg font-bold text-emerald-600 dark:text-emerald-400">
-              {filteredData.reduce((sum, d) => sum + d.completed, 0)}
+              {isLoading ? <Loader className="h-4 w-4 animate-spin" /> : filteredData.reduce((sum, d) => sum + d.completed, 0)}
             </p>
           </div>
           <div className="rounded-lg border border-border bg-muted/30 p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Completion %
             </p>
-            <p className="mt-1 text-lg font-bold text-foreground">{completionRate}%</p>
+            <p className="mt-1 text-lg font-bold text-foreground">
+              {isLoading ? <Loader className="h-4 w-4 animate-spin" /> : `${completionRate}%`}
+            </p>
           </div>
         </div>
 
         {/* Chart */}
-        <div className="h-80 w-full">
+        <div className="relative h-80 w-full">
+          {isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-muted/50 backdrop-blur-sm">
+              <div className="flex flex-col items-center gap-2">
+                <Loader className="h-6 w-6 animate-spin text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">Loading timeline...</p>
+              </div>
+            </div>
+          )}
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={filteredData} margin={{ top: 8, right: 8, left: -20, bottom: 8 }}>
               <defs>
