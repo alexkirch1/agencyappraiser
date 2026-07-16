@@ -49,7 +49,7 @@ function groupDealsByDate(deals: Deal[]): TimelineDataPoint[] {
   const dateMap = new Map<string, { completed: number; partial: number }>()
 
   deals.forEach((deal) => {
-    // Use date_saved for grouping
+    // Use date_saved for grouping, ensure it's a valid date
     const dateStr = deal.date_saved?.split("T")[0] || new Date().toISOString().split("T")[0]
     
     if (!dateMap.has(dateStr)) {
@@ -57,6 +57,7 @@ function groupDealsByDate(deals: Deal[]): TimelineDataPoint[] {
     }
 
     const counts = dateMap.get(dateStr)!
+    // Count "completed" status as completed, all others (active, declined, test) as partial/incomplete
     if (deal.status === "completed") {
       counts.completed += 1
     } else {
@@ -64,7 +65,7 @@ function groupDealsByDate(deals: Deal[]): TimelineDataPoint[] {
     }
   })
 
-  // Convert to array and sort chronologically
+  // Convert to array and sort chronologically (oldest first for chart x-axis)
   const sorted = Array.from(dateMap.entries())
     .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
     .map(([dateStr, counts]) => {
