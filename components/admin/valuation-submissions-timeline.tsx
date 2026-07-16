@@ -139,14 +139,12 @@ export function ValuationSubmissionsTimeline({ deals }: ValuationSubmissionsTime
   const rawData: TimelineDataPoint[] = useMemo(() => {
     return groupDealsByDate(deals)
   }, [deals])
-  
-  const isEmpty = !Array.isArray(deals) || deals.length === 0
-  console.log("[v0] Timeline isEmpty:", isEmpty, "rawData length:", rawData.length)
 
   // Dynamically filter data based on active timeframe using useMemo
   const filteredData = useMemo(() => {
     if (!Array.isArray(rawData) || rawData.length === 0) {
-      return []
+      // Return rawData which always has at least one entry (today at 0)
+      return rawData
     }
 
     const now = new Date()
@@ -157,13 +155,17 @@ export function ValuationSubmissionsTimeline({ deals }: ValuationSubmissionsTime
         const sevenDaysAgo = new Date(now)
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
         const cutoffDate = sevenDaysAgo.toISOString().split("T")[0]
-        return rawData.filter((d) => d.date >= cutoffDate)
+        const filtered = rawData.filter((d) => d.date >= cutoffDate)
+        // Always return at least the zero data point if no data in timeframe
+        return filtered.length > 0 ? filtered : rawData
       }
       case "30D": {
         const thirtyDaysAgo = new Date(now)
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
         const cutoffDate = thirtyDaysAgo.toISOString().split("T")[0]
-        return rawData.filter((d) => d.date >= cutoffDate)
+        const filtered = rawData.filter((d) => d.date >= cutoffDate)
+        // Always return at least the zero data point if no data in timeframe
+        return filtered.length > 0 ? filtered : rawData
       }
       case "12M":
         return rawData // Use full dataset for 12-month view
@@ -200,6 +202,10 @@ export function ValuationSubmissionsTimeline({ deals }: ValuationSubmissionsTime
       return { totalCompleted: 0, totalPartial: 0, total: 0, completionRate: 0 }
     }
   }, [filteredData])
+
+  const isEmpty = !Array.isArray(deals) || deals.length === 0
+  const hasNoDataInTimeframe = !Array.isArray(filteredData) || (filteredData.length === 1 && filteredData[0].total === 0)
+  console.log("[v0] Timeline isEmpty:", isEmpty, "hasNoDataInTimeframe:", hasNoDataInTimeframe, "rawData length:", rawData.length, "filteredData length:", filteredData.length)
 
   return (
     <Card className="border-border">
@@ -287,14 +293,14 @@ export function ValuationSubmissionsTimeline({ deals }: ValuationSubmissionsTime
           </ResponsiveContainer>
 
           {/* Empty state overlay */}
-          {isEmpty && (
+          {(isEmpty || hasNoDataInTimeframe) && (
             <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/5 backdrop-blur-sm dark:bg-white/5">
               <div className="flex flex-col items-center gap-1">
                 <p className="text-sm font-medium text-muted-foreground">
-                  No valuations logged in this timeframe
+                  {isEmpty ? "No valuations logged" : "No valuations in this timeframe"}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Submissions will appear here once you create deals
+                  {isEmpty ? "Submissions will appear here once you create deals" : "Try selecting a different date range"}
                 </p>
               </div>
             </div>
