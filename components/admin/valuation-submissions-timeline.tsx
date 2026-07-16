@@ -74,17 +74,26 @@ export function ValuationSubmissionsTimeline() {
     { revalidateOnFocus: false }
   )
 
-  // Ensure filteredData is always an array
-  const filteredData = Array.isArray(chartData) ? chartData : []
-  const totalSubmissions = filteredData.length > 0 
-    ? filteredData.reduce((sum, d) => sum + d.total, 0) 
+  // Safely ensure filteredData is always a valid array
+  const filteredData = (() => {
+    if (!chartData) return []
+    if (!Array.isArray(chartData)) return []
+    if (chartData.length === 0) return []
+    return chartData
+  })()
+
+  // Calculate totals safely with proper array validation
+  const totalSubmissions = (Array.isArray(filteredData) && filteredData.length > 0)
+    ? filteredData.reduce((sum, d) => sum + (d?.total || 0), 0)
     : 0
-  const completedCount = filteredData.length > 0
-    ? filteredData.reduce((sum, d) => sum + d.completed, 0)
+
+  const completedCount = (Array.isArray(filteredData) && filteredData.length > 0)
+    ? filteredData.reduce((sum, d) => sum + (d?.completed || 0), 0)
     : 0
-  const completionRate = totalSubmissions > 0 ? (
-    (completedCount / totalSubmissions) * 100
-  ).toFixed(0) : "0"
+
+  const completionRate = totalSubmissions > 0
+    ? ((completedCount / totalSubmissions) * 100).toFixed(0)
+    : "0"
 
   return (
     <Card className="border-border">
@@ -163,7 +172,10 @@ export function ValuationSubmissionsTimeline() {
             </div>
           )}
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={filteredData} margin={{ top: 8, right: 8, left: -20, bottom: 8 }}>
+            <LineChart
+              data={Array.isArray(filteredData) ? filteredData : []}
+              margin={{ top: 8, right: 8, left: -20, bottom: 8 }}
+            >
               <defs>
                 <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
