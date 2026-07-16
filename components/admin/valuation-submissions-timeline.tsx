@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -77,35 +77,59 @@ const CustomTooltip = (props: any) => {
 }
 
 export function ValuationSubmissionsTimeline() {
-  const [timeframe] = useState<TimeframeFilter>("30D")
+  const [timeframe, setTimeframe] = useState<TimeframeFilter>("30D")
 
-  // Generate mock data
-  const mockData = generateMockData()
+  // Generate mock data - ensure it's always an array
+  const rawData: TimelineDataPoint[] = Array.isArray(generateMockData())
+    ? generateMockData()
+    : []
 
-  // Defensive data validation - ensure it's always an array
-  const validData: TimelineDataPoint[] = Array.isArray(mockData) && mockData.length > 0 ? mockData : []
-
-  // Calculate metrics with bulletproof reduce
-  let totalSubmissions = 0
-  let completedCount = 0
-
-  if (validData.length > 0) {
-    try {
-      totalSubmissions = validData.reduce((sum, item) => {
-        return sum + (typeof item?.total === "number" ? item.total : 0)
-      }, 0)
-      completedCount = validData.reduce((sum, item) => {
-        return sum + (typeof item?.completed === "number" ? item.completed : 0)
-      }, 0)
-    } catch (err) {
-      console.error("Error calculating metrics:", err)
-      totalSubmissions = 0
-      completedCount = 0
+  // Dynamically filter data based on active timeframe using useMemo
+  const filteredData = useMemo(() => {
+    if (!Array.isArray(rawData) || rawData.length === 0) {
+      return []
     }
-  }
 
-  const completionRate =
-    totalSubmissions > 0 ? ((completedCount / totalSubmissions) * 100).toFixed(0) : "0"
+    switch (timeframe) {
+      case "7D":
+        return rawData.slice(-7)
+      case "30D":
+        return rawData.slice(-30)
+      case "12M":
+        return rawData // Use full dataset for 12-month view
+      default:
+        return rawData
+    }
+  }, [timeframe, rawData])
+
+  // Safe reduce calculations with fallbacks for missing properties
+  const { totalCompleted, totalPartial, total, completionRate } = useMemo(() => {
+    if (!Array.isArray(filteredData) || filteredData.length === 0) {
+      return { totalCompleted: 0, totalPartial: 0, total: 0, completionRate: 0 }
+    }
+
+    try {
+      const totalCompleted = filteredData.reduce(
+        (acc, curr) => acc + (curr?.completed || 0),
+        0
+      )
+      const totalPartial = filteredData.reduce(
+        (acc, curr) => acc + (curr?.partial || 0),
+        0
+      )
+      const total = totalCompleted + totalPartial
+
+      return {
+        totalCompleted,
+        totalPartial,
+        total,
+        completionRate: total > 0 ? Math.round((totalCompleted / total) * 100) : 0,
+      }
+    } catch (err) {
+      console.error("Error calculating timeline metrics:", err)
+      return { totalCompleted: 0, totalPartial: 0, total: 0, completionRate: 0 }
+    }
+  }, [filteredData])
 
   return (
     <Card className="border-border">
@@ -125,7 +149,8 @@ export function ValuationSubmissionsTimeline() {
               <Button
                 key={filter}
                 size="sm"
-                variant={"30D" === filter ? "default" : "outline"}
+                variant={timeframe === filter ? "default" : "outline"}
+                onClick={() => setTimeframe(filter)}
                 className="text-xs"
               >
                 {filter}
@@ -142,14 +167,14 @@ export function ValuationSubmissionsTimeline() {
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Total
             </p>
-            <p className="mt-1 text-lg font-bold text-foreground">{totalSubmissions}</p>
+            <p className="mt-1 text-lg font-bold text-foreground">{total}</p>
           </div>
           <div className="rounded-lg border border-border bg-muted/30 p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Completed
             </p>
             <p className="mt-1 text-lg font-bold text-emerald-600 dark:text-emerald-400">
-              {completedCount}
+              {totalCompleted}
             </p>
           </div>
           <div className="rounded-lg border border-border bg-muted/30 p-3">
@@ -162,7 +187,7 @@ export function ValuationSubmissionsTimeline() {
 
         {/* Chart */}
         <div className="relative h-80 w-full rounded-lg border border-border bg-secondary/30 p-4">
-          {validData.length === 0 ? (
+          {filteredData.length === 0 ? (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="flex flex-col items-center gap-2">
                 <Loader className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -171,7 +196,7 @@ export function ValuationSubmissionsTimeline() {
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={validData} margin={{ top: 8, right: 8, left: -20, bottom: 8 }}>
+              <LineChart data={filteredData} margin={{ top: 8, right: 8, left: -20, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis
                   dataKey="displayDate"
