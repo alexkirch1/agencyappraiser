@@ -672,6 +672,17 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
     }
 
     onSaveDeal(deal)
+
+    // Log to localStorage so the timeline chart always has a reliable source
+    try {
+      const logs = JSON.parse(localStorage.getItem("valuation_activity_log") || "[]")
+      logs.push({
+        date: deal.shortDate,
+        status: deal.status === "completed" ? "Completed" : "Partial",
+      })
+      localStorage.setItem("valuation_activity_log", JSON.stringify(logs))
+    } catch {}
+
     setSaving(false)
     resetForm()
     setShowForm(false)
