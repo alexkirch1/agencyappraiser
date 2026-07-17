@@ -652,6 +652,7 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
       premium_base: baseRevenue,
       status: "active",
       date_saved: new Date().toISOString(),
+      shortDate: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
       details: {
         finRevenue,
         finOpex,

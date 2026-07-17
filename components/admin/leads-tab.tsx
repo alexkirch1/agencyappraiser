@@ -1010,6 +1010,7 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
       premium_base: premiumBase,
       status: "active",
       date_saved: lead.created_at,
+      shortDate: new Date(lead.created_at || Date.now()).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
       details: {
         carrier: null,
         loss_ratio: lead.quick_retention ? null : null,

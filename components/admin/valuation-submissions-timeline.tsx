@@ -15,75 +15,72 @@ import {
 import { BarChart3 } from "lucide-react"
 import type { Deal } from "./admin-dashboard"
 
-interface TimelineDataPoint {
-  date: string        // ISO YYYY-MM-DD for comparisons
-  displayDate: string // "Jul 16" for x-axis labels
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface ChartPoint {
+  date: string      // "Jul 17" — plain-text label for the x-axis
   completed: number
   partial: number
   total: number
 }
 
-type TimeframeFilter = "7D" | "30D" | "12M"
+type Timeframe = "7D" | "30D" | "12M"
 
 interface ValuationSubmissionsTimelineProps {
   deals: Deal[]
 }
 
-/** Build last-N-days scaffold so the chart always shows an axis even with no data */
-function buildEmptyDays(n: number): TimelineDataPoint[] {
-  const days: TimelineDataPoint[] = []
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Generate an ordered list of "Mon DD" labels for the last N days. */
+function lastNDayLabels(n: number): string[] {
+  const labels: string[] = []
   const now = new Date()
   for (let i = n - 1; i >= 0; i--) {
     const d = new Date(now)
     d.setDate(d.getDate() - i)
-    const dateStr = d.toISOString().split("T")[0]
-    days.push({
-      date: dateStr,
-      displayDate: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      completed: 0,
-      partial: 0,
-      total: 0,
-    })
+    labels.push(d.toLocaleDateString("en-US", { month: "short", day: "numeric" }))
   }
-  return days
+  return labels
 }
 
-/** Safely extract a YYYY-MM-DD string from a deal, checking every possible date field */
-function extractDate(deal: Deal): string {
+/**
+ * Get a plain-text "Mon DD" label from a deal.
+ * Reads shortDate first (already stamped at submission time),
+ * then falls back to parsing date_saved / created_at / createdAt / date.
+ */
+function getDealShortDate(deal: Deal): string {
+  // Prefer the pre-stamped shortDate — fastest and most reliable path
+  if (deal.shortDate) return deal.shortDate
+
+  // Fallback: parse whichever date field exists
   const raw =
     deal.date_saved ||
     (deal as any).created_at ||
     (deal as any).createdAt ||
     (deal as any).date
 
-  if (!raw) return new Date().toISOString().split("T")[0]
-
-  // Handle ISO strings, plain YYYY-MM-DD, and anything parseable
-  const parsed = new Date(raw)
-  if (!isNaN(parsed.getTime())) return parsed.toISOString().split("T")[0]
-
-  return new Date().toISOString().split("T")[0]
+  const parsed = raw ? new Date(raw) : new Date()
+  const d = isNaN(parsed.getTime()) ? new Date() : parsed
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
-/** Group deals by date, merging counts onto an empty-days scaffold so gaps show as 0 */
-function buildTimelineData(deals: Deal[], days: number): TimelineDataPoint[] {
-  const scaffold = buildEmptyDays(days)
-  const map = new Map<string, TimelineDataPoint>(scaffold.map((p) => [p.date, { ...p }]))
+/** Build chart data by counting deals per shortDate label. */
+function buildChartData(deals: Deal[], windowDays: number): ChartPoint[] {
+  // Step 1: scaffold every day in the window as 0
+  const labels = lastNDayLabels(windowDays)
+  const pointMap = new Map<string, ChartPoint>()
+  for (const label of labels) {
+    pointMap.set(label, { date: label, completed: 0, partial: 0, total: 0 })
+  }
 
-  for (const deal of deals) {
-    const dateStr = extractDate(deal)
-    if (!map.has(dateStr)) {
-      // Deal is outside the scaffold window — add it anyway
-      const d = new Date(dateStr)
-      map.set(dateStr, {
-        date: dateStr,
-        displayDate: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-        completed: 0,
-        partial: 0,
-        total: 0,
-      })
-    }
-    const point = map.get(dateStr)!
+  // Step 2: loop through deals and tally by shortDate
+  const safeDeals = Array.isArray(deals) ? deals : []
+  for (const deal of safeDeals) {
+    const label = getDealShortDate(deal)
+    // Only count deals that fall within the scaffold window
+    if (!pointMap.has(label)) continue
+    const point = pointMap.get(label)!
     if (deal.status === "completed") {
       point.completed += 1
     } else {
@@ -92,18 +89,19 @@ function buildTimelineData(deals: Deal[], days: number): TimelineDataPoint[] {
     point.total = point.completed + point.partial
   }
 
-  // Sort chronologically — oldest first so the x-axis reads left → right
-  return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date))
+  // Step 3: return in chronological order (Map preserves insertion order)
+  return Array.from(pointMap.values())
 }
 
-const CustomTooltip = (props: any) => {
-  const { active, payload } = props
+// ─── Custom Tooltip ───────────────────────────────────────────────────────────
+
+const CustomTooltip = ({ active, payload }: any) => {
   if (!active || !payload?.length) return null
-  const d = payload[0]?.payload as TimelineDataPoint
+  const d = payload[0]?.payload as ChartPoint
   if (!d) return null
   return (
-    <div className="rounded-lg border border-border bg-card p-2 shadow-lg">
-      <p className="text-xs font-semibold text-foreground">{d.displayDate}</p>
+    <div className="rounded-lg border border-border bg-card p-2.5 shadow-lg">
+      <p className="mb-1 text-xs font-semibold text-foreground">{d.date}</p>
       <p className="text-xs text-muted-foreground">
         Total: <span className="font-semibold text-foreground">{d.total}</span>
       </p>
@@ -117,34 +115,24 @@ const CustomTooltip = (props: any) => {
   )
 }
 
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export function ValuationSubmissionsTimeline({ deals }: ValuationSubmissionsTimelineProps) {
-  const [timeframe, setTimeframe] = useState<TimeframeFilter>("30D")
+  const [timeframe, setTimeframe] = useState<Timeframe>("30D")
 
-  const safeDeals = Array.isArray(deals) ? deals : []
-
-  // Map timeframe to number of days for the scaffold
   const windowDays = timeframe === "7D" ? 7 : timeframe === "30D" ? 30 : 365
 
-  // Compute chart data: always produces at least `windowDays` points (filled with 0s)
+  // Re-compute whenever deals or timeframe changes — instant reactive update
   const chartData = useMemo(
-    () => buildTimelineData(safeDeals, windowDays),
-    [safeDeals, windowDays]
+    () => buildChartData(deals, windowDays),
+    [deals, windowDays]
   )
 
-  // Slice to the selected window (deals outside window are excluded via date filter)
-  const filteredData = useMemo(() => {
-    const cutoff = new Date()
-    cutoff.setDate(cutoff.getDate() - windowDays)
-    const cutoffStr = cutoff.toISOString().split("T")[0]
-    return chartData.filter((d) => d.date >= cutoffStr)
-  }, [chartData, windowDays])
-
   // Summary metrics
-  const totalCompleted = filteredData.reduce((s, d) => s + d.completed, 0)
-  const totalPartial   = filteredData.reduce((s, d) => s + d.partial,   0)
+  const totalCompleted = chartData.reduce((s, d) => s + d.completed, 0)
+  const totalPartial   = chartData.reduce((s, d) => s + d.partial,   0)
   const total          = totalCompleted + totalPartial
   const completionRate = total > 0 ? Math.round((totalCompleted / total) * 100) : 0
-
   const hasActivity    = total > 0
 
   return (
@@ -193,13 +181,13 @@ export function ValuationSubmissionsTimeline({ deals }: ValuationSubmissionsTime
           </div>
         </div>
 
-        {/* Chart — always renders axes; empty state shown via overlay */}
+        {/* Chart — always renders; flat at 0 when empty */}
         <div className="relative h-80 w-full rounded-lg border border-border bg-secondary/30 p-4">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={filteredData} margin={{ top: 8, right: 8, left: -20, bottom: 8 }}>
+            <LineChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis
-                dataKey="displayDate"
+                dataKey="date"
                 tick={{ fontSize: 11 }}
                 stroke="hsl(var(--muted-foreground))"
                 interval="preserveStartEnd"
@@ -229,7 +217,7 @@ export function ValuationSubmissionsTimeline({ deals }: ValuationSubmissionsTime
             </LineChart>
           </ResponsiveContainer>
 
-          {/* Empty-state overlay — shown only when there is truly no activity */}
+          {/* Empty-state overlay */}
           {!hasActivity && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg">
               <div className="flex flex-col items-center gap-1 text-center">
@@ -245,7 +233,7 @@ export function ValuationSubmissionsTimeline({ deals }: ValuationSubmissionsTime
         </div>
 
         {/* Legend */}
-        <div className="flex gap-4 justify-end">
+        <div className="flex justify-end gap-4">
           <div className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-primary" />
             <span className="text-xs text-muted-foreground">Completed</span>

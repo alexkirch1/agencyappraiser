@@ -27,6 +27,7 @@ export interface Deal {
   premium_base: number
   status: "active" | "completed" | "declined" | "test"
   date_saved: string
+  shortDate?: string   // "Jul 17" — plain text tag used by the timeline chart
   details?: Record<string, unknown>
 }
 
