@@ -1,11 +1,14 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import useSWR from "swr"
 import { Button } from "@/components/ui/button"
 import { RefreshCw, TrendingUp, TrendingDown, Trash2, Users, FileText } from "lucide-react"
 import type { Deal } from "./admin-dashboard"
 import { cn } from "@/lib/utils"
 import { ValuationSubmissionsTimeline } from "./valuation-submissions-timeline"
+
+const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 // ─── MASTER LEADS — single source of truth for all dashboard metrics ──────────
 // Every metric on this page is derived from this array. No API fallbacks,
@@ -46,6 +49,15 @@ const MASTER_LEADS: MasterLead[] = [
 ]
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+interface RecentActivityItem {
+  type: "lead" | "valuation"
+  id: string
+  label: string
+  value: number
+  createdAt: string
+  extra: string | null
+}
 
 interface OverviewTabProps {
   deals: Deal[]
@@ -225,6 +237,21 @@ const STATUS_STYLE: Record<Deal["status"], string> = {
 export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: OverviewTabProps) {
   const [dateFilter, setDateFilter] = useState<DateFilterType>("30D")
 
+  // Fetch ONLY recent activity from the real API — no mock data ever used here
+  const apiFilter = dateFilter === "7D" ? "week" : dateFilter === "30D" ? "month" : "all"
+  const { data: apiData, isLoading: activityLoading } = useSWR<{ recentActivity: RecentActivityItem[] }>(
+    `/api/admin/overview?filter=${apiFilter}`,
+    fetcher,
+    { revalidateOnFocus: false },
+  )
+  // Sort newest-first; guaranteed to be real DB rows — never falls back to mock data
+  const recentActivity: RecentActivityItem[] = useMemo(() => {
+    if (!apiData?.recentActivity) return []
+    return [...apiData.recentActivity].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
+  }, [apiData])
+
   // All metrics derived from MASTER_LEADS — recomputed only when filter changes
   const filtered = useMemo(() => filterByWindow(MASTER_LEADS, dateFilter), [dateFilter])
   const m        = useMemo(() => deriveMetrics(filtered), [filtered])
@@ -358,50 +385,53 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
             </div>
           )}
 
-          {/* Recent submissions from MASTER_LEADS (last 8) */}
+          {/* Recent Activity — sourced exclusively from the live DB via /api/admin/overview */}
           <div className="rounded-lg border border-border bg-card overflow-hidden">
             <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                 Recent Activity
               </p>
-              <span className="text-[11px] text-muted-foreground">{filtered.length} total</span>
+              {!activityLoading && (
+                <span className="text-[11px] text-muted-foreground">{recentActivity.length} shown</span>
+              )}
             </div>
             <div className="max-h-64 divide-y divide-border overflow-y-auto">
-              {[...filtered].reverse().slice(0, 10).map((lead) => (
-                <div key={lead.id} className="flex items-start gap-2.5 px-4 py-2.5">
+              {activityLoading && (
+                <p className="px-4 py-6 text-center text-xs text-muted-foreground">Loading...</p>
+              )}
+              {!activityLoading && recentActivity.length === 0 && (
+                <p className="px-4 py-6 text-center text-xs text-muted-foreground">
+                  No recent activity recorded yet.
+                </p>
+              )}
+              {!activityLoading && recentActivity.map((item) => (
+                <div key={`${item.type}-${item.id}`} className="flex items-start gap-2.5 px-4 py-2.5">
                   <div className={cn(
                     "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white text-[10px] font-bold",
-                    lead.type === "full"  ? "bg-violet-500" :
-                    lead.type === "quiz"  ? "bg-amber-500"  : "bg-primary/90",
+                    item.type === "valuation" ? "bg-violet-500" : "bg-primary/90",
                   )}>
-                    {lead.type === "full" ? "F" : lead.type === "quiz" ? "Q" : "V"}
+                    {item.type === "valuation" ? "F" : "L"}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[12px] font-medium text-foreground">
-                      {lead.type === "full" ? "Full valuation" : lead.type === "quiz" ? "Quiz submission" : "Quick valuation"}
-                      <span className="ml-1.5 rounded border border-border px-1 py-px text-[10px] font-medium uppercase text-muted-foreground">
-                        {lead.state}
-                      </span>
+                    <p className="truncate text-[12px] font-medium text-foreground">
+                      {item.label || (item.type === "valuation" ? "Agency Valuation" : "Lead")}
                     </p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      <span className={cn(
-                        "mr-1.5 inline-block h-1.5 w-1.5 rounded-full",
-                        lead.status === "completed" ? "bg-emerald-500" : "bg-amber-400",
-                      )} />
-                      {lead.status}
-                      <span className="ml-1.5 opacity-70">{timeAgo(lead.createdAt)}</span>
+                      {item.extra && (
+                        <span className="mr-1.5 rounded border border-border px-1 py-px text-[10px] uppercase">
+                          {item.extra}
+                        </span>
+                      )}
+                      <span className="opacity-70">{timeAgo(item.createdAt)}</span>
                     </p>
                   </div>
-                  {lead.value > 0 && (
+                  {item.value > 0 && (
                     <span className="shrink-0 text-[12px] font-bold text-emerald-600 dark:text-emerald-400">
-                      {fmtDollars(lead.value)}
+                      {fmtDollars(item.value)}
                     </span>
                   )}
                 </div>
               ))}
-              {filtered.length === 0 && (
-                <p className="px-4 py-6 text-center text-xs text-muted-foreground">No activity in this window.</p>
-              )}
             </div>
           </div>
         </div>
