@@ -18,9 +18,9 @@ import {
 } from "recharts"
 import {
   Trash2, TrendingUp, TrendingDown, DollarSign,
-  Target, Clock, CheckCircle2, XCircle, BarChart3,
+  Target, CheckCircle2, BarChart3,
   Percent, Users, Zap, FileText, Brain, RefreshCw,
-  MapPin, Flame, X, ChevronDown,
+  MapPin, Flame, X, Sparkles, AlertTriangle,
 } from "lucide-react"
 import type { Deal } from "./admin-dashboard"
 import { cn } from "@/lib/utils"
@@ -63,12 +63,20 @@ interface FunnelData {
   closed: number
 }
 
+interface InsightsData {
+  abandonRate: number
+  topState: { state: string; count: number } | null
+  avgRevenue: number | null
+  avgMultiple: number | null
+}
+
 interface OverviewData {
   stats: OverviewStats
   recentActivity: ActivityItem[]
   funnel: FunnelData
   topStates: { state: string; count: number }[]
   leadStages: { stage: string; count: number }[]
+  insights: InsightsData
 }
 
 interface QuickValHistory {
@@ -95,7 +103,7 @@ interface OverviewTabProps {
   onLoadDeal: (id: string) => void
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const ADMIN_TOKEN_KEY = "admin_session_token"
 
@@ -124,6 +132,22 @@ const timeAgo = (dateStr: string) => {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
+// ─── Date Filter ──────────────────────────────────────────────────────────────
+
+type DateFilterType = "today" | "week" | "month" | "all"
+
+interface DateFilterOption {
+  value: DateFilterType
+  label: string
+}
+
+const dateFilterOptions: DateFilterOption[] = [
+  { value: "today", label: "Today" },
+  { value: "week",  label: "This Week" },
+  { value: "month", label: "This Month" },
+  { value: "all",   label: "All Time" },
+]
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function StatCard({
@@ -139,19 +163,19 @@ function StatCard({
   size?: "sm" | "lg"
 }) {
   const border = {
-    success: "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20",
-    warning: "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20",
-    primary: "border-primary/30 bg-primary/5",
+    success:     "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20",
+    warning:     "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20",
+    primary:     "border-primary/30 bg-primary/5",
     destructive: "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/20",
-    neutral: "border-border",
+    neutral:     "border-border",
   }[highlight ?? "neutral"]
 
   const valueColor = {
-    success: "text-emerald-600 dark:text-emerald-400",
-    warning: "text-amber-600 dark:text-amber-400",
-    primary: "text-primary",
+    success:     "text-emerald-600 dark:text-emerald-400",
+    warning:     "text-amber-600 dark:text-amber-400",
+    primary:     "text-primary",
     destructive: "text-red-600 dark:text-red-400",
-    neutral: "text-foreground",
+    neutral:     "text-foreground",
   }[highlight ?? "neutral"]
 
   return (
@@ -165,11 +189,11 @@ function StatCard({
           {trend && (
             <span className={cn(
               "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
-              trend === "up" && "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-              trend === "down" && "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+              trend === "up"      && "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+              trend === "down"    && "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
               trend === "neutral" && "bg-muted text-muted-foreground",
             )}>
-              {trend === "up" && <TrendingUp className="h-2.5 w-2.5" />}
+              {trend === "up"   && <TrendingUp  className="h-2.5 w-2.5" />}
               {trend === "down" && <TrendingDown className="h-2.5 w-2.5" />}
               {trendLabel}
             </span>
@@ -184,13 +208,20 @@ function StatCard({
   )
 }
 
+/**
+ * FunnelBar — percentage is always relative to the top-of-funnel count (funnelMax)
+ * so percentages are guaranteed to be ≤ 100%.
+ */
 function FunnelBar({ label, count, max, color }: { label: string; count: number; max: number; color: string }) {
-  const pct = max > 0 ? Math.round((count / max) * 100) : 0
+  const pct = max > 0 ? Math.min(Math.round((count / max) * 100), 100) : 0
   return (
     <div>
       <div className="mb-1 flex items-center justify-between text-xs">
         <span className="font-medium text-foreground">{label}</span>
-        <span className="text-muted-foreground">{count.toLocaleString()} <span className="text-[10px]">({pct}%)</span></span>
+        <span className="text-muted-foreground">
+          {count.toLocaleString()}{" "}
+          <span className="text-[10px]">({pct}%)</span>
+        </span>
       </div>
       <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
         <div className={cn("h-full rounded-full transition-all", color)} style={{ width: `${pct}%` }} />
@@ -204,11 +235,7 @@ function Skeleton({ className }: { className?: string }) {
 }
 
 function EnhancedQuickValsCard({
-  value,
-  trend,
-  sparklineData,
-  isLoading,
-  onOpenDrawer,
+  value, trend, sparklineData, isLoading, onOpenDrawer,
 }: {
   value: string | number
   trend?: number
@@ -243,9 +270,9 @@ function EnhancedQuickValsCard({
                 <Tooltip
                   contentStyle={{
                     backgroundColor: "hsl(var(--background))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "6px",
-                    fontSize: "11px",
+                    border:          "1px solid hsl(var(--border))",
+                    borderRadius:    "6px",
+                    fontSize:        "11px",
                   }}
                   formatter={(value: any) => `${value} vals`}
                   labelFormatter={(label: any) => `${label}`}
@@ -269,11 +296,7 @@ function EnhancedQuickValsCard({
 }
 
 function RecentActivityModal({
-  open,
-  onOpenChange,
-  entries,
-  isLoading,
-  dateFilter,
+  open, onOpenChange, entries, isLoading, dateFilter,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -281,62 +304,20 @@ function RecentActivityModal({
   isLoading: boolean
   dateFilter: DateFilterType
 }) {
-  const filterLabel = dateFilterOptions.find((opt) => opt.value === dateFilter)?.label ?? "All Time"
+  const filterLabel = dateFilterOptions.find((o) => o.value === dateFilter)?.label ?? "All Time"
 
-  const formatTimestamp = (dateStr: string) => {
-    const date = new Date(dateStr)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffMins = Math.floor(diffMs / 60000)
-    const diffHours = Math.floor(diffMins / 60)
-    const diffDays = Math.floor(diffHours / 24)
-
-    if (diffMins < 60) return `${diffMins}m ago`
-    if (diffHours < 24) return `${diffHours}h ago`
-    if (diffDays < 7) return `${diffDays}d ago`
-
-    const options: Intl.DateTimeFormatOptions = {
-      month: "short",
-      day: "numeric",
-      year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    }
-    return date.toLocaleDateString("en-US", options)
-  }
-
-  const formatExactTime = (dateStr: string) => {
+  const fmtTime = (dateStr: string) => {
     const date = new Date(dateStr)
     const today = new Date()
     const yesterday = new Date(today)
     yesterday.setDate(yesterday.getDate() - 1)
-
-    let prefix = ""
-    if (date.toDateString() === today.toDateString()) {
-      prefix = "Today"
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      prefix = "Yesterday"
-    } else {
-      const options: Intl.DateTimeFormatOptions = {
-        month: "short",
-        day: "numeric",
-        year: date.getFullYear() !== today.getFullYear() ? "numeric" : undefined,
-      }
-      prefix = date.toLocaleDateString("en-US", options)
-    }
-
-    const timeOptions: Intl.DateTimeFormatOptions = {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    }
-    const time = date.toLocaleTimeString("en-US", timeOptions)
-    return `${prefix} at ${time}`
+    let prefix = date.toDateString() === today.toDateString()     ? "Today"
+               : date.toDateString() === yesterday.toDateString() ? "Yesterday"
+               : date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    return `${prefix} at ${date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`
   }
 
   if (!open) return null
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <Card className="w-full max-h-[80vh] overflow-hidden flex flex-col sm:max-w-md">
@@ -354,37 +335,22 @@ function RecentActivityModal({
             </button>
           </div>
         </CardHeader>
-
         <CardContent className="flex-1 overflow-y-auto p-5">
           <div className="space-y-3">
             {isLoading ? (
-              <>
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Skeleton key={i} className="h-16" />
-                ))}
-              </>
+              Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16" />)
             ) : entries && entries.length > 0 ? (
               entries.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="flex items-start gap-3 rounded-lg border border-border p-3 transition-all hover:shadow-sm"
-                >
+                <div key={entry.id} className="flex items-start gap-3 rounded-lg border border-border p-3">
                   <div className="mt-0.5 h-2 w-2 rounded-full bg-primary flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <p className="text-sm font-semibold text-foreground truncate">
                         {entry.agency_description || "Agency Valuation"}
                       </p>
-                      <Badge variant="outline" className="text-[10px] flex-shrink-0">
-                        Standard
-                      </Badge>
+                      <Badge variant="outline" className="text-[10px] flex-shrink-0">Standard</Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      {formatExactTime(entry.created_at)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatTimestamp(entry.created_at)}
-                    </p>
+                    <p className="text-xs text-muted-foreground">{fmtTime(entry.created_at)}</p>
                     {entry.low_offer !== null && entry.high_offer !== null && (
                       <p className="mt-2 text-xs font-medium text-primary">
                         {fmtDollars(entry.low_offer)} – {fmtDollars(entry.high_offer)}
@@ -405,67 +371,139 @@ function RecentActivityModal({
   )
 }
 
-// ─── Horizon deal mini-row ────────────────────────────────────────────────────
+// ─── Smart Insights Banner ────────────────────────────────────────────────────
+
+function SmartInsightsBanner({ insights, stats, isLoading }: {
+  insights: InsightsData | undefined
+  stats: OverviewStats | undefined
+  isLoading: boolean
+}) {
+  if (isLoading) {
+    return (
+      <div className="rounded-xl border border-border bg-muted/30 p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Skeleton className="h-4 w-4 rounded" />
+          <Skeleton className="h-4 w-40" />
+        </div>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14 rounded-lg" />)}
+        </div>
+      </div>
+    )
+  }
+
+  if (!insights || !stats) return null
+
+  type InsightItem = { icon: React.ElementType; label: string; body: string; color: string }
+
+  const items: InsightItem[] = []
+
+  // 1. Conversion drop-off
+  if (stats.totalQuickVals > 0) {
+    const abandon = insights.abandonRate
+    items.push({
+      icon: abandon >= 50 ? AlertTriangle : TrendingUp,
+      label: "Conversion Drop-off",
+      body: abandon >= 0
+        ? `${abandon}% of Quick Valuations don't progress to a Full Valuation. Consider adding an email follow-up sequence.`
+        : "Conversion from Quick to Full Valuations is tracking well.",
+      color: abandon >= 50 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400",
+    })
+  } else {
+    items.push({
+      icon: Zap,
+      label: "Conversion Drop-off",
+      body: "No Quick Valuations recorded yet. Share the tool link to start capturing agency leads.",
+      color: "text-muted-foreground",
+    })
+  }
+
+  // 2. Geographic hotspot
+  if (insights.topState) {
+    items.push({
+      icon: MapPin,
+      label: "Geographic Hotspot",
+      body: `${insights.topState.state} is your highest-volume region with ${insights.topState.count} valuation${insights.topState.count !== 1 ? "s" : ""}.`,
+      color: "text-primary",
+    })
+  } else {
+    items.push({
+      icon: MapPin,
+      label: "Geographic Hotspot",
+      body: "No state data yet. Full Valuations capture primary state automatically.",
+      color: "text-muted-foreground",
+    })
+  }
+
+  // 3. Deal quality
+  const hasQuality = insights.avgRevenue != null || insights.avgMultiple != null
+  items.push({
+    icon: DollarSign,
+    label: "Deal Quality",
+    body: hasQuality
+      ? [
+          insights.avgRevenue  != null ? `Avg agency revenue on file is ${fmtDollars(insights.avgRevenue)}.` : null,
+          insights.avgMultiple != null ? `Average multiple is ${insights.avgMultiple.toFixed(2)}x.` : null,
+        ].filter(Boolean).join(" ")
+      : "No full valuation data yet — multiples and revenue will appear once agencies complete the full tool.",
+    color: hasQuality ? "text-foreground" : "text-muted-foreground",
+  })
+
+  return (
+    <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-primary" />
+        <span className="text-sm font-semibold text-foreground">Smart Executive Insights</span>
+        <span className="text-xs text-muted-foreground">— generated from live data</span>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {items.map((item) => (
+          <div
+            key={item.label}
+            className="rounded-lg border border-border bg-background/70 px-3 py-2.5"
+          >
+            <div className="mb-1 flex items-center gap-1.5">
+              <item.icon className={cn("h-3.5 w-3.5 flex-shrink-0", item.color)} />
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {item.label}
+              </span>
+            </div>
+            <p className="text-xs leading-relaxed text-foreground">{item.body}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Horizon deal row helpers ─────────────────────────────────────────────────
 
 function getNextStatus(current: Deal["status"]): Deal["status"] {
-  if (current === "active") return "completed"
+  if (current === "active")    return "completed"
   if (current === "completed") return "declined"
-  if (current === "declined") return "test"
+  if (current === "declined")  return "test"
   return "active"
 }
 
 const STATUS_STYLE: Record<Deal["status"], string> = {
-  active: "bg-secondary text-muted-foreground",
+  active:    "bg-secondary text-muted-foreground",
   completed: "bg-emerald-100 text-emerald-700 border border-emerald-300 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800",
-  declined: "bg-red-100 text-red-700 border border-red-300 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800",
-  test: "bg-slate-100 text-slate-600 border border-slate-300 dark:bg-slate-900/20 dark:text-slate-400 dark:border-slate-700",
+  declined:  "bg-red-100 text-red-700 border border-red-300 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800",
+  test:      "bg-slate-100 text-slate-600 border border-slate-300 dark:bg-slate-900/20 dark:text-slate-400 dark:border-slate-700",
 }
 
-// ─── Main Component ───────���───────────────────────────���───────────────────────
-
-type DateFilterType = "today" | "week" | "month" | "all"
-
-interface DateFilterOption {
-  value: DateFilterType
-  label: string
-}
-
-const dateFilterOptions: DateFilterOption[] = [
-  { value: "today", label: "Today" },
-  { value: "week", label: "This Week" },
-  { value: "month", label: "This Month" },
-  { value: "all", label: "All Time" },
-]
-
-function getDateRange(filter: DateFilterType): { start: Date; end: Date } {
-  const end = new Date()
-  const start = new Date()
-
-  switch (filter) {
-    case "today":
-      start.setHours(0, 0, 0, 0)
-      break
-    case "week":
-      start.setDate(start.getDate() - 7)
-      break
-    case "month":
-      start.setDate(start.getDate() - 30)
-      break
-    case "all":
-      start.setFullYear(2000)
-      break
-  }
-
-  return { start, end }
-}
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: OverviewTabProps) {
   const [dateFilter, setDateFilter] = useState<DateFilterType>("week")
   const [quickValsDrawerOpen, setQuickValsDrawerOpen] = useState(false)
 
-  const { data, error, isLoading, mutate } = useSWR<OverviewData>("/api/admin/overview", fetcher, {
-    refreshInterval: 60_000,
-  })
+  // All data fetched from one SWR call — filter param syncs every section
+  const { data, error, isLoading, mutate } = useSWR<OverviewData>(
+    `/api/admin/overview?filter=${dateFilter}`,
+    fetcher,
+    { refreshInterval: 60_000 }
+  )
 
   const { data: quickValsHistory, isLoading: quickValsLoading } = useSWR<QuickValHistory[]>(
     `/api/admin/analytics/quick-vals-history?filter=${dateFilter}`,
@@ -479,17 +517,16 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
     { revalidateOnFocus: false }
   )
 
-  const s = data?.stats
-  const funnel = data?.funnel
+  const s       = data?.stats
+  const funnel  = data?.funnel
+  // Funnel top-of-funnel is always "All Leads" — every subsequent stage is relative to this
   const funnelMax = funnel?.leads ?? 1
 
-  // Horizon pipeline stats (localStorage)
-  // Only "active" deals count in pipeline - completed/declined/test are history
-  const activeDeals = deals.filter((d) => d.status === "active")
-  const completedDeals = deals.filter((d) => d.status === "completed")
-  const testDeals = deals.filter((d) => d.status === "test")
+  // Horizon pipeline (localStorage deals)
+  const activeDeals     = deals.filter((d) => d.status === "active")
+  const completedDeals  = deals.filter((d) => d.status === "completed")
   const totalSubmissions = deals.filter((d) => d.status !== "test").length
-  const pipelineValue = activeDeals.reduce((sum, d) => sum + d.valuation, 0)
+  const pipelineValue   = activeDeals.reduce((sum, d) => sum + d.valuation, 0)
 
   return (
     <div className="space-y-6">
@@ -532,7 +569,10 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
         </div>
       )}
 
-      {/* ── Primary KPIs (real DB) ──────────────────────────────────────────── */}
+      {/* ── Smart Executive Insights ────────────────────────────────────────── */}
+      <SmartInsightsBanner insights={data?.insights} stats={s} isLoading={isLoading} />
+
+      {/* ── Primary KPIs ───────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {isLoading ? (
           Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[90px]" />)
@@ -540,7 +580,7 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
           <>
             <StatCard
               label="Total Leads"
-              value={s?.totalLeads.toLocaleString() ?? "—"}
+              value={s?.totalLeads.toLocaleString() ?? "0"}
               sub={`${s?.leadsLast30 ?? 0} in last 30 days`}
               icon={Users}
               highlight="primary"
@@ -550,7 +590,7 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
             />
             <StatCard
               label="Full Valuations"
-              value={s?.totalFullVals.toLocaleString() ?? "—"}
+              value={s?.totalFullVals.toLocaleString() ?? "0"}
               sub={`${s?.fullValsLast30 ?? 0} in last 30 days`}
               icon={FileText}
               highlight="neutral"
@@ -566,7 +606,7 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
             />
             <StatCard
               label="Hot Leads"
-              value={s?.hotLeads.toLocaleString() ?? "—"}
+              value={s?.hotLeads.toLocaleString() ?? "0"}
               sub={fmtDollars(s?.avgLeadValue) + " avg value"}
               icon={Flame}
               highlight="warning"
@@ -583,19 +623,19 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
         ) : (
           <>
             <EnhancedQuickValsCard
-              value={s?.totalQuickVals.toLocaleString() ?? "—"}
-              trend={s && s.totalQuickVals ? Math.max(0, (s.totalQuickVals - (s.fullValsLast30 ?? 0))) : undefined}
+              value={s?.totalQuickVals.toLocaleString() ?? "0"}
+              trend={s ? Math.max(0, s.totalQuickVals - (s.fullValsLast30 ?? 0)) : undefined}
               sparklineData={quickValsHistory}
               isLoading={quickValsLoading}
               onOpenDrawer={() => setQuickValsDrawerOpen(true)}
             />
-            <StatCard label="Quizzes" value={s?.totalQuizzes.toLocaleString() ?? "—"} icon={Brain} />
-            <StatCard label="Avg Quiz Score" value={fmtPct(s?.avgQuizScore)} icon={Percent} />
-            <StatCard label="Closed Deals" value={s?.totalClosedDeals.toLocaleString() ?? "—"} icon={CheckCircle2} highlight="success" />
-            <StatCard label="Avg Close $" value={fmtDollars(s?.avgClosedValue)} icon={DollarSign} highlight="success" />
+            <StatCard label="Quizzes"            value={s?.totalQuizzes.toLocaleString()    ?? "0"} icon={Brain} />
+            <StatCard label="Avg Quiz Score"     value={fmtPct(s?.avgQuizScore)}                    icon={Percent} />
+            <StatCard label="Closed Deals"       value={s?.totalClosedDeals.toLocaleString() ?? "0"} icon={CheckCircle2} highlight="success" />
+            <StatCard label="Avg Close $"        value={fmtDollars(s?.avgClosedValue)}              icon={DollarSign} highlight="success" />
             <StatCard label="Avg Close Multiple" value={s?.avgClosedMultiple != null ? `${s.avgClosedMultiple.toFixed(2)}x` : "—"} icon={BarChart3} />
-            <StatCard label="Avg Retention" value={fmtPct(s?.avgRetention)} icon={Target} />
-            <StatCard label="Avg Revenue" value={s?.avgRevenueLTM != null ? `$${(s.avgRevenueLTM / 1000).toFixed(0)}k` : "—"} sub="LTM across valuations" icon={DollarSign} />
+            <StatCard label="Avg Retention"      value={fmtPct(s?.avgRetention)}                   icon={Target} />
+            <StatCard label="Avg Revenue"        value={s?.avgRevenueLTM != null ? `$${(s.avgRevenueLTM / 1000).toFixed(0)}k` : "—"} sub="LTM across valuations" icon={DollarSign} />
           </>
         )}
       </div>
@@ -611,7 +651,7 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
 
       {/* ── Funnel + Top States ─────────────────────────────────────────────── */}
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* Conversion funnel */}
+        {/* Conversion funnel — top bar is always 100%, all others relative to it */}
         <Card className="border-border">
           <CardContent className="p-5">
             <h3 className="mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -623,11 +663,12 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
               </div>
             ) : funnel ? (
               <div className="space-y-3">
-                <FunnelBar label="All Leads" count={funnel.leads} max={funnelMax} color="bg-primary" />
-                <FunnelBar label="Quick Valuations" count={funnel.quickVals} max={funnelMax} color="bg-sky-400" />
-                <FunnelBar label="Full Valuations" count={funnel.fullVals} max={funnelMax} color="bg-violet-500" />
-                <FunnelBar label="Readiness Quizzes" count={funnel.quizzes} max={funnelMax} color="bg-amber-500" />
-                <FunnelBar label="Closed Deals" count={funnel.closed} max={funnelMax} color="bg-emerald-500" />
+                {/* All Leads is always 100% — it is the funnelMax */}
+                <FunnelBar label="All Leads"          count={funnel.leads}     max={funnelMax} color="bg-primary" />
+                <FunnelBar label="Quick Valuations"   count={funnel.quickVals} max={funnelMax} color="bg-sky-400" />
+                <FunnelBar label="Full Valuations"    count={funnel.fullVals}  max={funnelMax} color="bg-violet-500" />
+                <FunnelBar label="Readiness Quizzes"  count={funnel.quizzes}   max={funnelMax} color="bg-amber-500" />
+                <FunnelBar label="Closed Deals"       count={funnel.closed}    max={funnelMax} color="bg-emerald-500" />
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">No data available.</p>
@@ -693,7 +734,9 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
       <Card className="border-border overflow-hidden">
         <div className="flex items-center justify-between border-b border-border bg-secondary/40 px-5 py-3">
           <h3 className="text-sm font-semibold text-foreground">Recent Activity</h3>
-          <span className="text-xs text-muted-foreground">Last 10 across all tools</span>
+          <span className="text-xs text-muted-foreground">
+            {dateFilterOptions.find((o) => o.value === dateFilter)?.label ?? "All Time"}
+          </span>
         </div>
         <div className="divide-y divide-border">
           {isLoading ? (
@@ -710,12 +753,18 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
             <p className="px-5 py-8 text-center text-sm text-muted-foreground">No activity yet.</p>
           ) : (
             (data?.recentActivity ?? []).map((item) => (
-              <div key={`${item.type}-${item.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-secondary/20 transition-colors">
+              <div
+                key={`${item.type}-${item.id}`}
+                className="flex items-center gap-3 px-5 py-3 hover:bg-secondary/20 transition-colors"
+              >
                 <div className={cn(
                   "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white",
                   item.type === "lead" ? "bg-primary" : "bg-violet-500"
                 )}>
-                  {item.type === "lead" ? <Users className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
+                  {item.type === "lead"
+                    ? <Users    className="h-3.5 w-3.5" />
+                    : <FileText className="h-3.5 w-3.5" />
+                  }
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-foreground">{item.label}</p>
