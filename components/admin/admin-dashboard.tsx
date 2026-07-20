@@ -27,6 +27,7 @@ export interface Deal {
   premium_base: number
   status: "active" | "completed" | "declined" | "test"
   date_saved: string
+  shortDate?: string   // "Jul 17" — plain text tag used by the timeline chart
   details?: Record<string, unknown>
 }
 
@@ -92,6 +93,40 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   useEffect(() => {
     try { localStorage.setItem("admin-deals", JSON.stringify(deals)) } catch { /* quota */ }
   }, [deals])
+
+  // Backfill the activity log from persisted deals so the chart reflects historical data.
+  // Runs once on mount. Uses deal IDs as a seen-set to avoid double-counting on re-renders.
+  useEffect(() => {
+    if (deals.length === 0) return
+    try {
+      const seenKey = "valuation_activity_log_seen_ids"
+      const seenIds: string[] = JSON.parse(localStorage.getItem(seenKey) || "[]")
+      const logs: { date: string; status: string }[] = JSON.parse(
+        localStorage.getItem("valuation_activity_log") || "[]"
+      )
+      let dirty = false
+      for (const deal of deals) {
+        if (!seenIds.includes(deal.id)) {
+          logs.push({
+            date:
+              deal.shortDate ||
+              new Date(deal.date_saved || Date.now()).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              }),
+            status: deal.status === "completed" ? "Completed" : "Partial",
+          })
+          seenIds.push(deal.id)
+          dirty = true
+        }
+      }
+      if (dirty) {
+        localStorage.setItem("valuation_activity_log", JSON.stringify(logs))
+        localStorage.setItem(seenKey, JSON.stringify(seenIds))
+      }
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // intentionally run once on mount only
 
   const addDeal    = (deal: Deal) => setDeals((p) => [deal, ...p])
   const updateDeal = (id: string, u: Partial<Deal>) => setDeals((p) => p.map((d) => d.id === id ? { ...d, ...u } : d))

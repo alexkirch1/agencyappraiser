@@ -109,6 +109,16 @@ export function LeadCaptureModal({
       console.error("[lead-capture] Lead API call failed, continuing anyway")
     }
 
+    // Log every public valuation submission to the activity log for the timeline chart
+    try {
+      const existingLogs = JSON.parse(localStorage.getItem("valuation_activity_log") || "[]")
+      existingLogs.push({
+        date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        status: "Partial",
+      })
+      localStorage.setItem("valuation_activity_log", JSON.stringify(existingLogs))
+    } catch {}
+
     setSubmitting(false)
     setLeadId(returnedLeadId)
     setLeadData(data)

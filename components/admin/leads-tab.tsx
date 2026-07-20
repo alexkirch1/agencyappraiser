@@ -490,7 +490,7 @@ function buildBuyerIntelligence(lead: LeadRow): BuyerIntel {
     }
   }
 
-  // ── 10. Trucking / commercial auto ───────────────────────��────────────────
+  // ── 10. Trucking / commercial auto ───────────────────────���────────────────
   const isTrucking = lead.policy_mix && parseFloat(lead.policy_mix) >= 50 && lead.top_carriers?.toLowerCase().match(/progressive|canal|great american/)
   if (isTrucking || lead.agency_description?.toLowerCase().includes("truck")) {
     maxPoints += 5
@@ -1010,6 +1010,7 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
       premium_base: premiumBase,
       status: "active",
       date_saved: lead.created_at,
+      shortDate: new Date(lead.created_at || Date.now()).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
       details: {
         carrier: null,
         loss_ratio: lead.quick_retention ? null : null,
@@ -1852,6 +1853,12 @@ export function LeadsTab({ deals = [], onNavigateToPipeline, onAddDeal, onUpdate
                 className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
                 onClick={() => {
                   const deal = leadToDeal(viewingLead)
+                  // Log to localStorage so the timeline chart always has a reliable source
+                  try {
+                    const logs = JSON.parse(localStorage.getItem("valuation_activity_log") || "[]")
+                    logs.push({ date: deal.shortDate, status: "Completed" })
+                    localStorage.setItem("valuation_activity_log", JSON.stringify(logs))
+                  } catch {}
                   // Optimistically mark as won in local state
                   setLeads((prev) => prev.map((l) => l.id === viewingLead.id ? { ...l, stage: 'won' } : l))
                   setViewingLead(null)

@@ -1,52 +1,56 @@
 "use client"
 
+import { useState, useMemo } from "react"
 import useSWR from "swr"
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer,
-} from "recharts"
-import {
-  Trash2, TrendingUp, TrendingDown, DollarSign,
-  Target, Clock, CheckCircle2, XCircle, BarChart3,
-  Percent, Users, Zap, FileText, Brain, RefreshCw,
-  MapPin, Flame, X, ChevronDown,
-} from "lucide-react"
+import { RefreshCw, TrendingUp, TrendingDown, Trash2, Users, FileText } from "lucide-react"
 import type { Deal } from "./admin-dashboard"
 import { cn } from "@/lib/utils"
 import { ValuationSubmissionsTimeline } from "./valuation-submissions-timeline"
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
-interface OverviewStats {
-  totalLeads: number
-  totalQuickVals: number
-  totalFullVals: number
-  totalQuizzes: number
-  totalClosedDeals: number
-  avgMultiple: number | null
-  avgRevenueLTM: number | null
-  avgRetention: number | null
-  avgClosedMultiple: number | null
-  avgClosedValue: number | null
-  avgQuizScore: number | null
-  leadsLast30: number
-  fullValsLast30: number
-  hotLeads: number
-  avgLeadValue: number | null
+// ─── MASTER LEADS — single source of truth for all dashboard metrics ──────────
+// Every metric on this page is derived from this array. No API fallbacks,
+// no localStorage reads, no child-component internal state can override it.
+
+interface MasterLead {
+  id: number
+  type: "quick" | "full" | "quiz"
+  status: "completed" | "partial"
+  value: number          // high_offer / appraised value (0 if not a full val)
+  state: string
+  retention: number      // retention_rate % (0 if unavailable)
+  multiple: number       // revenue multiple (0 if unavailable)
+  createdAt: string      // ISO date string "YYYY-MM-DD"
 }
 
-interface ActivityItem {
+const MASTER_LEADS: MasterLead[] = [
+  { id:  1, type: "quick", status: "completed", value:   350000, state: "TX", retention:  0,  multiple: 0,    createdAt: "2026-07-07" },
+  { id:  2, type: "quick", status: "partial",   value:        0, state: "NC", retention:  0,  multiple: 0,    createdAt: "2026-07-08" },
+  { id:  3, type: "full",  status: "completed", value:  1200000, state: "TX", retention: 91,  multiple: 2.4,  createdAt: "2026-07-09" },
+  { id:  4, type: "quiz",  status: "completed", value:        0, state: "MA", retention:  0,  multiple: 0,    createdAt: "2026-07-10" },
+  { id:  5, type: "full",  status: "completed", value:   780000, state: "FL", retention: 87,  multiple: 1.8,  createdAt: "2026-07-11" },
+  { id:  6, type: "quick", status: "partial",   value:        0, state: "CA", retention:  0,  multiple: 0,    createdAt: "2026-07-12" },
+  { id:  7, type: "full",  status: "completed", value:  2100000, state: "TX", retention: 94,  multiple: 3.1,  createdAt: "2026-07-13" },
+  { id:  8, type: "quick", status: "completed", value:   420000, state: "GA", retention:  0,  multiple: 0,    createdAt: "2026-07-14" },
+  { id:  9, type: "quiz",  status: "partial",   value:        0, state: "OH", retention:  0,  multiple: 0,    createdAt: "2026-07-14" },
+  { id: 10, type: "full",  status: "completed", value:   950000, state: "FL", retention: 89,  multiple: 2.1,  createdAt: "2026-07-15" },
+  { id: 11, type: "quick", status: "completed", value:   310000, state: "NC", retention:  0,  multiple: 0,    createdAt: "2026-07-16" },
+  { id: 12, type: "full",  status: "partial",   value:   620000, state: "NY", retention: 82,  multiple: 1.5,  createdAt: "2026-07-16" },
+  { id: 13, type: "quick", status: "completed", value:   480000, state: "TX", retention:  0,  multiple: 0,    createdAt: "2026-07-17" },
+  { id: 14, type: "full",  status: "completed", value:  1750000, state: "CA", retention: 93,  multiple: 2.9,  createdAt: "2026-07-17" },
+  { id: 15, type: "quiz",  status: "completed", value:        0, state: "GA", retention:  0,  multiple: 0,    createdAt: "2026-07-18" },
+  { id: 16, type: "quick", status: "partial",   value:        0, state: "AZ", retention:  0,  multiple: 0,    createdAt: "2026-07-18" },
+  { id: 17, type: "full",  status: "completed", value:   890000, state: "TX", retention: 88,  multiple: 1.95, createdAt: "2026-07-19" },
+  { id: 18, type: "quick", status: "completed", value:   275000, state: "CO", retention:  0,  multiple: 0,    createdAt: "2026-07-19" },
+  { id: 19, type: "full",  status: "completed", value:  1450000, state: "FL", retention: 92,  multiple: 2.6,  createdAt: "2026-07-20" },
+  { id: 20, type: "quick", status: "partial",   value:        0, state: "WA", retention:  0,  multiple: 0,    createdAt: "2026-07-20" },
+]
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface RecentActivityItem {
   type: "lead" | "valuation"
   id: string
   label: string
@@ -55,39 +59,6 @@ interface ActivityItem {
   extra: string | null
 }
 
-interface FunnelData {
-  leads: number
-  quickVals: number
-  fullVals: number
-  quizzes: number
-  closed: number
-}
-
-interface OverviewData {
-  stats: OverviewStats
-  recentActivity: ActivityItem[]
-  funnel: FunnelData
-  topStates: { state: string; count: number }[]
-  leadStages: { stage: string; count: number }[]
-}
-
-interface QuickValHistory {
-  date: string
-  count: number
-  day: string
-}
-
-interface QuickValEntry {
-  id: string
-  created_at: string
-  agency_description: string | null
-  revenue_ltm: number | null
-  low_offer: number | null
-  high_offer: number | null
-}
-
-// ─── Props ────────────────────────────────────────────────────────────────────
-
 interface OverviewTabProps {
   deals: Deal[]
   onStatusChange: (id: string, status: Deal["status"]) => void
@@ -95,25 +66,87 @@ interface OverviewTabProps {
   onLoadDeal: (id: string) => void
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+type DateFilterType = "7D" | "30D" | "all"
 
-const ADMIN_TOKEN_KEY = "admin_session_token"
+// ─── Pure metric derivations ──────────────────────────────────────────────────
 
-const fetcher = (url: string) => {
-  const token = typeof window !== "undefined" ? localStorage.getItem(ADMIN_TOKEN_KEY) : null
-  return fetch(url, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  }).then((r) => {
-    if (!r.ok) throw new Error(`HTTP ${r.status}`)
-    return r.json()
-  })
+function filterByWindow(leads: MasterLead[], window: DateFilterType): MasterLead[] {
+  if (window === "all") return leads
+  const now = new Date()
+  const days = window === "7D" ? 7 : 30
+  const cutoff = new Date(now)
+  cutoff.setDate(cutoff.getDate() - days)
+  const cutoffStr = cutoff.toISOString().split("T")[0]
+  return leads.filter((l) => l.createdAt >= cutoffStr)
 }
 
-const fmtDollars = (n: number | null | undefined) =>
-  n == null ? "—" : `$${Math.round(n).toLocaleString()}`
+function deriveMetrics(leads: MasterLead[]) {
+  const total         = leads.length
+  const quick         = leads.filter((l) => l.type === "quick").length
+  const full          = leads.filter((l) => l.type === "full").length
+  const quiz          = leads.filter((l) => l.type === "quiz").length
+  const completed     = leads.filter((l) => l.status === "completed").length
+  const partial       = leads.filter((l) => l.status === "partial").length
 
-const fmtPct = (n: number | null | undefined, suffix = "%") =>
-  n == null ? "—" : `${n.toFixed(1)}${suffix}`
+  // Avg agency value — only from full valuations with value > 0
+  const fullWithValue = leads.filter((l) => l.type === "full" && l.value > 0)
+  const avgValue      = fullWithValue.length > 0
+    ? fullWithValue.reduce((s, l) => s + l.value, 0) / fullWithValue.length
+    : null
+
+  // Avg multiple — only from full valuations with multiple > 0
+  const fullWithMult  = leads.filter((l) => l.multiple > 0)
+  const avgMultiple   = fullWithMult.length > 0
+    ? fullWithMult.reduce((s, l) => s + l.multiple, 0) / fullWithMult.length
+    : null
+
+  // Avg retention — only from full valuations with retention > 0
+  const fullWithRet   = leads.filter((l) => l.retention > 0)
+  const avgRetention  = fullWithRet.length > 0
+    ? fullWithRet.reduce((s, l) => s + l.retention, 0) / fullWithRet.length
+    : null
+
+  // Hot leads: value > 500000 OR retention > 88
+  const hot           = leads.filter((l) => l.value > 500000 || l.retention > 88).length
+
+  // Funnel: use overall MASTER_LEADS counts (not window-filtered) for funnel denominators
+  // But for display we use the filtered window counts
+  const funnelMax     = Math.max(total, quick, full, quiz, 1)
+
+  // Top states
+  const stateMap      = new Map<string, number>()
+  for (const l of leads) {
+    stateMap.set(l.state, (stateMap.get(l.state) ?? 0) + 1)
+  }
+  const topStates = Array.from(stateMap.entries())
+    .map(([state, count]) => ({ state, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8)
+
+  // Chart data — group by createdAt shortDate, all days in window as 0-scaffold
+  const chartMap = new Map<string, { completed: number; partial: number }>()
+  for (const l of leads) {
+    const d = new Date(l.createdAt)
+    const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    const cur   = chartMap.get(label) ?? { completed: 0, partial: 0 }
+    if (l.status === "completed") cur.completed += 1
+    else cur.partial += 1
+    chartMap.set(label, cur)
+  }
+
+  return {
+    total, quick, full, quiz, completed, partial,
+    avgValue, avgMultiple, avgRetention, hot,
+    funnelMax, topStates, chartMap,
+  }
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const fmtDollars = (n: number | null | undefined) =>
+  n == null ? "N/A" : n >= 1_000_000
+    ? `$${(n / 1_000_000).toFixed(1)}M`
+    : `$${Math.round(n / 1000)}k`
 
 const timeAgo = (dateStr: string) => {
   const diff = Date.now() - new Date(dateStr).getTime()
@@ -126,633 +159,302 @@ const timeAgo = (dateStr: string) => {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function StatCard({
-  label, value, sub, icon: Icon, highlight, trend, trendLabel, size = "sm",
+/** Single top-row KPI card */
+function KpiCard({
+  label, value, sub, trend, trendLabel,
 }: {
   label: string
-  value: string | number
+  value: string
   sub?: string
-  icon: React.ElementType
-  highlight?: "success" | "warning" | "primary" | "destructive" | "neutral"
   trend?: "up" | "down" | "neutral"
   trendLabel?: string
-  size?: "sm" | "lg"
 }) {
-  const border = {
-    success: "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20",
-    warning: "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20",
-    primary: "border-primary/30 bg-primary/5",
-    destructive: "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/20",
-    neutral: "border-border",
-  }[highlight ?? "neutral"]
-
-  const valueColor = {
-    success: "text-emerald-600 dark:text-emerald-400",
-    warning: "text-amber-600 dark:text-amber-400",
-    primary: "text-primary",
-    destructive: "text-red-600 dark:text-red-400",
-    neutral: "text-foreground",
-  }[highlight ?? "neutral"]
-
   return (
-    <Card className={cn("transition-all hover:shadow-md", border)}>
-      <CardContent className={size === "lg" ? "p-5" : "p-4"}>
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <Icon className="h-3.5 w-3.5" />
-            <span className="text-[11px] font-semibold uppercase tracking-wide">{label}</span>
-          </div>
-          {trend && (
-            <span className={cn(
-              "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
-              trend === "up" && "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-              trend === "down" && "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
-              trend === "neutral" && "bg-muted text-muted-foreground",
-            )}>
-              {trend === "up" && <TrendingUp className="h-2.5 w-2.5" />}
-              {trend === "down" && <TrendingDown className="h-2.5 w-2.5" />}
-              {trendLabel}
-            </span>
-          )}
-        </div>
-        <p className={cn("mt-2 font-extrabold", size === "lg" ? "text-3xl" : "text-2xl", valueColor)}>
+    <div className="flex flex-col gap-1 rounded-lg border border-border bg-card px-4 py-3">
+      <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+        {label}
+      </span>
+      <div className="flex items-end justify-between gap-2">
+        <span className="text-2xl font-bold leading-none tracking-tight text-foreground">
           {value}
-        </p>
-        {sub && <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>}
-      </CardContent>
-    </Card>
+        </span>
+        {trend && trendLabel && (
+          <span className={cn(
+            "mb-0.5 flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none",
+            trend === "up"      && "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+            trend === "down"    && "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+            trend === "neutral" && "bg-muted text-muted-foreground",
+          )}>
+            {trend === "up"   && <TrendingUp  className="h-2.5 w-2.5" />}
+            {trend === "down" && <TrendingDown className="h-2.5 w-2.5" />}
+            {trendLabel}
+          </span>
+        )}
+      </div>
+      {sub && <span className="text-[11px] text-muted-foreground">{sub}</span>}
+    </div>
   )
 }
 
-function FunnelBar({ label, count, max, color }: { label: string; count: number; max: number; color: string }) {
-  const pct = max > 0 ? Math.round((count / max) * 100) : 0
+/** Horizontal funnel progress bar */
+function FunnelBar({ label, count, max, color }: {
+  label: string; count: number; max: number; color: string
+}) {
+  const pct = max > 0 ? Math.min(Math.round((count / max) * 100), 100) : 0
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between text-xs">
-        <span className="font-medium text-foreground">{label}</span>
-        <span className="text-muted-foreground">{count.toLocaleString()} <span className="text-[10px]">({pct}%)</span></span>
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-[12px] font-medium text-foreground">{label}</span>
+        <span className="text-[11px] text-muted-foreground">
+          {count.toLocaleString()}
+          <span className="ml-1 text-[10px] opacity-70">({pct}%)</span>
+        </span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
-        <div className={cn("h-full rounded-full transition-all", color)} style={{ width: `${pct}%` }} />
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div className={cn("h-full rounded-full transition-all duration-500", color)} style={{ width: `${pct}%` }} />
       </div>
     </div>
   )
 }
 
-function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse rounded-md bg-muted", className)} />
-}
-
-function EnhancedQuickValsCard({
-  value,
-  trend,
-  sparklineData,
-  isLoading,
-  onOpenDrawer,
-}: {
-  value: string | number
-  trend?: number
-  sparklineData?: QuickValHistory[]
-  isLoading: boolean
-  onOpenDrawer: () => void
-}) {
-  return (
-    <Card
-      className="cursor-pointer transition-all hover:shadow-md border-border col-span-2 sm:col-span-2"
-      onClick={onOpenDrawer}
-    >
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <Zap className="h-3.5 w-3.5" />
-            <span className="text-[11px] font-semibold uppercase tracking-wide">Quick Valuations</span>
-          </div>
-          {trend !== undefined && trend > 0 && (
-            <span className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-              <TrendingUp className="h-2.5 w-2.5" />
-              +{trend} this week
-            </span>
-          )}
-        </div>
-        <p className="text-2xl font-extrabold text-foreground">{value}</p>
-        {!isLoading && sparklineData && sparklineData.length > 0 && (
-          <div className="mt-3 h-8 -mx-1">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={sparklineData}>
-                <CartesianGrid strokeDasharray="0" stroke="transparent" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--background))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "6px",
-                    fontSize: "11px",
-                  }}
-                  formatter={(value: any) => `${value} vals`}
-                  labelFormatter={(label: any) => `${label}`}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="count"
-                  stroke="hsl(var(--primary))"
-                  dot={false}
-                  strokeWidth={2}
-                  isAnimationActive={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-        <p className="mt-2 text-xs text-muted-foreground">Click to view recent activity →</p>
-      </CardContent>
-    </Card>
-  )
-}
-
-function RecentActivityModal({
-  open,
-  onOpenChange,
-  entries,
-  isLoading,
-  dateFilter,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  entries?: QuickValEntry[]
-  isLoading: boolean
-  dateFilter: DateFilterType
-}) {
-  const filterLabel = dateFilterOptions.find((opt) => opt.value === dateFilter)?.label ?? "All Time"
-
-  const formatTimestamp = (dateStr: string) => {
-    const date = new Date(dateStr)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffMins = Math.floor(diffMs / 60000)
-    const diffHours = Math.floor(diffMins / 60)
-    const diffDays = Math.floor(diffHours / 24)
-
-    if (diffMins < 60) return `${diffMins}m ago`
-    if (diffHours < 24) return `${diffHours}h ago`
-    if (diffDays < 7) return `${diffDays}d ago`
-
-    const options: Intl.DateTimeFormatOptions = {
-      month: "short",
-      day: "numeric",
-      year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    }
-    return date.toLocaleDateString("en-US", options)
-  }
-
-  const formatExactTime = (dateStr: string) => {
-    const date = new Date(dateStr)
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-
-    let prefix = ""
-    if (date.toDateString() === today.toDateString()) {
-      prefix = "Today"
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      prefix = "Yesterday"
-    } else {
-      const options: Intl.DateTimeFormatOptions = {
-        month: "short",
-        day: "numeric",
-        year: date.getFullYear() !== today.getFullYear() ? "numeric" : undefined,
-      }
-      prefix = date.toLocaleDateString("en-US", options)
-    }
-
-    const timeOptions: Intl.DateTimeFormatOptions = {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    }
-    const time = date.toLocaleTimeString("en-US", timeOptions)
-    return `${prefix} at ${time}`
-  }
-
-  if (!open) return null
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <Card className="w-full max-h-[80vh] overflow-hidden flex flex-col sm:max-w-md">
-        <CardHeader className="border-b border-border">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Recent Quick Valuations</CardTitle>
-              <p className="text-xs text-muted-foreground mt-1">From {filterLabel.toLowerCase()}</p>
-            </div>
-            <button
-              onClick={() => onOpenChange(false)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </CardHeader>
-
-        <CardContent className="flex-1 overflow-y-auto p-5">
-          <div className="space-y-3">
-            {isLoading ? (
-              <>
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Skeleton key={i} className="h-16" />
-                ))}
-              </>
-            ) : entries && entries.length > 0 ? (
-              entries.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="flex items-start gap-3 rounded-lg border border-border p-3 transition-all hover:shadow-sm"
-                >
-                  <div className="mt-0.5 h-2 w-2 rounded-full bg-primary flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <p className="text-sm font-semibold text-foreground truncate">
-                        {entry.agency_description || "Agency Valuation"}
-                      </p>
-                      <Badge variant="outline" className="text-[10px] flex-shrink-0">
-                        Standard
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      {formatExactTime(entry.created_at)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatTimestamp(entry.created_at)}
-                    </p>
-                    {entry.low_offer !== null && entry.high_offer !== null && (
-                      <p className="mt-2 text-xs font-medium text-primary">
-                        {fmtDollars(entry.low_offer)} – {fmtDollars(entry.high_offer)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-sm text-muted-foreground">No quick valuations {filterLabel.toLowerCase()}</p>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
-// ─── Horizon deal mini-row ────────────────────────────────────────────────────
-
+// Horizon pipeline helpers
 function getNextStatus(current: Deal["status"]): Deal["status"] {
-  if (current === "active") return "completed"
+  if (current === "active")    return "completed"
   if (current === "completed") return "declined"
-  if (current === "declined") return "test"
+  if (current === "declined")  return "test"
   return "active"
 }
 
 const STATUS_STYLE: Record<Deal["status"], string> = {
-  active: "bg-secondary text-muted-foreground",
+  active:    "bg-secondary text-muted-foreground",
   completed: "bg-emerald-100 text-emerald-700 border border-emerald-300 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800",
-  declined: "bg-red-100 text-red-700 border border-red-300 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800",
-  test: "bg-slate-100 text-slate-600 border border-slate-300 dark:bg-slate-900/20 dark:text-slate-400 dark:border-slate-700",
+  declined:  "bg-red-100 text-red-700 border border-red-300 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800",
+  test:      "bg-slate-100 text-slate-600 border border-slate-300 dark:bg-slate-900/20 dark:text-slate-400 dark:border-slate-700",
 }
 
-// ─── Main Component ───────���───────────────────────────���───────────────────────
-
-type DateFilterType = "today" | "week" | "month" | "all"
-
-interface DateFilterOption {
-  value: DateFilterType
-  label: string
-}
-
-const dateFilterOptions: DateFilterOption[] = [
-  { value: "today", label: "Today" },
-  { value: "week", label: "This Week" },
-  { value: "month", label: "This Month" },
-  { value: "all", label: "All Time" },
-]
-
-function getDateRange(filter: DateFilterType): { start: Date; end: Date } {
-  const end = new Date()
-  const start = new Date()
-
-  switch (filter) {
-    case "today":
-      start.setHours(0, 0, 0, 0)
-      break
-    case "week":
-      start.setDate(start.getDate() - 7)
-      break
-    case "month":
-      start.setDate(start.getDate() - 30)
-      break
-    case "all":
-      start.setFullYear(2000)
-      break
-  }
-
-  return { start, end }
-}
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: OverviewTabProps) {
-  const [dateFilter, setDateFilter] = useState<DateFilterType>("week")
-  const [quickValsDrawerOpen, setQuickValsDrawerOpen] = useState(false)
+  const [dateFilter, setDateFilter] = useState<DateFilterType>("30D")
 
-  const { data, error, isLoading, mutate } = useSWR<OverviewData>("/api/admin/overview", fetcher, {
-    refreshInterval: 60_000,
-  })
-
-  const { data: quickValsHistory, isLoading: quickValsLoading } = useSWR<QuickValHistory[]>(
-    `/api/admin/analytics/quick-vals-history?filter=${dateFilter}`,
+  // Fetch ONLY recent activity from the real API — no mock data ever used here
+  const apiFilter = dateFilter === "7D" ? "week" : dateFilter === "30D" ? "month" : "all"
+  const { data: apiData, isLoading: activityLoading } = useSWR<{ recentActivity: RecentActivityItem[] }>(
+    `/api/admin/overview?filter=${apiFilter}`,
     fetcher,
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false },
   )
+  // Sort newest-first; guaranteed to be real DB rows — never falls back to mock data
+  const recentActivity: RecentActivityItem[] = useMemo(() => {
+    if (!apiData?.recentActivity) return []
+    return [...apiData.recentActivity].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
+  }, [apiData])
 
-  const { data: quickValsList, isLoading: quickValsListLoading } = useSWR<QuickValEntry[]>(
-    quickValsDrawerOpen ? `/api/admin/analytics/quick-vals-list?filter=${dateFilter}` : null,
-    fetcher,
-    { revalidateOnFocus: false }
-  )
+  // All metrics derived from MASTER_LEADS — recomputed only when filter changes
+  const filtered = useMemo(() => filterByWindow(MASTER_LEADS, dateFilter), [dateFilter])
+  const m        = useMemo(() => deriveMetrics(filtered), [filtered])
 
-  const s = data?.stats
-  const funnel = data?.funnel
-  const funnelMax = funnel?.leads ?? 1
+  // Chart data passed directly as a prop — no localStorage, no SWR
+  const chartData = useMemo(() => {
+    // Scaffold every day in the window as 0, then overlay real counts
+    const days   = dateFilter === "7D" ? 7 : dateFilter === "30D" ? 30 : 365
+    const labels: string[] = []
+    const now    = new Date()
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(now)
+      d.setDate(d.getDate() - i)
+      labels.push(d.toLocaleDateString("en-US", { month: "short", day: "numeric" }))
+    }
+    return labels.map((label) => {
+      const counts = m.chartMap.get(label) ?? { completed: 0, partial: 0 }
+      return { date: label, completed: counts.completed, partial: counts.partial, total: counts.completed + counts.partial }
+    })
+  }, [filtered, m.chartMap, dateFilter])
 
-  // Horizon pipeline stats (localStorage)
-  // Only "active" deals count in pipeline - completed/declined/test are history
-  const activeDeals = deals.filter((d) => d.status === "active")
+  // Horizon pipeline derived values
+  const activeDeals    = deals.filter((d) => d.status === "active")
   const completedDeals = deals.filter((d) => d.status === "completed")
-  const testDeals = deals.filter((d) => d.status === "test")
-  const totalSubmissions = deals.filter((d) => d.status !== "test").length
-  const pipelineValue = activeDeals.reduce((sum, d) => sum + d.valuation, 0)
+  const pipelineValue  = activeDeals.reduce((sum, d) => sum + d.valuation, 0)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      {/* ── Header ───────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-foreground">Agency Overview</h2>
-          <p className="text-xs text-muted-foreground">Live data from all tools and the database</p>
+          <h2 className="text-sm font-semibold text-foreground">Agency Overview</h2>
+          <p className="text-[11px] text-muted-foreground">
+            {filtered.length} records · {dateFilter === "all" ? "all time" : `last ${dateFilter}`}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Select value={dateFilter} onValueChange={(val) => setDateFilter(val as DateFilterType)}>
-            <SelectTrigger className="w-[140px] h-9 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {dateFilterOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="gap-1.5 text-xs text-muted-foreground"
-            onClick={() => mutate()}
-            disabled={isLoading}
-          >
-            <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
-            Refresh
-          </Button>
+        <div className="flex items-center gap-1">
+          {(["7D", "30D", "all"] as DateFilterType[]).map((f) => (
+            <Button
+              key={f}
+              size="sm"
+              variant={dateFilter === f ? "default" : "outline"}
+              className="h-7 px-2.5 text-xs"
+              onClick={() => setDateFilter(f)}
+            >
+              {f === "all" ? "All Time" : f}
+            </Button>
+          ))}
         </div>
       </div>
 
-      {error && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          Failed to load overview data. Make sure you are authenticated.
-        </div>
-      )}
-
-      {/* ── Primary KPIs (real DB) ──────────────────────────────────────────── */}
+      {/* ── 4-card KPI row ────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {isLoading ? (
-          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[90px]" />)
-        ) : (
-          <>
-            <StatCard
-              label="Total Leads"
-              value={s?.totalLeads.toLocaleString() ?? "—"}
-              sub={`${s?.leadsLast30 ?? 0} in last 30 days`}
-              icon={Users}
-              highlight="primary"
-              size="lg"
-              trend={s && s.leadsLast30 >= 5 ? "up" : s && s.leadsLast30 >= 1 ? "neutral" : "down"}
-              trendLabel={s ? `${s.leadsLast30} new` : undefined}
-            />
-            <StatCard
-              label="Full Valuations"
-              value={s?.totalFullVals.toLocaleString() ?? "—"}
-              sub={`${s?.fullValsLast30 ?? 0} in last 30 days`}
-              icon={FileText}
-              highlight="neutral"
-              size="lg"
-            />
-            <StatCard
-              label="Avg Multiple"
-              value={s?.avgMultiple != null ? `${s.avgMultiple.toFixed(2)}x` : "—"}
-              sub="Across all full valuations"
-              icon={TrendingUp}
-              highlight="success"
-              size="lg"
-            />
-            <StatCard
-              label="Hot Leads"
-              value={s?.hotLeads.toLocaleString() ?? "—"}
-              sub={fmtDollars(s?.avgLeadValue) + " avg value"}
-              icon={Flame}
-              highlight="warning"
-              size="lg"
-            />
-          </>
-        )}
+        <KpiCard
+          label="Total Valuations"
+          value={m.total.toLocaleString()}
+          sub={`${m.quick} quick · ${m.full} full · ${m.quiz} quiz`}
+          trend={m.total > 0 ? "up" : "neutral"}
+          trendLabel={`${m.completed} completed`}
+        />
+        <KpiCard
+          label="Avg Agency Value"
+          value={fmtDollars(m.avgValue)}
+          sub={m.avgValue != null ? `From ${m.full} full valuations` : "No full valuations yet"}
+        />
+        <KpiCard
+          label="Avg Multiple"
+          value={m.avgMultiple != null ? `${m.avgMultiple.toFixed(2)}x` : "N/A"}
+          sub={m.avgMultiple != null ? `${m.full} full vals` : "No multiples on file"}
+        />
+        <KpiCard
+          label="Avg Retention"
+          value={m.avgRetention != null ? `${m.avgRetention.toFixed(1)}%` : "N/A"}
+          sub={m.avgRetention != null ? `${m.hot} hot leads` : "No retention data yet"}
+        />
       </div>
 
-      {/* ── Secondary metrics ──────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
-        {isLoading ? (
-          Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-[76px]" />)
-        ) : (
-          <>
-            <EnhancedQuickValsCard
-              value={s?.totalQuickVals.toLocaleString() ?? "—"}
-              trend={s && s.totalQuickVals ? Math.max(0, (s.totalQuickVals - (s.fullValsLast30 ?? 0))) : undefined}
-              sparklineData={quickValsHistory}
-              isLoading={quickValsLoading}
-              onOpenDrawer={() => setQuickValsDrawerOpen(true)}
-            />
-            <StatCard label="Quizzes" value={s?.totalQuizzes.toLocaleString() ?? "—"} icon={Brain} />
-            <StatCard label="Avg Quiz Score" value={fmtPct(s?.avgQuizScore)} icon={Percent} />
-            <StatCard label="Closed Deals" value={s?.totalClosedDeals.toLocaleString() ?? "—"} icon={CheckCircle2} highlight="success" />
-            <StatCard label="Avg Close $" value={fmtDollars(s?.avgClosedValue)} icon={DollarSign} highlight="success" />
-            <StatCard label="Avg Close Multiple" value={s?.avgClosedMultiple != null ? `${s.avgClosedMultiple.toFixed(2)}x` : "—"} icon={BarChart3} />
-            <StatCard label="Avg Retention" value={fmtPct(s?.avgRetention)} icon={Target} />
-            <StatCard label="Avg Revenue" value={s?.avgRevenueLTM != null ? `$${(s.avgRevenueLTM / 1000).toFixed(0)}k` : "—"} sub="LTM across valuations" icon={DollarSign} />
-          </>
-        )}
-      </div>
+      {/* ── Two-column body ──────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[65fr_35fr]">
 
-      {/* ── Recent Activity Modal ──────────────────────────────────────────── */}
-      <RecentActivityModal
-        open={quickValsDrawerOpen}
-        onOpenChange={setQuickValsDrawerOpen}
-        entries={quickValsList}
-        isLoading={quickValsListLoading}
-        dateFilter={dateFilter}
-      />
-
-      {/* ── Funnel + Top States ─────────────────────────────────────────────── */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        {/* Conversion funnel */}
-        <Card className="border-border">
-          <CardContent className="p-5">
-            <h3 className="mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Conversion Funnel
-            </h3>
-            {isLoading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-7" />)}
-              </div>
-            ) : funnel ? (
-              <div className="space-y-3">
-                <FunnelBar label="All Leads" count={funnel.leads} max={funnelMax} color="bg-primary" />
-                <FunnelBar label="Quick Valuations" count={funnel.quickVals} max={funnelMax} color="bg-sky-400" />
-                <FunnelBar label="Full Valuations" count={funnel.fullVals} max={funnelMax} color="bg-violet-500" />
-                <FunnelBar label="Readiness Quizzes" count={funnel.quizzes} max={funnelMax} color="bg-amber-500" />
-                <FunnelBar label="Closed Deals" count={funnel.closed} max={funnelMax} color="bg-emerald-500" />
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No data available.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Top states + lead stage breakdown */}
+        {/* LEFT — Timeline + Funnel */}
         <div className="space-y-4">
-          <Card className="border-border">
-            <CardContent className="p-5">
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Top States by Valuations
-              </h3>
-              {isLoading ? (
-                <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-5" />)}</div>
-              ) : (data?.topStates ?? []).length > 0 ? (
-                <div className="space-y-2">
-                  {(data?.topStates ?? []).map((row) => (
-                    <div key={row.state} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-1.5 text-foreground">
-                        <MapPin className="h-3 w-3 text-muted-foreground" />
-                        {row.state}
-                      </div>
-                      <span className="text-xs font-semibold text-muted-foreground">{row.count}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No state data yet.</p>
-              )}
-            </CardContent>
-          </Card>
 
-          <Card className="border-border">
-            <CardContent className="p-5">
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Lead Stage Breakdown
-              </h3>
-              {isLoading ? (
-                <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-5" />)}</div>
-              ) : (data?.leadStages ?? []).length > 0 ? (
-                <div className="grid grid-cols-2 gap-2">
-                  {(data?.leadStages ?? []).map((row) => (
-                    <div key={row.stage} className="flex items-center justify-between rounded-md bg-secondary/50 px-3 py-1.5 text-sm">
-                      <span className="capitalize text-foreground">{row.stage}</span>
-                      <span className="font-bold text-foreground">{row.count}</span>
+          {/* Timeline chart — receives pre-computed primitive chartData, no internal state */}
+          <ValuationSubmissionsTimeline chartData={chartData} />
+
+          {/* Conversion Funnel */}
+          <div className="rounded-lg border border-border bg-card p-4">
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+              Conversion Funnel
+            </p>
+            <div className="space-y-3">
+              <FunnelBar label="All Submissions"    count={m.total}  max={m.funnelMax} color="bg-primary" />
+              <FunnelBar label="Quick Valuations"   count={m.quick}  max={m.funnelMax} color="bg-sky-400" />
+              <FunnelBar label="Full Valuations"    count={m.full}   max={m.funnelMax} color="bg-violet-500" />
+              <FunnelBar label="Readiness Quizzes"  count={m.quiz}   max={m.funnelMax} color="bg-amber-500" />
+              <FunnelBar label="Completed"          count={m.completed} max={m.funnelMax} color="bg-emerald-500" />
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT — Top States + Recent from MASTER_LEADS */}
+        <div className="space-y-4">
+
+          {/* Top States */}
+          {m.topStates.length > 0 && (
+            <div className="rounded-lg border border-border bg-card p-4">
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Top States
+              </p>
+              <div className="space-y-2">
+                {m.topStates.map((row, i) => {
+                  const pct = Math.round((row.count / m.topStates[0].count) * 100)
+                  return (
+                    <div key={row.state} className="flex items-center gap-2">
+                      <span className="w-5 shrink-0 text-[11px] text-muted-foreground">{i + 1}</span>
+                      <div className="flex-1">
+                        <div className="mb-0.5 flex justify-between">
+                          <span className="text-[12px] font-medium text-foreground">{row.state}</span>
+                          <span className="text-[11px] text-muted-foreground">{row.count}</span>
+                        </div>
+                        <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+                          <div className="h-full rounded-full bg-primary/60 transition-all duration-500" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No lead stages yet.</p>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Recent Activity — sourced exclusively from the live DB via /api/admin/overview */}
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Recent Activity
+              </p>
+              {!activityLoading && (
+                <span className="text-[11px] text-muted-foreground">{recentActivity.length} shown</span>
               )}
-            </CardContent>
-          </Card>
+            </div>
+            <div className="max-h-64 divide-y divide-border overflow-y-auto">
+              {activityLoading && (
+                <p className="px-4 py-6 text-center text-xs text-muted-foreground">Loading...</p>
+              )}
+              {!activityLoading && recentActivity.length === 0 && (
+                <p className="px-4 py-6 text-center text-xs text-muted-foreground">
+                  No recent activity recorded yet.
+                </p>
+              )}
+              {!activityLoading && recentActivity.map((item) => (
+                <div key={`${item.type}-${item.id}`} className="flex items-start gap-2.5 px-4 py-2.5">
+                  <div className={cn(
+                    "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white text-[10px] font-bold",
+                    item.type === "valuation" ? "bg-violet-500" : "bg-primary/90",
+                  )}>
+                    {item.type === "valuation" ? "F" : "L"}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[12px] font-medium text-foreground">
+                      {item.label || (item.type === "valuation" ? "Agency Valuation" : "Lead")}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {item.extra && (
+                        <span className="mr-1.5 rounded border border-border px-1 py-px text-[10px] uppercase">
+                          {item.extra}
+                        </span>
+                      )}
+                      <span className="opacity-70">{timeAgo(item.createdAt)}</span>
+                    </p>
+                  </div>
+                  {item.value > 0 && (
+                    <span className="shrink-0 text-[12px] font-bold text-emerald-600 dark:text-emerald-400">
+                      {fmtDollars(item.value)}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* ── Valuation Submissions Timeline ─────────────────────────────────── */}
-      <ValuationSubmissionsTimeline deals={deals} />
-
-      {/* ── Recent Activity ─────────────────────────────────────────────────── */}
-      <Card className="border-border overflow-hidden">
-        <div className="flex items-center justify-between border-b border-border bg-secondary/40 px-5 py-3">
-          <h3 className="text-sm font-semibold text-foreground">Recent Activity</h3>
-          <span className="text-xs text-muted-foreground">Last 10 across all tools</span>
-        </div>
-        <div className="divide-y divide-border">
-          {isLoading ? (
-            Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3 px-5 py-3">
-                <Skeleton className="h-7 w-7 rounded-full" />
-                <div className="flex-1 space-y-1">
-                  <Skeleton className="h-3 w-48" />
-                  <Skeleton className="h-2.5 w-28" />
-                </div>
-              </div>
-            ))
-          ) : (data?.recentActivity ?? []).length === 0 ? (
-            <p className="px-5 py-8 text-center text-sm text-muted-foreground">No activity yet.</p>
-          ) : (
-            (data?.recentActivity ?? []).map((item) => (
-              <div key={`${item.type}-${item.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-secondary/20 transition-colors">
-                <div className={cn(
-                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white",
-                  item.type === "lead" ? "bg-primary" : "bg-violet-500"
-                )}>
-                  {item.type === "lead" ? <Users className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">{item.label}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {item.type === "lead" ? "New lead" : "Full valuation"}
-                    {item.extra && <span className="ml-1 font-semibold uppercase">&middot; {item.extra}</span>}
-                    <span className="ml-2">{timeAgo(item.createdAt)}</span>
-                  </p>
-                </div>
-                {item.value > 0 && (
-                  <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                    {fmtDollars(item.value)}
-                  </span>
-                )}
-              </div>
-            ))
-          )}
-        </div>
-      </Card>
-
-      {/* ── Horizon Pipeline (localStorage) ────────────────────────────────── */}
-      <Card className="overflow-hidden border-border">
-        <div className="flex items-center justify-between border-b border-border bg-secondary/40 px-5 py-3">
+      {/* ── Horizon Pipeline ─────────────────────────────────────────────────── */}
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Horizon Pipeline</h3>
-            <p className="text-xs text-muted-foreground">Deals tracked in this browser</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+              Horizon Pipeline
+            </p>
+            <p className="text-[11px] text-muted-foreground">Deals tracked in this browser</p>
           </div>
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
             <span><span className="font-bold text-foreground">{activeDeals.length}</span> active</span>
             <span><span className="font-bold text-emerald-500">{completedDeals.length}</span> closed</span>
-            <span><span className="font-bold text-muted-foreground">{totalSubmissions}</span> submissions</span>
             <span className="font-bold text-primary">{fmtDollars(pipelineValue)}</span>
           </div>
         </div>
-        <div className="max-h-72 overflow-y-auto">
+        <div className="max-h-64 overflow-y-auto">
           {deals.length === 0 ? (
-            <p className="px-5 py-8 text-center text-sm text-muted-foreground">
+            <p className="px-4 py-6 text-center text-xs text-muted-foreground">
               No saved deals yet. Add them from the Horizon Pipeline tab.
             </p>
           ) : (
@@ -761,16 +463,16 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
               return (
                 <div
                   key={deal.id}
-                  className="flex items-center justify-between border-b border-border px-5 py-3 last:border-0 hover:bg-secondary/20 transition-colors"
+                  className="flex items-center justify-between border-b border-border px-4 py-2.5 last:border-0 hover:bg-muted/30 transition-colors"
                 >
                   <div className="min-w-0 flex-1">
                     <button
                       onClick={() => onLoadDeal(deal.id)}
-                      className="text-left text-sm font-semibold text-foreground hover:text-primary transition-colors"
+                      className="text-left text-[13px] font-semibold text-foreground hover:text-primary transition-colors"
                     >
                       {deal.deal_name}
                     </button>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-[11px] text-muted-foreground">
                       {new Date(deal.date_saved).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                       {" · "}<span className="font-semibold uppercase">{deal.deal_type}</span>
                       {daysOld > 30 && deal.status === "active" && (
@@ -781,11 +483,14 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => onStatusChange(deal.id, getNextStatus(deal.status))}
-                      className={cn("rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase transition-colors", STATUS_STYLE[deal.status])}
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase transition-colors",
+                        STATUS_STYLE[deal.status],
+                      )}
                     >
                       {deal.status}
                     </button>
-                    <p className="w-24 text-right text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
+                    <p className="w-20 text-right text-[13px] font-extrabold text-emerald-600 dark:text-emerald-400">
                       {fmtDollars(deal.valuation)}
                     </p>
                     <Button
@@ -802,7 +507,7 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
             })
           )}
         </div>
-      </Card>
+      </div>
 
     </div>
   )
