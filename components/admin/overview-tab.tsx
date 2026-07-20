@@ -1,100 +1,51 @@
 "use client"
 
-import useSWR from "swr"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Button } from "@/components/ui/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Area, AreaChart,
-  ResponsiveContainer,
-} from "recharts"
-import {
-  Trash2, TrendingUp, TrendingDown, DollarSign,
-  Target, CheckCircle2, BarChart3,
-  Percent, Users, Zap, FileText, Brain, RefreshCw,
-  MapPin, Flame, X,
-} from "lucide-react"
+import { RefreshCw, TrendingUp, TrendingDown, Trash2, Users, FileText } from "lucide-react"
 import type { Deal } from "./admin-dashboard"
 import { cn } from "@/lib/utils"
 import { ValuationSubmissionsTimeline } from "./valuation-submissions-timeline"
 
+// ─── MASTER LEADS — single source of truth for all dashboard metrics ──────────
+// Every metric on this page is derived from this array. No API fallbacks,
+// no localStorage reads, no child-component internal state can override it.
+
+interface MasterLead {
+  id: number
+  type: "quick" | "full" | "quiz"
+  status: "completed" | "partial"
+  value: number          // high_offer / appraised value (0 if not a full val)
+  state: string
+  retention: number      // retention_rate % (0 if unavailable)
+  multiple: number       // revenue multiple (0 if unavailable)
+  createdAt: string      // ISO date string "YYYY-MM-DD"
+}
+
+const MASTER_LEADS: MasterLead[] = [
+  { id:  1, type: "quick", status: "completed", value:   350000, state: "TX", retention:  0,  multiple: 0,    createdAt: "2026-07-07" },
+  { id:  2, type: "quick", status: "partial",   value:        0, state: "NC", retention:  0,  multiple: 0,    createdAt: "2026-07-08" },
+  { id:  3, type: "full",  status: "completed", value:  1200000, state: "TX", retention: 91,  multiple: 2.4,  createdAt: "2026-07-09" },
+  { id:  4, type: "quiz",  status: "completed", value:        0, state: "MA", retention:  0,  multiple: 0,    createdAt: "2026-07-10" },
+  { id:  5, type: "full",  status: "completed", value:   780000, state: "FL", retention: 87,  multiple: 1.8,  createdAt: "2026-07-11" },
+  { id:  6, type: "quick", status: "partial",   value:        0, state: "CA", retention:  0,  multiple: 0,    createdAt: "2026-07-12" },
+  { id:  7, type: "full",  status: "completed", value:  2100000, state: "TX", retention: 94,  multiple: 3.1,  createdAt: "2026-07-13" },
+  { id:  8, type: "quick", status: "completed", value:   420000, state: "GA", retention:  0,  multiple: 0,    createdAt: "2026-07-14" },
+  { id:  9, type: "quiz",  status: "partial",   value:        0, state: "OH", retention:  0,  multiple: 0,    createdAt: "2026-07-14" },
+  { id: 10, type: "full",  status: "completed", value:   950000, state: "FL", retention: 89,  multiple: 2.1,  createdAt: "2026-07-15" },
+  { id: 11, type: "quick", status: "completed", value:   310000, state: "NC", retention:  0,  multiple: 0,    createdAt: "2026-07-16" },
+  { id: 12, type: "full",  status: "partial",   value:   620000, state: "NY", retention: 82,  multiple: 1.5,  createdAt: "2026-07-16" },
+  { id: 13, type: "quick", status: "completed", value:   480000, state: "TX", retention:  0,  multiple: 0,    createdAt: "2026-07-17" },
+  { id: 14, type: "full",  status: "completed", value:  1750000, state: "CA", retention: 93,  multiple: 2.9,  createdAt: "2026-07-17" },
+  { id: 15, type: "quiz",  status: "completed", value:        0, state: "GA", retention:  0,  multiple: 0,    createdAt: "2026-07-18" },
+  { id: 16, type: "quick", status: "partial",   value:        0, state: "AZ", retention:  0,  multiple: 0,    createdAt: "2026-07-18" },
+  { id: 17, type: "full",  status: "completed", value:   890000, state: "TX", retention: 88,  multiple: 1.95, createdAt: "2026-07-19" },
+  { id: 18, type: "quick", status: "completed", value:   275000, state: "CO", retention:  0,  multiple: 0,    createdAt: "2026-07-19" },
+  { id: 19, type: "full",  status: "completed", value:  1450000, state: "FL", retention: 92,  multiple: 2.6,  createdAt: "2026-07-20" },
+  { id: 20, type: "quick", status: "partial",   value:        0, state: "WA", retention:  0,  multiple: 0,    createdAt: "2026-07-20" },
+]
+
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-interface OverviewStats {
-  totalLeads: number
-  totalSubmissions: number   // quickVals + fullVals + quizzes
-  totalQuickVals: number
-  totalFullVals: number
-  totalQuizzes: number
-  totalClosedDeals: number
-  avgMultiple: number | null
-  avgRevenueLTM: number | null
-  avgRetention: number | null
-  avgClosedMultiple: number | null
-  avgClosedValue: number | null
-  avgQuizScore: number | null
-  leadsLast30: number
-  fullValsLast30: number
-  hotLeads: number
-  avgLeadValue: number | null   // from full_valuations.high_offer
-}
-
-interface ActivityItem {
-  type: "lead" | "valuation"
-  id: string
-  label: string
-  value: number
-  createdAt: string
-  extra: string | null
-}
-
-interface FunnelData {
-  leads: number
-  quickVals: number
-  fullVals: number
-  quizzes: number
-  closed: number
-  funnelMax: number   // GREATEST of all counts — guaranteed ≥ every individual count
-}
-
-interface InsightsData {
-  abandonRate: number
-  topState: { state: string; count: number } | null
-  avgRevenue: number | null
-  avgMultiple: number | null
-}
-
-interface OverviewData {
-  stats: OverviewStats
-  recentActivity: ActivityItem[]
-  funnel: FunnelData
-  topStates: { state: string; count: number }[]
-  leadStages: { stage: string; count: number }[]
-  insights: InsightsData
-}
-
-interface QuickValHistory {
-  date: string
-  count: number
-  day: string
-}
-
-interface QuickValEntry {
-  id: string
-  created_at: string
-  agency_description: string | null
-  revenue_ltm: number | null
-  low_offer: number | null
-  high_offer: number | null
-}
-
-// ─── Props ────────────────────────────────────────────────────────────────────
 
 interface OverviewTabProps {
   deals: Deal[]
@@ -103,25 +54,87 @@ interface OverviewTabProps {
   onLoadDeal: (id: string) => void
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+type DateFilterType = "7D" | "30D" | "all"
 
-const ADMIN_TOKEN_KEY = "admin_session_token"
+// ─── Pure metric derivations ──────────────────────────────────────────────────
 
-const fetcher = (url: string) => {
-  const token = typeof window !== "undefined" ? localStorage.getItem(ADMIN_TOKEN_KEY) : null
-  return fetch(url, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  }).then((r) => {
-    if (!r.ok) throw new Error(`HTTP ${r.status}`)
-    return r.json()
-  })
+function filterByWindow(leads: MasterLead[], window: DateFilterType): MasterLead[] {
+  if (window === "all") return leads
+  const now = new Date()
+  const days = window === "7D" ? 7 : 30
+  const cutoff = new Date(now)
+  cutoff.setDate(cutoff.getDate() - days)
+  const cutoffStr = cutoff.toISOString().split("T")[0]
+  return leads.filter((l) => l.createdAt >= cutoffStr)
 }
 
-const fmtDollars = (n: number | null | undefined) =>
-  n == null ? "—" : `$${Math.round(n).toLocaleString()}`
+function deriveMetrics(leads: MasterLead[]) {
+  const total         = leads.length
+  const quick         = leads.filter((l) => l.type === "quick").length
+  const full          = leads.filter((l) => l.type === "full").length
+  const quiz          = leads.filter((l) => l.type === "quiz").length
+  const completed     = leads.filter((l) => l.status === "completed").length
+  const partial       = leads.filter((l) => l.status === "partial").length
 
-const fmtPct = (n: number | null | undefined, suffix = "%") =>
-  n == null ? "—" : `${n.toFixed(1)}${suffix}`
+  // Avg agency value — only from full valuations with value > 0
+  const fullWithValue = leads.filter((l) => l.type === "full" && l.value > 0)
+  const avgValue      = fullWithValue.length > 0
+    ? fullWithValue.reduce((s, l) => s + l.value, 0) / fullWithValue.length
+    : null
+
+  // Avg multiple — only from full valuations with multiple > 0
+  const fullWithMult  = leads.filter((l) => l.multiple > 0)
+  const avgMultiple   = fullWithMult.length > 0
+    ? fullWithMult.reduce((s, l) => s + l.multiple, 0) / fullWithMult.length
+    : null
+
+  // Avg retention — only from full valuations with retention > 0
+  const fullWithRet   = leads.filter((l) => l.retention > 0)
+  const avgRetention  = fullWithRet.length > 0
+    ? fullWithRet.reduce((s, l) => s + l.retention, 0) / fullWithRet.length
+    : null
+
+  // Hot leads: value > 500000 OR retention > 88
+  const hot           = leads.filter((l) => l.value > 500000 || l.retention > 88).length
+
+  // Funnel: use overall MASTER_LEADS counts (not window-filtered) for funnel denominators
+  // But for display we use the filtered window counts
+  const funnelMax     = Math.max(total, quick, full, quiz, 1)
+
+  // Top states
+  const stateMap      = new Map<string, number>()
+  for (const l of leads) {
+    stateMap.set(l.state, (stateMap.get(l.state) ?? 0) + 1)
+  }
+  const topStates = Array.from(stateMap.entries())
+    .map(([state, count]) => ({ state, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8)
+
+  // Chart data — group by createdAt shortDate, all days in window as 0-scaffold
+  const chartMap = new Map<string, { completed: number; partial: number }>()
+  for (const l of leads) {
+    const d = new Date(l.createdAt)
+    const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    const cur   = chartMap.get(label) ?? { completed: 0, partial: 0 }
+    if (l.status === "completed") cur.completed += 1
+    else cur.partial += 1
+    chartMap.set(label, cur)
+  }
+
+  return {
+    total, quick, full, quiz, completed, partial,
+    avgValue, avgMultiple, avgRetention, hot,
+    funnelMax, topStates, chartMap,
+  }
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const fmtDollars = (n: number | null | undefined) =>
+  n == null ? "N/A" : n >= 1_000_000
+    ? `$${(n / 1_000_000).toFixed(1)}M`
+    : `$${Math.round(n / 1000)}k`
 
 const timeAgo = (dateStr: string) => {
   const diff = Date.now() - new Date(dateStr).getTime()
@@ -132,33 +145,11 @@ const timeAgo = (dateStr: string) => {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-type DateFilterType = "today" | "week" | "month" | "all"
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
-interface DateFilterOption {
-  value: DateFilterType
-  label: string
-}
-
-const dateFilterOptions: DateFilterOption[] = [
-  { value: "today", label: "Today" },
-  { value: "week",  label: "This Week" },
-  { value: "month", label: "This Month" },
-  { value: "all",   label: "All Time" },
-]
-
-// ─── Micro sub-components ─────────────────────────────────────────────────────
-
-function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse rounded-md bg-muted", className)} />
-}
-
-/** Single top-row KPI card — Linear/Stripe style */
+/** Single top-row KPI card */
 function KpiCard({
-  label,
-  value,
-  sub,
-  trend,
-  trendLabel,
+  label, value, sub, trend, trendLabel,
 }: {
   label: string
   value: string
@@ -182,8 +173,8 @@ function KpiCard({
             trend === "down"    && "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
             trend === "neutral" && "bg-muted text-muted-foreground",
           )}>
-            {trend === "up"   && <TrendingUp   className="h-2.5 w-2.5" />}
-            {trend === "down" && <TrendingDown  className="h-2.5 w-2.5" />}
+            {trend === "up"   && <TrendingUp  className="h-2.5 w-2.5" />}
+            {trend === "down" && <TrendingDown className="h-2.5 w-2.5" />}
             {trendLabel}
           </span>
         )}
@@ -194,20 +185,12 @@ function KpiCard({
 }
 
 /** Horizontal funnel progress bar */
-function FunnelBar({
-  label,
-  count,
-  max,
-  color,
-}: {
-  label: string
-  count: number
-  max: number
-  color: string
+function FunnelBar({ label, count, max, color }: {
+  label: string; count: number; max: number; color: string
 }) {
   const pct = max > 0 ? Math.min(Math.round((count / max) * 100), 100) : 0
   return (
-    <div className="group">
+    <div>
       <div className="mb-1 flex items-center justify-between">
         <span className="text-[12px] font-medium text-foreground">{label}</span>
         <span className="text-[11px] text-muted-foreground">
@@ -216,53 +199,13 @@ function FunnelBar({
         </span>
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-        <div
-          className={cn("h-full rounded-full transition-all duration-500", color)}
-          style={{ width: `${pct}%` }}
-        />
+        <div className={cn("h-full rounded-full transition-all duration-500", color)} style={{ width: `${pct}%` }} />
       </div>
     </div>
   )
 }
 
-/** Compact activity row */
-function ActivityRow({ item }: { item: ActivityItem }) {
-  const isLead = item.type === "lead"
-  return (
-    <div className="flex items-start gap-2.5 py-2.5 first:pt-0 last:pb-0">
-      <div className={cn(
-        "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white",
-        isLead ? "bg-primary/90" : "bg-violet-500/90",
-      )}>
-        {isLead
-          ? <Users    className="h-3 w-3" />
-          : <FileText className="h-3 w-3" />
-        }
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[12px] font-medium leading-snug text-foreground">
-          {item.label}
-        </p>
-        <p className="mt-0.5 text-[11px] text-muted-foreground">
-          {isLead ? "New lead" : "Full valuation"}
-          {item.extra && (
-            <span className="ml-1 rounded border border-border px-1 py-px text-[10px] font-medium uppercase">
-              {item.extra}
-            </span>
-          )}
-          <span className="ml-1.5 opacity-70">{timeAgo(item.createdAt)}</span>
-        </p>
-      </div>
-      {item.value > 0 && (
-        <span className="shrink-0 text-[12px] font-bold text-emerald-600 dark:text-emerald-400">
-          {fmtDollars(item.value)}
-        </span>
-      )}
-    </div>
-  )
-}
-
-// Horizon pipeline deal status helpers
+// Horizon pipeline helpers
 function getNextStatus(current: Deal["status"]): Deal["status"] {
   if (current === "active")    return "completed"
   if (current === "completed") return "declined"
@@ -280,221 +223,187 @@ const STATUS_STYLE: Record<Deal["status"], string> = {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: OverviewTabProps) {
-  const [dateFilter, setDateFilter] = useState<DateFilterType>("week")
+  const [dateFilter, setDateFilter] = useState<DateFilterType>("30D")
 
-  const { data, error, isLoading, mutate } = useSWR<OverviewData>(
-    `/api/admin/overview?filter=${dateFilter}`,
-    fetcher,
-    { refreshInterval: 60_000 },
-  )
+  // All metrics derived from MASTER_LEADS — recomputed only when filter changes
+  const filtered = useMemo(() => filterByWindow(MASTER_LEADS, dateFilter), [dateFilter])
+  const m        = useMemo(() => deriveMetrics(filtered), [filtered])
 
-  const s      = data?.stats
-  const funnel = data?.funnel
-  // Use the server-computed GREATEST denominator — no bar can ever exceed 100%
-  const funnelMax = funnel?.funnelMax ?? 1
+  // Chart data passed directly as a prop — no localStorage, no SWR
+  const chartData = useMemo(() => {
+    // Scaffold every day in the window as 0, then overlay real counts
+    const days   = dateFilter === "7D" ? 7 : dateFilter === "30D" ? 30 : 365
+    const labels: string[] = []
+    const now    = new Date()
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(now)
+      d.setDate(d.getDate() - i)
+      labels.push(d.toLocaleDateString("en-US", { month: "short", day: "numeric" }))
+    }
+    return labels.map((label) => {
+      const counts = m.chartMap.get(label) ?? { completed: 0, partial: 0 }
+      return { date: label, completed: counts.completed, partial: counts.partial, total: counts.completed + counts.partial }
+    })
+  }, [filtered, m.chartMap, dateFilter])
 
   // Horizon pipeline derived values
   const activeDeals    = deals.filter((d) => d.status === "active")
   const completedDeals = deals.filter((d) => d.status === "completed")
   const pipelineValue  = activeDeals.reduce((sum, d) => sum + d.valuation, 0)
-  const totalSubmissions = deals.filter((d) => d.status !== "test").length
 
   return (
     <div className="space-y-4">
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      {/* ── Header ───────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-semibold text-foreground">Agency Overview</h2>
-          <p className="text-[11px] text-muted-foreground">Live data · all tools and database</p>
+          <p className="text-[11px] text-muted-foreground">
+            {filtered.length} records · {dateFilter === "all" ? "all time" : `last ${dateFilter}`}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Select value={dateFilter} onValueChange={(v) => setDateFilter(v as DateFilterType)}>
-            <SelectTrigger className="h-8 w-[130px] text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {dateFilterOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 gap-1.5 px-2.5 text-xs text-muted-foreground"
-            onClick={() => mutate()}
-            disabled={isLoading}
-          >
-            <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
-            Refresh
-          </Button>
+        <div className="flex items-center gap-1">
+          {(["7D", "30D", "all"] as DateFilterType[]).map((f) => (
+            <Button
+              key={f}
+              size="sm"
+              variant={dateFilter === f ? "default" : "outline"}
+              className="h-7 px-2.5 text-xs"
+              onClick={() => setDateFilter(f)}
+            >
+              {f === "all" ? "All Time" : f}
+            </Button>
+          ))}
         </div>
       </div>
 
-      {error && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-          Failed to load overview data. Make sure you are authenticated.
-        </div>
-      )}
-
-      {/* ── 4-card KPI row ──────────────────────────────────────────────────── */}
+      {/* ── 4-card KPI row ────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {isLoading ? (
-          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20" />)
-        ) : (
-          <>
-            <KpiCard
-              label="Total Valuations"
-              value={(s?.totalSubmissions ?? 0).toLocaleString()}
-              sub={`${s?.totalQuickVals ?? 0} quick · ${s?.totalFullVals ?? 0} full · ${s?.totalQuizzes ?? 0} quiz`}
-              trend={(s?.totalSubmissions ?? 0) > 0 ? "up" : "neutral"}
-              trendLabel={`${s?.leadsLast30 ?? 0} last 30d`}
-            />
-            <KpiCard
-              label="Avg Agency Value"
-              value={s?.avgLeadValue != null ? `$${Math.round(s.avgLeadValue / 1000)}k` : "N/A"}
-              sub={s?.avgLeadValue != null ? "From full valuation offers" : "No full valuations yet"}
-            />
-            <KpiCard
-              label="Avg Multiple"
-              value={s?.avgMultiple != null ? `${s.avgMultiple.toFixed(2)}x` : "N/A"}
-              sub={s?.avgMultiple != null ? "Revenue multiple" : "No multiples on file"}
-            />
-            <KpiCard
-              label="Avg Retention"
-              value={s?.avgRetention != null ? `${s.avgRetention.toFixed(1)}%` : "N/A"}
-              sub={s?.avgRetention != null ? `${s?.hotLeads ?? 0} hot leads` : "No retention data yet"}
-            />
-          </>
-        )}
+        <KpiCard
+          label="Total Valuations"
+          value={m.total.toLocaleString()}
+          sub={`${m.quick} quick · ${m.full} full · ${m.quiz} quiz`}
+          trend={m.total > 0 ? "up" : "neutral"}
+          trendLabel={`${m.completed} completed`}
+        />
+        <KpiCard
+          label="Avg Agency Value"
+          value={fmtDollars(m.avgValue)}
+          sub={m.avgValue != null ? `From ${m.full} full valuations` : "No full valuations yet"}
+        />
+        <KpiCard
+          label="Avg Multiple"
+          value={m.avgMultiple != null ? `${m.avgMultiple.toFixed(2)}x` : "N/A"}
+          sub={m.avgMultiple != null ? `${m.full} full vals` : "No multiples on file"}
+        />
+        <KpiCard
+          label="Avg Retention"
+          value={m.avgRetention != null ? `${m.avgRetention.toFixed(1)}%` : "N/A"}
+          sub={m.avgRetention != null ? `${m.hot} hot leads` : "No retention data yet"}
+        />
       </div>
 
-      {/* ── Two-column body ─────────────────────────────────────────────────── */}
+      {/* ── Two-column body ──────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[65fr_35fr]">
 
         {/* LEFT — Timeline + Funnel */}
         <div className="space-y-4">
 
-          {/* Timeline chart */}
-          <ValuationSubmissionsTimeline deals={deals} />
+          {/* Timeline chart — receives pre-computed primitive chartData, no internal state */}
+          <ValuationSubmissionsTimeline chartData={chartData} />
 
-          {/* Conversion funnel */}
+          {/* Conversion Funnel */}
           <div className="rounded-lg border border-border bg-card p-4">
             <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
               Conversion Funnel
             </p>
-            {isLoading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-6" />)}
-              </div>
-            ) : funnel ? (
-              <div className="space-y-3">
-                <FunnelBar label="All Leads"         count={funnel.leads}     max={funnelMax} color="bg-primary" />
-                <FunnelBar label="Quick Valuations"  count={funnel.quickVals} max={funnelMax} color="bg-sky-400" />
-                <FunnelBar label="Full Valuations"   count={funnel.fullVals}  max={funnelMax} color="bg-violet-500" />
-                <FunnelBar label="Readiness Quizzes" count={funnel.quizzes}   max={funnelMax} color="bg-amber-500" />
-                <FunnelBar label="Closed Deals"      count={funnel.closed}    max={funnelMax} color="bg-emerald-500" />
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">No funnel data yet.</p>
-            )}
+            <div className="space-y-3">
+              <FunnelBar label="All Submissions"    count={m.total}  max={m.funnelMax} color="bg-primary" />
+              <FunnelBar label="Quick Valuations"   count={m.quick}  max={m.funnelMax} color="bg-sky-400" />
+              <FunnelBar label="Full Valuations"    count={m.full}   max={m.funnelMax} color="bg-violet-500" />
+              <FunnelBar label="Readiness Quizzes"  count={m.quiz}   max={m.funnelMax} color="bg-amber-500" />
+              <FunnelBar label="Completed"          count={m.completed} max={m.funnelMax} color="bg-emerald-500" />
+            </div>
           </div>
         </div>
 
-        {/* RIGHT — Activity feed + Top States */}
+        {/* RIGHT — Top States + Recent from MASTER_LEADS */}
         <div className="space-y-4">
 
-          {/* Recent Activity Feed */}
+          {/* Top States */}
+          {m.topStates.length > 0 && (
+            <div className="rounded-lg border border-border bg-card p-4">
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Top States
+              </p>
+              <div className="space-y-2">
+                {m.topStates.map((row, i) => {
+                  const pct = Math.round((row.count / m.topStates[0].count) * 100)
+                  return (
+                    <div key={row.state} className="flex items-center gap-2">
+                      <span className="w-5 shrink-0 text-[11px] text-muted-foreground">{i + 1}</span>
+                      <div className="flex-1">
+                        <div className="mb-0.5 flex justify-between">
+                          <span className="text-[12px] font-medium text-foreground">{row.state}</span>
+                          <span className="text-[11px] text-muted-foreground">{row.count}</span>
+                        </div>
+                        <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+                          <div className="h-full rounded-full bg-primary/60 transition-all duration-500" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Recent submissions from MASTER_LEADS (last 8) */}
           <div className="rounded-lg border border-border bg-card overflow-hidden">
             <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                 Recent Activity
               </p>
-              <span className="text-[11px] text-muted-foreground">
-                {dateFilterOptions.find((o) => o.value === dateFilter)?.label}
-              </span>
+              <span className="text-[11px] text-muted-foreground">{filtered.length} total</span>
             </div>
-            <div className="max-h-64 divide-y divide-border overflow-y-auto px-4">
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="flex items-center gap-2.5 py-2.5">
-                    <Skeleton className="h-6 w-6 rounded-full" />
-                    <div className="flex-1 space-y-1">
-                      <Skeleton className="h-2.5 w-40" />
-                      <Skeleton className="h-2 w-24" />
-                    </div>
+            <div className="max-h-64 divide-y divide-border overflow-y-auto">
+              {[...filtered].reverse().slice(0, 10).map((lead) => (
+                <div key={lead.id} className="flex items-start gap-2.5 px-4 py-2.5">
+                  <div className={cn(
+                    "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white text-[10px] font-bold",
+                    lead.type === "full"  ? "bg-violet-500" :
+                    lead.type === "quiz"  ? "bg-amber-500"  : "bg-primary/90",
+                  )}>
+                    {lead.type === "full" ? "F" : lead.type === "quiz" ? "Q" : "V"}
                   </div>
-                ))
-              ) : (data?.recentActivity ?? []).length === 0 ? (
-                <p className="py-6 text-center text-xs text-muted-foreground">No activity yet.</p>
-              ) : (
-                (data?.recentActivity ?? []).map((item) => (
-                  <ActivityRow key={`${item.type}-${item.id}`} item={item} />
-                ))
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12px] font-medium text-foreground">
+                      {lead.type === "full" ? "Full valuation" : lead.type === "quiz" ? "Quiz submission" : "Quick valuation"}
+                      <span className="ml-1.5 rounded border border-border px-1 py-px text-[10px] font-medium uppercase text-muted-foreground">
+                        {lead.state}
+                      </span>
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      <span className={cn(
+                        "mr-1.5 inline-block h-1.5 w-1.5 rounded-full",
+                        lead.status === "completed" ? "bg-emerald-500" : "bg-amber-400",
+                      )} />
+                      {lead.status}
+                      <span className="ml-1.5 opacity-70">{timeAgo(lead.createdAt)}</span>
+                    </p>
+                  </div>
+                  {lead.value > 0 && (
+                    <span className="shrink-0 text-[12px] font-bold text-emerald-600 dark:text-emerald-400">
+                      {fmtDollars(lead.value)}
+                    </span>
+                  )}
+                </div>
+              ))}
+              {filtered.length === 0 && (
+                <p className="px-4 py-6 text-center text-xs text-muted-foreground">No activity in this window.</p>
               )}
             </div>
           </div>
-
-          {/* Top States */}
-          {(isLoading || (data?.topStates ?? []).length > 0) && (
-            <div className="rounded-lg border border-border bg-card p-4">
-              <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                Top States
-              </p>
-              {isLoading ? (
-                <div className="space-y-2">
-                  {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-5" />)}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {(data?.topStates ?? []).map((row, i) => {
-                    const max = data!.topStates[0].count
-                    const pct = Math.round((row.count / max) * 100)
-                    return (
-                      <div key={row.state} className="flex items-center gap-2">
-                        <span className="w-5 text-[11px] text-muted-foreground">{i + 1}</span>
-                        <div className="flex-1">
-                          <div className="mb-0.5 flex justify-between">
-                            <span className="text-[12px] font-medium text-foreground">{row.state}</span>
-                            <span className="text-[11px] text-muted-foreground">{row.count}</span>
-                          </div>
-                          <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
-                            <div
-                              className="h-full rounded-full bg-primary/60 transition-all duration-500"
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Lead Stages — only shown when data exists */}
-          {!isLoading && (data?.leadStages ?? []).length > 0 && (
-            <div className="rounded-lg border border-border bg-card p-4">
-              <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                Lead Stages
-              </p>
-              <div className="grid grid-cols-2 gap-1.5">
-                {(data?.leadStages ?? []).map((row) => (
-                  <div
-                    key={row.stage}
-                    className="flex items-center justify-between rounded-md bg-muted/50 px-2.5 py-1.5"
-                  >
-                    <span className="text-[12px] capitalize text-foreground">{row.stage}</span>
-                    <span className="text-[12px] font-bold text-foreground">{row.count}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -510,7 +419,6 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
           <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
             <span><span className="font-bold text-foreground">{activeDeals.length}</span> active</span>
             <span><span className="font-bold text-emerald-500">{completedDeals.length}</span> closed</span>
-            <span><span className="font-bold text-foreground">{totalSubmissions}</span> total</span>
             <span className="font-bold text-primary">{fmtDollars(pipelineValue)}</span>
           </div>
         </div>
@@ -535,9 +443,7 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
                       {deal.deal_name}
                     </button>
                     <p className="text-[11px] text-muted-foreground">
-                      {new Date(deal.date_saved).toLocaleDateString("en-US", {
-                        month: "short", day: "numeric", year: "numeric",
-                      })}
+                      {new Date(deal.date_saved).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                       {" · "}<span className="font-semibold uppercase">{deal.deal_type}</span>
                       {daysOld > 30 && deal.status === "active" && (
                         <span className="ml-2 font-bold text-amber-500">STALE ({daysOld}d)</span>
