@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
       // ── Aggregate totals ──────────────────────────────────────────────────
       sql`
         SELECT
+          -- Master counts (filtered by window)
           (SELECT COUNT(*) FROM leads
             WHERE (archived = false OR archived IS NULL)
               AND created_at >= ${cutoff}::timestamptz)::int                                    AS total_leads,
@@ -42,25 +43,43 @@ export async function GET(req: NextRequest) {
           (SELECT COUNT(*) FROM quiz_submissions
             WHERE created_at >= ${cutoff}::timestamptz)::int                                   AS total_quizzes,
           (SELECT COUNT(*) FROM completed_deals)::int                                          AS total_closed_deals,
-          (SELECT ROUND(AVG(
-            CASE WHEN calculated_multiple::varchar ~ '^-?[0-9]+(\.[0-9]+)?$'
-                 THEN calculated_multiple::varchar::numeric ELSE NULL END
-          ), 2) FROM full_valuations WHERE calculated_multiple IS NOT NULL)                    AS avg_multiple,
-          (SELECT ROUND(AVG(revenue_ltm), 0)    FROM full_valuations WHERE revenue_ltm IS NOT NULL)      AS avg_revenue_ltm,
-          (SELECT ROUND(AVG(retention_rate), 1) FROM full_valuations WHERE retention_rate IS NOT NULL)   AS avg_retention,
-          (SELECT ROUND(AVG(final_multiple), 2) FROM completed_deals WHERE final_multiple IS NOT NULL)   AS avg_closed_multiple,
-          (SELECT ROUND(AVG(final_offer), 0)    FROM completed_deals WHERE final_offer IS NOT NULL)      AS avg_closed_value,
-          (SELECT ROUND(AVG(percentage), 1)     FROM quiz_submissions WHERE percentage IS NOT NULL)      AS avg_quiz_score,
+
+          -- Averages computed strictly from rows with non-null values (all-time for quality metrics)
+          (SELECT ROUND(AVG(calculated_multiple::numeric), 2)
+            FROM full_valuations
+            WHERE calculated_multiple IS NOT NULL
+              AND calculated_multiple::text ~ '^-?[0-9]+(\.[0-9]+)?$')                        AS avg_multiple,
+          (SELECT ROUND(AVG(revenue_ltm), 0)
+            FROM full_valuations WHERE revenue_ltm IS NOT NULL)                                AS avg_revenue_ltm,
+          (SELECT ROUND(AVG(retention_rate), 1)
+            FROM full_valuations WHERE retention_rate IS NOT NULL)                             AS avg_retention,
+          (SELECT ROUND(AVG(final_multiple), 2)
+            FROM completed_deals WHERE final_multiple IS NOT NULL)                             AS avg_closed_multiple,
+          (SELECT ROUND(AVG(final_offer), 0)
+            FROM completed_deals WHERE final_offer IS NOT NULL)                                AS avg_closed_value,
+          (SELECT ROUND(AVG(percentage), 1)
+            FROM quiz_submissions WHERE percentage IS NOT NULL)                                AS avg_quiz_score,
+
+          -- Avg agency value from full valuation high offers (not leads.estimated_value which is often null)
+          (SELECT ROUND(AVG(high_offer), 0)
+            FROM full_valuations WHERE high_offer IS NOT NULL AND high_offer > 0)             AS avg_lead_value,
+
+          -- Rolling 30-day counts (independent of the date filter)
           (SELECT COUNT(*) FROM leads
             WHERE created_at >= NOW() - INTERVAL '30 days'
               AND (archived = false OR archived IS NULL))::int                                 AS leads_last_30,
           (SELECT COUNT(*) FROM full_valuations
             WHERE created_at >= NOW() - INTERVAL '30 days')::int                              AS full_vals_last_30,
-          (SELECT COUNT(*) FROM leads
-            WHERE stage = 'hot' AND (archived = false OR archived IS NULL))::int              AS hot_leads,
-          (SELECT ROUND(AVG(estimated_value), 0) FROM leads
-            WHERE estimated_value IS NOT NULL
-              AND (archived = false OR archived IS NULL))                                      AS avg_lead_value
+
+          -- Hot leads: estimated_value > 500000 OR linked full_val retention_rate > 88
+          (SELECT COUNT(DISTINCT l.id)
+            FROM leads l
+            LEFT JOIN full_valuations fv ON fv.lead_id = l.id
+            WHERE (l.archived = false OR l.archived IS NULL)
+              AND (
+                l.estimated_value > 500000
+                OR fv.retention_rate > 88
+              ))::int                                                                           AS hot_leads
       `,
 
       // ── Recent activity ───────────────────────────────────────────────────
@@ -95,18 +114,29 @@ export async function GET(req: NextRequest) {
       `,
 
       // ── Funnel counts (filtered) ──────────────────────────────────────────
+      // funnel_max = GREATEST(all individual counts) so no bar ever exceeds 100%
       sql`
+        WITH counts AS (
+          SELECT
+            (SELECT COUNT(*) FROM leads
+              WHERE (archived = false OR archived IS NULL)
+                AND created_at >= ${cutoff}::timestamptz)::int  AS leads,
+            (SELECT COUNT(*) FROM quick_valuations
+              WHERE created_at >= ${cutoff}::timestamptz)::int  AS quick_vals,
+            (SELECT COUNT(*) FROM full_valuations
+              WHERE created_at >= ${cutoff}::timestamptz)::int  AS full_vals,
+            (SELECT COUNT(*) FROM quiz_submissions
+              WHERE created_at >= ${cutoff}::timestamptz)::int  AS quizzes,
+            (SELECT COUNT(*) FROM completed_deals)::int          AS closed
+        )
         SELECT
-          (SELECT COUNT(*) FROM leads
-            WHERE (archived = false OR archived IS NULL)
-              AND created_at >= ${cutoff}::timestamptz)::int  AS total_leads_filtered,
-          (SELECT COUNT(*) FROM quick_valuations
-            WHERE created_at >= ${cutoff}::timestamptz)::int  AS quick_vals,
-          (SELECT COUNT(*) FROM full_valuations
-            WHERE created_at >= ${cutoff}::timestamptz)::int  AS full_vals,
-          (SELECT COUNT(*) FROM quiz_submissions
-            WHERE created_at >= ${cutoff}::timestamptz)::int  AS quizzes,
-          (SELECT COUNT(*) FROM completed_deals)::int          AS closed
+          leads,
+          quick_vals,
+          full_vals,
+          quizzes,
+          closed,
+          GREATEST(leads, quick_vals, full_vals, quizzes, closed, 1) AS funnel_max
+        FROM counts
       `,
 
       // ── Top states (filtered) ─────────────────────────────────────────────
@@ -132,9 +162,13 @@ export async function GET(req: NextRequest) {
     const t = (totals as any[])[0]
     const f = (funnelCounts as any[])[0]
 
-    const totalQuickVals = t.total_quick_vals ?? 0
-    const totalFullVals  = t.total_full_vals  ?? 0
-    const abandonRate    = totalQuickVals > 0
+    const totalQuickVals  = t.total_quick_vals  ?? 0
+    const totalFullVals   = t.total_full_vals   ?? 0
+    const totalQuizzes    = t.total_quizzes     ?? 0
+    // Total submissions = sum of all tool entries (the "top of funnel" number)
+    const totalSubmissions = totalQuickVals + totalFullVals + totalQuizzes
+
+    const abandonRate = totalQuickVals > 0
       ? Math.round(((totalQuickVals - totalFullVals) / totalQuickVals) * 100)
       : 0
 
@@ -143,23 +177,28 @@ export async function GET(req: NextRequest) {
     const avgRevenue   = t.avg_revenue_ltm ? parseFloat(t.avg_revenue_ltm) : null
     const avgMultiple  = t.avg_multiple    ? parseFloat(t.avg_multiple)    : null
 
+    // Funnel max is computed in SQL via GREATEST so all bars ≤ 100%
+    const funnelMax = f?.funnel_max ?? 1
+
     return NextResponse.json({
       stats: {
-        totalLeads:         t.total_leads        ?? 0,
+        totalLeads:         t.total_leads       ?? 0,
+        totalSubmissions,           // quickVals + fullVals + quizzes
         totalQuickVals,
         totalFullVals,
-        totalQuizzes:       t.total_quizzes       ?? 0,
-        totalClosedDeals:   t.total_closed_deals  ?? 0,
+        totalQuizzes,
+        totalClosedDeals:   t.total_closed_deals ?? 0,
         avgMultiple,
         avgRevenueLTM:      avgRevenue,
         avgRetention:       t.avg_retention       ? parseFloat(t.avg_retention)       : null,
         avgClosedMultiple:  t.avg_closed_multiple ? parseFloat(t.avg_closed_multiple) : null,
         avgClosedValue:     t.avg_closed_value    ? parseFloat(t.avg_closed_value)    : null,
         avgQuizScore:       t.avg_quiz_score      ? parseFloat(t.avg_quiz_score)      : null,
-        leadsLast30:        t.leads_last_30        ?? 0,
-        fullValsLast30:     t.full_vals_last_30    ?? 0,
-        hotLeads:           t.hot_leads            ?? 0,
-        avgLeadValue:       t.avg_lead_value       ? parseFloat(t.avg_lead_value)     : null,
+        leadsLast30:        t.leads_last_30       ?? 0,
+        fullValsLast30:     t.full_vals_last_30   ?? 0,
+        hotLeads:           t.hot_leads           ?? 0,
+        // Avg Agency Value from full valuation high offers (not leads.estimated_value)
+        avgLeadValue:       t.avg_lead_value      ? parseFloat(t.avg_lead_value)      : null,
       },
       recentActivity: (recentActivity as any[]).map((r) => ({
         type:      r.type,
@@ -171,13 +210,14 @@ export async function GET(req: NextRequest) {
       })),
       funnel: f
         ? {
-            leads:     f.total_leads_filtered ?? 0,
-            quickVals: f.quick_vals  ?? 0,
-            fullVals:  f.full_vals   ?? 0,
-            quizzes:   f.quizzes     ?? 0,
-            closed:    f.closed      ?? 0,
+            leads:      f.leads      ?? 0,
+            quickVals:  f.quick_vals ?? 0,
+            fullVals:   f.full_vals  ?? 0,
+            quizzes:    f.quizzes    ?? 0,
+            closed:     f.closed     ?? 0,
+            funnelMax,               // GREATEST of all counts — denominator for % math
           }
-        : { leads: 0, quickVals: 0, fullVals: 0, quizzes: 0, closed: 0 },
+        : { leads: 0, quickVals: 0, fullVals: 0, quizzes: 0, closed: 0, funnelMax: 1 },
       topStates:  topStatesArr.map((r) => ({ state: r.state, count: r.count })),
       leadStages: (leadStages as any[]).map((r) => ({ stage: r.stage, count: r.count })),
       insights: {

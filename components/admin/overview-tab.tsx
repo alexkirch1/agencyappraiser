@@ -28,6 +28,7 @@ import { ValuationSubmissionsTimeline } from "./valuation-submissions-timeline"
 
 interface OverviewStats {
   totalLeads: number
+  totalSubmissions: number   // quickVals + fullVals + quizzes
   totalQuickVals: number
   totalFullVals: number
   totalQuizzes: number
@@ -41,7 +42,7 @@ interface OverviewStats {
   leadsLast30: number
   fullValsLast30: number
   hotLeads: number
-  avgLeadValue: number | null
+  avgLeadValue: number | null   // from full_valuations.high_offer
 }
 
 interface ActivityItem {
@@ -59,6 +60,7 @@ interface FunnelData {
   fullVals: number
   quizzes: number
   closed: number
+  funnelMax: number   // GREATEST of all counts — guaranteed ≥ every individual count
 }
 
 interface InsightsData {
@@ -288,7 +290,8 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
 
   const s      = data?.stats
   const funnel = data?.funnel
-  const funnelMax = funnel?.leads ?? 1
+  // Use the server-computed GREATEST denominator — no bar can ever exceed 100%
+  const funnelMax = funnel?.funnelMax ?? 1
 
   // Horizon pipeline derived values
   const activeDeals    = deals.filter((d) => d.status === "active")
@@ -345,25 +348,25 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
           <>
             <KpiCard
               label="Total Valuations"
-              value={(s?.totalLeads ?? 0).toLocaleString()}
-              sub={`${s?.leadsLast30 ?? 0} in last 30 days`}
-              trend={s && s.leadsLast30 >= 5 ? "up" : "neutral"}
-              trendLabel={`${s?.leadsLast30 ?? 0} this week`}
+              value={(s?.totalSubmissions ?? 0).toLocaleString()}
+              sub={`${s?.totalQuickVals ?? 0} quick · ${s?.totalFullVals ?? 0} full · ${s?.totalQuizzes ?? 0} quiz`}
+              trend={(s?.totalSubmissions ?? 0) > 0 ? "up" : "neutral"}
+              trendLabel={`${s?.leadsLast30 ?? 0} last 30d`}
             />
             <KpiCard
               label="Avg Agency Value"
-              value={s?.avgLeadValue != null ? `$${Math.round(s.avgLeadValue / 1000)}k` : "—"}
-              sub="Across all full valuations"
+              value={s?.avgLeadValue != null ? `$${Math.round(s.avgLeadValue / 1000)}k` : "N/A"}
+              sub={s?.avgLeadValue != null ? "From full valuation offers" : "No full valuations yet"}
             />
             <KpiCard
               label="Avg Multiple"
-              value={s?.avgMultiple != null ? `${s.avgMultiple.toFixed(2)}x` : "—"}
-              sub="Revenue multiple"
+              value={s?.avgMultiple != null ? `${s.avgMultiple.toFixed(2)}x` : "N/A"}
+              sub={s?.avgMultiple != null ? "Revenue multiple" : "No multiples on file"}
             />
             <KpiCard
               label="Avg Retention"
-              value={s?.avgRetention != null ? `${s.avgRetention.toFixed(1)}%` : "—"}
-              sub="Client retention rate"
+              value={s?.avgRetention != null ? `${s.avgRetention.toFixed(1)}%` : "N/A"}
+              sub={s?.avgRetention != null ? `${s?.hotLeads ?? 0} hot leads` : "No retention data yet"}
             />
           </>
         )}
