@@ -22,6 +22,10 @@ async function sendEmail(to: string, subject: string, html: string, from: string
 }
 
 export async function POST(req: Request) {
+  // Env var presence check — helps debug missing config without leaking values
+  console.log("[v0] save-quick-valuation: DATABASE_URL set?", !!process.env.DATABASE_URL)
+  console.log("[v0] save-quick-valuation: RESEND_API_KEY set?", !!process.env.RESEND_API_KEY)
+
   // Rate limit: 20 saves per IP per 10 minutes (generous — users iterate)
   const { allowed } = rateLimit(`save-quick-val:${getClientIp(req)}`, 20, 10 * 60 * 1000)
   if (!allowed) {

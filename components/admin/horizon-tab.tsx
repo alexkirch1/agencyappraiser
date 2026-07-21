@@ -22,6 +22,7 @@ import {
   detectCommStatementFormat,
   setCommStatementFormat,
   resetCommStatementFormat,
+  matchPolicies,
   type ParseConfidence,
   type ConfidenceLevel,
 } from "@/lib/parse-utils"
@@ -1505,31 +1506,41 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
               const expIdx = columnMap.expiration ?? -1
               const typeIdx = columnMap.type ?? -1
 
-              // Build policy set
-              const policyNumbers = new Set<string>()
+              // Build EZLynx policy list for the 3-pass matcher
               const activePolicies: string[][] = []
+              const ezlynxList: { policyNumber: string; clientName: string; premium: number }[] = []
+
               policy.data.forEach((row, i) => {
                 if (!policy.excludedIndices.has(i)) {
-                  const pNorm = polIdx >= 0 ? normalizePolicy(row[polIdx]) : ""
-                  if (pNorm) policyNumbers.add(pNorm)
                   activePolicies.push(row)
+                  const polNum   = polIdx  >= 0 ? (row[polIdx]  ?? "") : ""
+                  const clientNm = /* try to find a name column */ (() => {
+                    // Look for a name-like column in the headers (account name, insured, etc.)
+                    const nameIdx = columnMap.name ?? -1
+                    return nameIdx >= 0 ? (row[nameIdx] ?? "") : ""
+                  })()
+                  const prem = premIdx >= 0 ? cleanNum(row[premIdx]) : 0
+                  if (polNum) ezlynxList.push({ policyNumber: polNum, clientName: clientNm, premium: prem })
                 }
               })
 
-              // Build comm policy set
-              const commPolicySet = new Set<string>()
-              let matchedCommTotal = 0
-              let unmatchedCommTotal = 0
-              comm.data.forEach(c => {
-                const normP = normalizePolicy(c.policy_number)
-                commPolicySet.add(normP)
-                if (policyNumbers.has(normP)) matchedCommTotal += c.commission
-                else unmatchedCommTotal += c.commission
-              })
+              // 3-pass cascade match
+              const matchResult = matchPolicies(
+                ezlynxList,
+                comm.data.map(c => ({
+                  policy_number: c.policy_number,
+                  client_name:   c.client_name,
+                  premium:       c.premium,
+                  commission:    c.commission,
+                })),
+              )
 
-              const matchedPolicies = [...policyNumbers].filter(p => commPolicySet.has(p)).length
-              const unmatchedPolicies = policyNumbers.size - matchedPolicies
-              const matchRate = policyNumbers.size > 0 ? ((matchedPolicies / policyNumbers.size) * 100) : 0
+              const matchedPolicies   = matchResult.matchedPolicies.size
+              const unmatchedPolicies = matchResult.unmatchedPolicies.size
+              const matchedCommTotal  = matchResult.matchedCommTotal
+              const unmatchedCommTotal = matchResult.unmatchedCommTotal
+              const policyNumbers     = new Set([...matchResult.matchedPolicies, ...matchResult.unmatchedPolicies])
+              const matchRate = policyNumbers.size > 0 ? (matchedPolicies / policyNumbers.size) * 100 : 0
 
               // Retention Rate: active policies that appear on at least one commission statement.
               // These are policies we are actively receiving commission on -- they renewed.
