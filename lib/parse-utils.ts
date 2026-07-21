@@ -387,14 +387,19 @@ export function parsePdfCommissionRow(
 ): (Omit<CommissionRow, "id"> & { policyConfidence: number }) | null {
   if (lineStr.length < 10) return null
 
-  // --- Skip headers, totals, footers ---
+  // --- Skip headers, totals, footers, and summary rows ---
   const lower = lineStr.toLowerCase()
+
+  // Explicit summary/total keyword blacklist — any line containing one of these
+  // is a header, footer, deposit line, or report total and must never become a policy row.
+  const SUMMARY_BLACKLIST = [
+    "total", "subtotal", "deposit", "report", "fees", "balance",
+    "statement", "page", "summary", "other comms", "ez comms", "commissions",
+  ]
+  if (SUMMARY_BLACKLIST.some(kw => lower.includes(kw))) return null
+
   if (
-    (lower.includes("page ") && lower.includes(" of ")) ||
     lower.includes("statement date") ||
-    (lower.includes("commission") && lower.includes("policy") && lower.includes("premium")) ||
-    /^(total|subtotal|grand total|sum|net total)/i.test(lineStr.trim()) ||
-    (lower.startsWith("report") && lower.includes("date")) ||
     /^\s*[-=]{3,}\s*$/.test(lineStr) ||
     // Horizon-specific header / footer lines
     /^producer\s+account/i.test(lineStr.trim()) ||
@@ -632,11 +637,10 @@ export function parsePdfCommissionRow(
     }
   }
 
-  // Only discard if we have no commission amount at all.
-  // A missing policy number is recoverable — we emit a fallback key so the row
-  // still contributes to commission totals and can be matched via Pass 3 (client+premium).
-  if (commAmount.val === 0) return null
-  const finalPol = foundPol ?? `ROW_P${pageNum}_${Math.abs(commAmount.val).toFixed(2)}`
+  // A valid row MUST have both a commission amount AND a recognized policy number.
+  // Rows that pass the summary blacklist above but still lack a real policy number
+  // are deposit lines, fee lines, or unstructured text — drop them silently.
+  if (commAmount.val === 0 || !foundPol) return null
 
   // --- 5. Extract carrier, LOB, trans_type, producer from Horizon rows ---
   // Horizon rows always start with the producer name, and carrier appears as a
@@ -690,7 +694,7 @@ export function parsePdfCommissionRow(
 
   const polScore = Math.round(polConfidence * 100)
   return {
-    policy_number: finalPol,
+    policy_number: foundPol,
     commission: commAmount.val,
     premium: premAmount ? premAmount.val : 0,
     client_name: bestName,
@@ -807,8 +811,6 @@ export function matchPolicies(
     if (normEZ.length < 6) continue
     for (const [normComm, rows] of commByNormPol) {
       if (normComm.length < 6) continue
-      // Skip fallback keys (ROW_P...) — they have no real policy number
-      if (normComm.startsWith("ROWP")) continue
       // One must contain the other
       const contained = normEZ.includes(normComm) || normComm.includes(normEZ)
       if (contained) {
