@@ -1,9 +1,9 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useCallback } from "react"
 import useSWR from "swr"
 import { Button } from "@/components/ui/button"
-import { TrendingUp, TrendingDown, Trash2, RefreshCw } from "lucide-react"
+import { TrendingUp, TrendingDown, Trash2, RefreshCw, Zap } from "lucide-react"
 import type { Deal } from "./admin-dashboard"
 import { cn } from "@/lib/utils"
 import { ValuationSubmissionsTimeline } from "./valuation-submissions-timeline"
@@ -273,9 +273,22 @@ interface OverviewTabProps {
 
 type WindowType = "7D" | "30D" | "all"
 
+// Every admin API route requires Authorization: Bearer <token>.
+// The token is stored in localStorage under "admin_session_token" after login.
+const ADMIN_TOKEN_KEY = "admin_session_token"
+
+function getAuthHeaders(): Record<string, string> {
+  const token = typeof window !== "undefined" ? localStorage.getItem(ADMIN_TOKEN_KEY) : null
+  if (!token) console.error("[v0] overview-tab: no admin_session_token in localStorage — all API calls will 401")
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 const fetcher = (url: string) =>
-  fetch(url).then((res) => {
-    if (!res.ok) throw new Error("Failed to fetch leads")
+  fetch(url, { headers: getAuthHeaders() }).then((res) => {
+    if (!res.ok) {
+      console.error("[v0] overview-tab fetch failed:", res.status, url)
+      throw new Error(`Fetch failed: ${res.status}`)
+    }
     return res.json()
   })
 
@@ -283,6 +296,7 @@ const fetcher = (url: string) =>
 
 export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: OverviewTabProps) {
   const [window, setWindow] = useState<WindowType>("30D")
+  const [testLeadLoading, setTestLeadLoading] = useState(false)
 
   // ── Fetch real AdminLead[] from DB — single source of truth ─────────────
   const { data, isLoading, mutate } = useSWR<{ leads: AdminLead[] }>(
@@ -326,6 +340,30 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
       .slice(0, 10),
   [allLeads])
 
+  // ── Test Lead — inserts a real DB row to verify end-to-end connectivity ──
+  const handleAddTestLead = useCallback(async () => {
+    setTestLeadLoading(true)
+    try {
+      const res = await fetch("/api/admin/test-lead", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        console.error("[v0] test-lead failed:", res.status, json)
+        alert(`Test lead failed (${res.status}): ${json.error ?? "Unknown error"}`)
+      } else {
+        console.log("[v0] test-lead inserted:", json)
+        await mutate()
+      }
+    } catch (err) {
+      console.error("[v0] test-lead error:", err)
+      alert("Test lead request threw an error — check the console.")
+    } finally {
+      setTestLeadLoading(false)
+    }
+  }, [mutate])
+
   // Horizon pipeline derived values (localStorage-backed, separate from DB leads)
   const activeDeals    = deals.filter((d) => d.status === "active")
   const completedDeals = deals.filter((d) => d.status === "completed")
@@ -350,6 +388,16 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
             title="Refresh"
           >
             <RefreshCw className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            size="sm" variant="outline"
+            className="h-7 gap-1 px-2 text-[11px] font-medium text-amber-600 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-800 dark:hover:bg-amber-900/20"
+            onClick={handleAddTestLead}
+            disabled={testLeadLoading}
+            title="Insert a test lead to verify DB connectivity"
+          >
+            <Zap className="h-3 w-3" />
+            {testLeadLoading ? "Adding…" : "Test Lead"}
           </Button>
           {(["7D", "30D", "all"] as WindowType[]).map((f) => (
             <Button

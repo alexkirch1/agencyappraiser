@@ -270,6 +270,11 @@ async function sendEmailNotification(data: {
 }
 
 export async function POST(req: Request) {
+  // Env var presence check — helps debug missing config without leaking values
+  console.log("[v0] submit-lead: DATABASE_URL set?", !!process.env.DATABASE_URL)
+  console.log("[v0] submit-lead: PIPEDRIVE_API_TOKEN set?", !!process.env.PIPEDRIVE_API_TOKEN)
+  console.log("[v0] submit-lead: RESEND_API_KEY set?", !!process.env.RESEND_API_KEY)
+
   // Rate limit: 5 leads per IP per 15 minutes
   const { allowed } = rateLimit(`submit-lead:${getClientIp(req)}`, 5, 15 * 60 * 1000)
   if (!allowed) {
