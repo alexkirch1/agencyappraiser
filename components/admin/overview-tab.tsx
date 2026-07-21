@@ -273,7 +273,11 @@ interface OverviewTabProps {
 
 type WindowType = "7D" | "30D" | "all"
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json())
+const fetcher = (url: string) =>
+  fetch(url).then((res) => {
+    if (!res.ok) throw new Error("Failed to fetch leads")
+    return res.json()
+  })
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -284,7 +288,10 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
   const { data, isLoading, mutate } = useSWR<{ leads: AdminLead[] }>(
     "/api/admin/leads",
     fetcher,
-    { revalidateOnFocus: false },
+    {
+      refreshInterval: 5000,   // re-poll every 5 s so new submissions appear immediately
+      revalidateOnFocus: true, // re-fetch when the admin tab regains focus
+    },
   )
 
   // Active (non-archived, non-deleted) leads only
