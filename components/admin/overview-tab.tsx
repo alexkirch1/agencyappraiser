@@ -308,14 +308,21 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
     },
   )
 
-  // Active (non-archived, non-deleted) leads only
+  // allLeads: every non-deleted row from the API (active + archived)
+  // Used for historical analytics so archived records are never erased from stats
   const allLeads = useMemo<AdminLead[]>(() => {
     if (!data?.leads) return []
-    return data.leads.filter((l) => !l.archived && !l.deleted_at)
+    return data.leads.filter((l) => !l.deleted_at)
   }, [data])
 
-  // Apply time-window filter before deriving metrics
-  const filtered = useMemo<AdminLead[]>(() => {
+  // activeLeads: only non-archived, non-deleted rows — used for pipeline metrics
+  const activeLeads = useMemo<AdminLead[]>(
+    () => allLeads.filter((l) => !l.archived),
+    [allLeads],
+  )
+
+  // Apply time-window filter to allLeads before deriving historical metrics
+  const filteredAll = useMemo<AdminLead[]>(() => {
     if (window === "all") return allLeads
     const days = window === "7D" ? 7 : 30
     const cutoff = new Date()
@@ -324,16 +331,29 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
     return allLeads.filter((l) => l.created_at >= cutoffStr)
   }, [allLeads, window])
 
-  // All metrics computed once from filtered leads — pure JS, no internal fallback
-  const m = useMemo(() => deriveMetrics(filtered), [filtered])
+  // Apply time-window filter to activeLeads for pipeline metrics
+  const filteredActive = useMemo<AdminLead[]>(() => {
+    if (window === "all") return activeLeads
+    const days = window === "7D" ? 7 : 30
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - days)
+    const cutoffStr = cutoff.toISOString()
+    return activeLeads.filter((l) => l.created_at >= cutoffStr)
+  }, [activeLeads, window])
 
-  // Chart data: scaffold every day in window as 0, overlay real counts
+  // Historical metrics from allLeads (totals, funnel, multiples, states, grades, chart)
+  const mAll = useMemo(() => deriveMetrics(filteredAll), [filteredAll])
+
+  // Pipeline-only metrics from activeLeads (pipeline $, hot leads)
+  const mActive = useMemo(() => deriveMetrics(filteredActive), [filteredActive])
+
+  // Chart data built from allLeads (historical, includes archived)
   const chartData = useMemo<ChartDataPoint[]>(() => {
     const days = window === "7D" ? 7 : window === "30D" ? 30 : 90
-    return buildChartData(filtered, days)
-  }, [filtered, window])
+    return buildChartData(filteredAll, days)
+  }, [filteredAll, window])
 
-  // Recent Activity: top 10 by created_at DESC, directly from DB leads
+  // Recent Activity: top 10 newest from allLeads (includes archived, shows badge)
   const recentActivity = useMemo<AdminLead[]>(() =>
     [...allLeads]
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -377,7 +397,7 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
         <div>
           <h2 className="text-sm font-semibold text-foreground">Agency Overview</h2>
           <p className="text-[11px] text-muted-foreground">
-            {isLoading ? "Loading..." : `${filtered.length} records · ${window === "all" ? "all time" : `last ${window}`}`}
+            {isLoading ? "Loading..." : `${filteredAll.length} records (${filteredActive.length} active) · ${window === "all" ? "all time" : `last ${window}`}`}
           </p>
         </div>
         <div className="flex items-center gap-1">
@@ -414,29 +434,33 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
 
       {/* ── 4 KPI cards ────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {/* Historical — uses allLeads so archived records count */}
         <KpiCard
-          label="Total Leads"
-          value={isLoading ? "—" : m.total.toLocaleString()}
-          sub={isLoading ? "Loading…" : `${m.quick} Quick · ${m.full} Full · ${m.quiz} Quiz`}
-          trend={m.total > 0 ? "up" : "neutral"}
-          trendLabel={`${m.total} total`}
+          label="Total Valuations"
+          value={isLoading ? "—" : mAll.total.toLocaleString()}
+          sub={isLoading ? "Loading…" : `${mAll.quick} Quick · ${mAll.full} Full · ${mAll.quiz} Quiz`}
+          trend={mAll.total > 0 ? "up" : "neutral"}
+          trendLabel={`${mAll.total} total`}
         />
+        {/* Pipeline — uses activeLeads only */}
         <KpiCard
           label="Est. Pipeline"
-          value={isLoading ? "—" : fmtDollars(m.totalPipelineValue)}
-          sub={m.totalPipelineValue > 0 ? "Sum of all lead values on file" : "No values on file yet"}
+          value={isLoading ? "—" : fmtDollars(mActive.totalPipelineValue)}
+          sub={mActive.totalPipelineValue > 0 ? `${filteredActive.length} active leads` : "No active leads on file"}
         />
+        {/* Historical — uses allLeads for accurate average */}
         <KpiCard
           label="Avg Multiple"
-          value={isLoading ? "—" : m.avgMultiple != null ? `${m.avgMultiple.toFixed(2)}x` : "—"}
-          sub={m.avgMultiple != null ? `From ${m.full} full valuations` : "No full valuations yet"}
+          value={isLoading ? "—" : mAll.avgMultiple != null ? `${mAll.avgMultiple.toFixed(2)}x` : "—"}
+          sub={mAll.avgMultiple != null ? `From ${mAll.full} full valuations` : "No full valuations yet"}
         />
+        {/* Pipeline — active hot leads needing follow-up */}
         <KpiCard
           label="Hot Leads"
-          value={isLoading ? "—" : m.hotLeads.toLocaleString()}
-          sub="≥$500k value or ≥88% retention"
-          trend={m.hotLeads > 0 ? "up" : "neutral"}
-          trendLabel={`${m.hotLeads} hot`}
+          value={isLoading ? "—" : mActive.hotLeads.toLocaleString()}
+          sub="Active · ≥$500k or ≥88% retention"
+          trend={mActive.hotLeads > 0 ? "up" : "neutral"}
+          trendLabel={`${mActive.hotLeads} active`}
         />
       </div>
 
@@ -457,10 +481,10 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
               <p className="py-4 text-center text-xs text-muted-foreground">Loading…</p>
             ) : (
               <div className="space-y-3">
-                <FunnelBar label="All Leads"          count={m.total} max={m.funnelMax} color="bg-primary" />
-                <FunnelBar label="Quick Valuations"   count={m.quick} max={m.funnelMax} color="bg-sky-400" />
-                <FunnelBar label="Full Valuations"    count={m.full}  max={m.funnelMax} color="bg-violet-500" />
-                <FunnelBar label="Readiness Quizzes"  count={m.quiz}  max={m.funnelMax} color="bg-amber-500" />
+                <FunnelBar label="All Submissions"    count={mAll.total} max={mAll.funnelMax} color="bg-primary" />
+                <FunnelBar label="Quick Valuations"   count={mAll.quick} max={mAll.funnelMax} color="bg-sky-400" />
+                <FunnelBar label="Full Valuations"    count={mAll.full}  max={mAll.funnelMax} color="bg-violet-500" />
+                <FunnelBar label="Readiness Quizzes"  count={mAll.quiz}  max={mAll.funnelMax} color="bg-amber-500" />
               </div>
             )}
           </div>
@@ -470,14 +494,14 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
         <div className="space-y-4">
 
           {/* Top States — only renders when primary_state data exists */}
-          {!isLoading && m.topStates.length > 0 && (
+          {!isLoading && mAll.topStates.length > 0 && (
             <div className="rounded-lg border border-border bg-card p-4">
               <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                 Top States
               </p>
               <div className="space-y-2">
-                {m.topStates.map((row, i) => {
-                  const pct = Math.round((row.count / m.topStates[0].count) * 100)
+                {mAll.topStates.map((row, i) => {
+                  const pct = Math.round((row.count / mAll.topStates[0].count) * 100)
                   return (
                     <div key={row.state} className="flex items-center gap-2">
                       <span className="w-4 shrink-0 text-[11px] text-muted-foreground">{i + 1}</span>
@@ -498,13 +522,13 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
           )}
 
           {/* Risk Grade Distribution — only renders when full valuation grades exist */}
-          {!isLoading && m.riskGrades.length > 0 && (
+          {!isLoading && mAll.riskGrades.length > 0 && (
             <div className="rounded-lg border border-border bg-card p-4">
               <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                 Risk Grade Distribution
               </p>
               <div className="flex flex-wrap gap-2">
-                {m.riskGrades.map(({ grade, count }) => (
+                {mAll.riskGrades.map(({ grade, count }) => (
                   <div
                     key={grade}
                     className={cn(
@@ -561,6 +585,11 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
                         {lead.primary_state && (
                           <span className="rounded border border-border px-1 py-px text-[10px] uppercase">
                             {lead.primary_state}
+                          </span>
+                        )}
+                        {lead.archived && (
+                          <span className="rounded border border-border bg-muted px-1 py-px text-[10px] text-muted-foreground">
+                            Archived
                           </span>
                         )}
                         <span className="opacity-70">{timeAgo(lead.created_at)}</span>
