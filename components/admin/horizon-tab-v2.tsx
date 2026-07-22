@@ -267,9 +267,10 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
     })
     const retentionRate2 = ezList2.length > 0 ? (matchedEZ2.size / ezList2.length) * 100 : 0
 
-    // Avg premium per active matched policy (from premium model)
-    const avgPrem2 = ms2.matchedActiveCount > 0
-      ? ms2.matchedActiveEzlynxPremium / ms2.matchedActiveCount
+    // Avg premium = totalEzlynxPremium (ground truth) / total EZLynx policies
+    // This is the true average policy size across the whole book, not just matched subset.
+    const avgPrem2 = (ms2.totalEzlynxPremium > 0 && ezList2.length > 0)
+      ? ms2.totalEzlynxPremium / ezList2.length
       : null
 
     setValuationFactors(prev => ({
@@ -1695,16 +1696,27 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
                       <p className="text-lg font-extrabold text-warning">{formatCurrency(ms.unmatchedCommTotal)}</p>
                       <p className="text-[10px] font-semibold text-muted-foreground">Unmatched Comm $</p>
                     </div>
-                    <div
-                      className="rounded-lg border border-border bg-card p-3 text-center"
-                      title={`Matched active EZLynx premium: ${formatCurrency(ms.matchedActiveEzlynxPremium)} + Estimated unmatched: ${formatCurrency(ms.estimatedUnmatchedPremium)} (@ ${(ms.effectiveCommRate * 100).toFixed(1)}% eff. rate)`}
-                    >
-                      <p className="text-lg font-extrabold text-foreground">{formatCurrency(ms.totalBookPremium)}</p>
-                      <p className="text-[10px] font-semibold text-muted-foreground">Total Book Premium</p>
-                      <p className="mt-0.5 text-[9px] text-muted-foreground/70">
-                        {formatCurrency(ms.matchedActiveEzlynxPremium)} matched + {formatCurrency(ms.estimatedUnmatchedPremium)} est.
-                      </p>
-                    </div>
+                    {(() => {
+                      const matchedPct = ms.totalEzlynxPremium > 0
+                        ? (ms.matchedEzlynxPremium / ms.totalEzlynxPremium) * 100
+                        : 0
+                      const effRate = ms.effectiveCommRate * 100
+                      return (
+                        <div
+                          className="rounded-lg border border-border bg-card p-3 text-center"
+                          title={`EZLynx ground truth: ${formatCurrency(ms.totalEzlynxPremium)} | Matched: ${formatCurrency(ms.matchedEzlynxPremium)} (${matchedPct.toFixed(1)}%) | Unmatched: ${formatCurrency(ms.unmatchedEzlynxPremium)} | Eff. comm rate: ${effRate.toFixed(2)}%`}
+                        >
+                          <p className="text-lg font-extrabold text-foreground">{formatCurrency(ms.totalBookPremium)}</p>
+                          <p className="text-[10px] font-semibold text-muted-foreground">Total Book Premium</p>
+                          <p className="mt-0.5 text-[9px] text-muted-foreground/70">
+                            {formatCurrency(ms.matchedEzlynxPremium)} matched ({matchedPct.toFixed(0)}%) &bull; {formatCurrency(ms.unmatchedEzlynxPremium)} unmatched
+                          </p>
+                          <p className="mt-0.5 text-[9px] text-muted-foreground/70">
+                            Eff. comm rate: {effRate.toFixed(2)}%
+                          </p>
+                        </div>
+                      )
+                    })()}
                     {(() => {
                       const avgConf = comm.data.length > 0
                         ? Math.round(comm.data.reduce((s, c) => s + (c.confidence?.score ?? 50), 0) / comm.data.length)

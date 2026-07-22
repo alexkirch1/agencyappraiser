@@ -753,17 +753,25 @@ export interface MatchStats {
   matchedCommTotal: number        // exact + suffix + rewrite commission $
   unmatchedCommTotal: number
 
-  // ── Active-policy premium model ──────────────────────────────────────────
-  /** Sum of annualized premium for EZLynx active policies that matched a comm row */
+  // ── EZLynx ground-truth premium model ────────────────────────────────────
+  /** Sum of ALL EZLynx annualized premiums — this is the canonical Total Book Premium */
+  totalEzlynxPremium: number
+  /** Sum of annualized premium for EZLynx policies that matched a comm row (exact/suffix) */
+  matchedEzlynxPremium: number
+  /** unmatchedEzlynxPremium = totalEzlynxPremium - matchedEzlynxPremium */
+  unmatchedEzlynxPremium: number
+  /** totalBookPremium = totalEzlynxPremium (anchored to EZLynx ground truth, no estimation) */
+  totalBookPremium: number
+  /** effectiveCommRate = totalCommission / totalEzlynxPremium */
+  effectiveCommRate: number
+
+  // ── Legacy fields kept for backward compat ───────────────────────────────
+  /** @deprecated use matchedEzlynxPremium */
   matchedActiveEzlynxPremium: number
   /** Count of active EZLynx policies that matched (exact or suffix) */
   matchedActiveCount: number
-  /** effectiveCommRate = matchedCommTotal / matchedActiveEzlynxPremium (or 0.12 default) */
-  effectiveCommRate: number
-  /** estimatedUnmatchedPremium = unmatchedCommTotal / effectiveCommRate */
+  /** @deprecated no longer used — estimation removed */
   estimatedUnmatchedPremium: number
-  /** totalBookPremium = matchedActiveEzlynxPremium + estimatedUnmatchedPremium */
-  totalBookPremium: number
   /** avgCommPerMatchedPolicy = matchedCommTotal / matchedActiveCount */
   avgCommPerMatchedPolicy: number
   /** estimatedUnmatchedPolicies = round(unmatchedCommTotal / avgCommPerMatchedPolicy) */
@@ -869,23 +877,31 @@ export function matchCommRows(
     else                           { unmatchedCount++; unmatchedCommTotal += row.commission }
   }
 
-  // ── Active-policy premium model ────────────────────────────────────────────
-  let matchedActiveEzlynxPremium = 0
+  // ── EZLynx ground-truth premium model ────────────────────────────────────
+  // totalEzlynxPremium: sum ALL EZLynx annualized premiums — the canonical book value
+  let totalEzlynxPremium = 0
+  for (const [, prem] of ezNormPremium) { totalEzlynxPremium += prem }
+
+  // matchedEzlynxPremium: sum for policies that got an exact/suffix match
+  let matchedEzlynxPremium = 0
   for (const norm of contributedActiveNorms) {
-    matchedActiveEzlynxPremium += ezNormPremium.get(norm) ?? 0
+    matchedEzlynxPremium += ezNormPremium.get(norm) ?? 0
   }
+  const unmatchedEzlynxPremium = totalEzlynxPremium - matchedEzlynxPremium
+
+  // totalBookPremium is now anchored to EZLynx — no reverse-estimation math
+  const totalBookPremium = totalEzlynxPremium
+
+  const matchedActiveEzlynxPremium = matchedEzlynxPremium // backward compat alias
   const matchedActiveCount = contributedActiveNorms.size
 
-  const DEFAULT_COMM_RATE = 0.12
+  // effectiveCommRate = totalCommission / totalEzlynxPremium (true blended rate)
+  const totalCommission = matchedCommTotal + unmatchedCommTotal
   const effectiveCommRate =
-    matchedActiveEzlynxPremium > 0
-      ? matchedCommTotal / matchedActiveEzlynxPremium
-      : DEFAULT_COMM_RATE
+    totalEzlynxPremium > 0 ? totalCommission / totalEzlynxPremium : 0.12
 
-  const estimatedUnmatchedPremium =
-    effectiveCommRate > 0 ? unmatchedCommTotal / effectiveCommRate : 0
-
-  const totalBookPremium = matchedActiveEzlynxPremium + estimatedUnmatchedPremium
+  // Legacy estimation fields — kept for backward compat but no longer used for totalBookPremium
+  const estimatedUnmatchedPremium = unmatchedEzlynxPremium // now exact, not estimated
 
   const avgCommPerMatchedPolicy =
     matchedActiveCount > 0 ? matchedCommTotal / matchedActiveCount : 0
@@ -905,11 +921,14 @@ export function matchCommRows(
     unmatchedCount,
     matchedCommTotal,
     unmatchedCommTotal,
+    totalEzlynxPremium,
+    matchedEzlynxPremium,
+    unmatchedEzlynxPremium,
+    totalBookPremium,
+    effectiveCommRate,
     matchedActiveEzlynxPremium,
     matchedActiveCount,
-    effectiveCommRate,
     estimatedUnmatchedPremium,
-    totalBookPremium,
     avgCommPerMatchedPolicy,
     estimatedUnmatchedPolicies,
     totalActivePolicies,
