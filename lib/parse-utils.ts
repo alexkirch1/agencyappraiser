@@ -589,9 +589,9 @@ export function parsePdfCommissionRow(
         if (CARRIER_TAIL_WORDS.has(w.toLowerCase()) && cleanWords.length > 0) break
         cleanWords.push(w)
       }
-      bestName = cleanWords.slice(0, 6).join(" ").trim() || "Unknown Client"
+      bestName = cleanWords.slice(0, 6).join(" ").trim() || "Unknown Insured"
     } else {
-      bestName = "Unknown Client"
+      bestName = "Unknown Insured"
     }
   } else {
     // Generic format: score candidate segments as before

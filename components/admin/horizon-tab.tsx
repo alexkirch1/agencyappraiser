@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SmartInput } from "@/components/ui/smart-input"
@@ -212,6 +212,58 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
   const ebitda = finRevenue - finOpex + finOwnerComp + finAddbacks
   const baseRevenue = finRevenue || calculateBaseRevenue()
   const currentValuation = baseRevenue * valuationMultiple
+
+  // Auto-feed live book metrics into valuationFactors when data is available.
+  // Runs whenever EZLynx CSV or commission PDFs change. Does NOT overwrite
+  // manually-entered factors (only sets fields that are currently null/undefined).
+  useEffect(() => {
+    if (!policy.loaded || !comm.loaded || comm.data.length === 0) return
+    const polIdx2 = columnMap.policy ?? -1
+    const nameIdx2 = columnMap.name ?? -1
+    const premIdx2 = columnMap.premium ?? -1
+    if (polIdx2 < 0) return
+
+    const ezList2 = policy.data
+      .filter((_, i) => !policy.excludedIndices.has(i))
+      .map(row => ({
+        policyNumber: row[polIdx2] ?? "",
+        clientName:   nameIdx2 >= 0 ? (row[nameIdx2] ?? "") : "",
+      }))
+      .filter(e => e.policyNumber)
+
+    const ms2 = matchCommRows(ezList2, comm.data)
+    const totalMatched2 = ms2.exactCount + ms2.suffixCount + ms2.rewriteCount
+    const matchRate2 = comm.data.length > 0 ? (totalMatched2 / comm.data.length) * 100 : 0
+
+    // Retention: EZLynx policies with ≥1 exact/suffix match
+    const matchedEZ2 = new Set<string>()
+    comm.data.forEach(c => {
+      const t = ms2.byId.get(c.id)
+      if (t === "exact" || t === "suffix") matchedEZ2.add(normalizePolicy(c.policy_number))
+    })
+    const retentionRate2 = ezList2.length > 0 ? (matchedEZ2.size / ezList2.length) * 100 : 0
+
+    // Avg premium per policy from EZLynx CSV
+    let totalPrem2 = 0
+    let premCount = 0
+    if (premIdx2 >= 0) {
+      policy.data.forEach((row, i) => {
+        if (!policy.excludedIndices.has(i)) {
+          const p = cleanNum(row[premIdx2])
+          if (p > 0) { totalPrem2 += p; premCount++ }
+        }
+      })
+    }
+    const avgPrem2 = premCount > 0 ? totalPrem2 / premCount : null
+
+    setValuationFactors(prev => ({
+      ...prev,
+      retention:       prev.retention       ?? (retentionRate2 > 0 ? parseFloat(retentionRate2.toFixed(1)) : null),
+      matchConfidence: prev.matchConfidence  ?? (matchRate2 > 0     ? parseFloat(matchRate2.toFixed(1))     : null),
+      avgPremium:      prev.avgPremium       ?? avgPrem2,
+    }))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [policy.loaded, policy.data, comm.loaded, comm.data, columnMap])
 
   function calculateBaseRevenue(): number {
     if (!comm.loaded || comm.data.length === 0) return 0

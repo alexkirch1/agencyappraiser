@@ -18,15 +18,16 @@ export interface ValuationFactors {
   // Book quality
   totalPolicies: number | null
   totalCustomers: number | null
-  lossRatio: number | null       // percentage, e.g. 45
-  retention: number | null       // percentage, e.g. 88
-  avgPremium: number | null      // dollars per policy
+  lossRatio: number | null          // percentage, e.g. 45
+  retention: number | null          // percentage, e.g. 88
+  avgPremium: number | null         // dollars per policy
+  matchConfidence: number | null    // 0–100 — commission statement match rate %
   // Agency quality
-  commercialMix: number | null   // 0–100 (% commercial)
+  commercialMix: number | null      // 0–100 (% commercial)
   carrierConcentration: number | null // % in single carrier
   revenueGrowth: "strong" | "moderate" | "flat" | "declining" | ""
-  agencyAge: number | null       // years
-  sellerTransition: number | null // months committed
+  agencyAge: number | null          // years
+  sellerTransition: number | null   // months committed
 }
 
 /**
@@ -38,6 +39,7 @@ export interface FactorBreakdown {
   // individual deltas (positive = adds value, negative = reduces)
   fLossRatio: number
   fRetention: number
+  fMatchConfidence: number
   fPoliciesPerCx: number
   fTotalPolicies: number
   fAvgPremium: number
@@ -57,7 +59,8 @@ export function computeFactors(
   f: ValuationFactors,
   learnedAdj: number = 0
 ): FactorBreakdown {
-  const base = 1.0
+  // Industry baseline: 1.80x annual commission revenue
+  const base = 1.80
 
   // 1. Loss ratio ±
   let fLossRatio = 0
@@ -69,18 +72,25 @@ export function computeFactors(
     else                         fLossRatio = -0.35
   }
 
-  // 2. Retention ±
+  // 2. Retention ± (spec thresholds)
   let fRetention = 0
   if (f.retention !== null) {
-    if (f.retention >= 95)       fRetention = +0.30
-    else if (f.retention >= 90)  fRetention = +0.20
-    else if (f.retention >= 85)  fRetention = +0.10
-    else if (f.retention >= 80)  fRetention = 0
-    else if (f.retention >= 75)  fRetention = -0.10
-    else                          fRetention = -0.25
+    if (f.retention >= 90)        fRetention = +0.30   // Excellent
+    else if (f.retention >= 85)   fRetention = +0.15   // Solid
+    else if (f.retention >= 80)   fRetention = 0       // Baseline
+    else if (f.retention >= 70)   fRetention = -0.15   // Below average
+    else                           fRetention = -0.30   // Weak
   }
 
-  // 3. Policies-per-customer ratio ±
+  // 3. Match confidence (commission statement data quality) ±
+  let fMatchConfidence = 0
+  if (f.matchConfidence !== null && f.matchConfidence !== undefined) {
+    if (f.matchConfidence >= 85)  fMatchConfidence = +0.10
+    else if (f.matchConfidence < 60) fMatchConfidence = -0.10
+    // 60–84: no adjustment
+  }
+
+  // 4. Policies-per-customer ratio ±
   let fPoliciesPerCx = 0
   if (f.totalCustomers && f.totalPolicies && f.totalCustomers > 0) {
     const ratio = f.totalPolicies / f.totalCustomers
@@ -103,15 +113,12 @@ export function computeFactors(
     else                                 fTotalPolicies = -0.15
   }
 
-  // 5. Average premium per policy (account size proxy) ±
+  // 5. Average premium per policy (account size proxy) ± (spec thresholds)
   let fAvgPremium = 0
   if (f.avgPremium !== null) {
-    if (f.avgPremium >= 3500)       fAvgPremium = +0.20
-    else if (f.avgPremium >= 2500)  fAvgPremium = +0.12
-    else if (f.avgPremium >= 1500)  fAvgPremium = +0.05
-    else if (f.avgPremium >= 900)   fAvgPremium = 0
-    else if (f.avgPremium >= 500)   fAvgPremium = -0.05
-    else                             fAvgPremium = -0.12
+    if (f.avgPremium >= 1500)       fAvgPremium = +0.15   // High policy size
+    else if (f.avgPremium >= 600)   fAvgPremium = 0       // Average
+    else                             fAvgPremium = -0.10   // Low policy size
   }
 
   // 6. Commercial mix ± (more commercial = stickier = higher multiple)
@@ -163,7 +170,7 @@ export function computeFactors(
 
   const subtotal =
     base +
-    fLossRatio + fRetention + fPoliciesPerCx + fTotalPolicies +
+    fLossRatio + fRetention + fMatchConfidence + fPoliciesPerCx + fTotalPolicies +
     fAvgPremium + fCommercialMix + fCarrierConcentration +
     fRevenueGrowth + fAgencyAge + fSellerTransition +
     fLearned
@@ -174,6 +181,7 @@ export function computeFactors(
     base,
     fLossRatio,
     fRetention,
+    fMatchConfidence,
     fPoliciesPerCx,
     fTotalPolicies,
     fAvgPremium,
@@ -260,6 +268,7 @@ export function ValuationReport({
       lossRatio: factors.lossRatio ?? null,
       retention: factors.retention ?? null,
       avgPremium: factors.avgPremium ?? null,
+      matchConfidence: factors.matchConfidence ?? null,
       commercialMix: factors.commercialMix ?? null,
       carrierConcentration: factors.carrierConcentration ?? null,
       revenueGrowth: factors.revenueGrowth ?? "",
@@ -504,10 +513,78 @@ export function ValuationReport({
         <h4 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">
           Model Calculation
         </h4>
+
+        {/* Suggested multiple headline */}
+        <div className="mb-3 flex items-center justify-between rounded-lg bg-primary/8 px-3 py-2">
+          <span className="text-sm font-semibold text-foreground">Suggested Multiple</span>
+          <span className="text-xl font-extrabold text-primary">{fmtX(modelMultiple)}</span>
+        </div>
+
+        {/* Quality adjustment pills */}
+        {(() => {
+          const pills: { label: string; delta: number }[] = []
+          if (breakdown.fRetention !== 0) {
+            const label = breakdown.fRetention > 0
+              ? (breakdown.fRetention >= 0.30 ? "Excellent Retention" : "Solid Retention")
+              : (breakdown.fRetention <= -0.30 ? "Weak Retention" : "Below-Avg Retention")
+            pills.push({ label, delta: breakdown.fRetention })
+          }
+          if (breakdown.fMatchConfidence !== 0) {
+            pills.push({
+              label: breakdown.fMatchConfidence > 0 ? "High Match Confidence" : "Low Match Confidence",
+              delta: breakdown.fMatchConfidence,
+            })
+          }
+          if (breakdown.fAvgPremium !== 0) {
+            pills.push({
+              label: breakdown.fAvgPremium > 0 ? "High Policy Size" : "Low Policy Size",
+              delta: breakdown.fAvgPremium,
+            })
+          }
+          if (breakdown.fLossRatio !== 0) {
+            pills.push({
+              label: breakdown.fLossRatio > 0 ? "Low Loss Ratio" : "High Loss Ratio",
+              delta: breakdown.fLossRatio,
+            })
+          }
+          if (breakdown.fCommercialMix !== 0) pills.push({ label: "Commercial Mix", delta: breakdown.fCommercialMix })
+          if (breakdown.fCarrierConcentration !== 0) pills.push({ label: "Carrier Concentration", delta: breakdown.fCarrierConcentration })
+          if (breakdown.fRevenueGrowth !== 0) pills.push({ label: "Revenue Growth", delta: breakdown.fRevenueGrowth })
+          if (breakdown.fAgencyAge !== 0) pills.push({ label: "Agency Longevity", delta: breakdown.fAgencyAge })
+          if (breakdown.fPoliciesPerCx !== 0) pills.push({ label: "Policies / Customer", delta: breakdown.fPoliciesPerCx })
+          if (breakdown.fTotalPolicies !== 0) pills.push({ label: "Book Scale", delta: breakdown.fTotalPolicies })
+          if (breakdown.fSellerTransition !== 0) pills.push({ label: "Seller Transition", delta: breakdown.fSellerTransition })
+          if (breakdown.fLearned !== 0) pills.push({ label: "Market Data", delta: breakdown.fLearned })
+
+          if (pills.length === 0) return (
+            <p className="mb-3 text-xs text-muted-foreground">No quality factors entered yet — fill in Book Quality Factors above to refine this estimate.</p>
+          )
+          return (
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {pills.map((p, i) => (
+                <span
+                  key={i}
+                  className={cn(
+                    "rounded-full px-2.5 py-0.5 text-[11px] font-bold",
+                    p.delta > 0
+                      ? "bg-success/15 text-success"
+                      : "bg-destructive/15 text-destructive"
+                  )}
+                >
+                  {p.delta > 0 ? "+" : ""}{p.delta.toFixed(2)}x {p.label}
+                </span>
+              ))}
+            </div>
+          )
+        })()}
+
         <div className="space-y-1.5 text-sm">
-          <FactorRow label="Base multiple" value={breakdown.base} isBase />
+          <FactorRow label="1.80x Industry Baseline" value={breakdown.base} isBase />
           {breakdown.fRetention !== 0 && (
-            <FactorRow label="Retention" value={breakdown.fRetention} />
+            <FactorRow label="Retention rate" value={breakdown.fRetention} />
+          )}
+          {breakdown.fMatchConfidence !== 0 && (
+            <FactorRow label="Match confidence" value={breakdown.fMatchConfidence} />
           )}
           {breakdown.fLossRatio !== 0 && (
             <FactorRow label="Loss ratio" value={breakdown.fLossRatio} />
