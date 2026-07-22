@@ -204,9 +204,14 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
   const [isOverridden, setIsOverridden] = useState(false)
   const [overrideReason, setOverrideReason] = useState<OverrideReason>("")
 
+  // --- Drop zone state ---
+  const [dropZoneActive, setDropZoneActive] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+
   // Refs
   const policyFileRef = useRef<HTMLInputElement>(null)
   const commFileRef = useRef<HTMLInputElement>(null)
+  const dropAllRef = useRef<HTMLInputElement>(null)
 
   // ----- Derived values -----
   const ebitda = finRevenue - finOpex + finOwnerComp + finAddbacks
@@ -318,6 +323,264 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
     setLogMessages((prev) => [...prev, msg])
   }, [])
 
+  // ----- Unified file processor: classifies by extension then routes -----
+  const processFiles = useCallback(async (files: File[]) => {
+    if (files.length === 0) return
+    setIsProcessing(true)
+
+    const csvFiles  = files.filter(f => /\.(csv|xlsx|xls)$/i.test(f.name))
+    const pdfFiles  = files.filter(f => /\.pdf$/i.test(f.name))
+
+    // Process CSV/XLSX as EZLynx policy list (first one wins)
+    if (csvFiles.length > 0) {
+      const file = csvFiles[0]
+      log(`[Drop] Auto-classified as EZLynx Policy List: ${file.name}`)
+
+      const XLSX = await import("xlsx")
+      const ab = await file.arrayBuffer()
+      try {
+        const wb = XLSX.read(ab, { type: "array" })
+        let json: unknown[][] = []
+        for (let i = 0; i < wb.SheetNames.length; i++) {
+          const ws = wb.Sheets[wb.SheetNames[i]]
+          const tempJson = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: "" })
+          if (tempJson.length > 5) { json = tempJson; break }
+        }
+        if (json.length === 0) { log("Empty policy file — skipped.") }
+        else {
+          let headerIdx = 0
+          for (let i = 0; i < Math.min(30, json.length); i++) {
+            const rowStr = JSON.stringify(json[i]).toLowerCase()
+            if (rowStr.includes("policy") || rowStr.includes("prem")) { headerIdx = i; break }
+          }
+          const headers = (json[headerIdx] as string[]).map(String)
+          const data = json.slice(headerIdx + 1).map((row) => (row as string[]).map(String))
+          const mapping = autoMapColumns(headers)
+          const mappedNames = Object.entries(mapping)
+            .filter(([, idx]) => idx >= 0)
+            .map(([key, idx]) => `${key}→col${idx}("${headers[idx]}")`)
+            .join(", ")
+          log(`Column mapping: ${mappedNames || "No columns mapped"}`)
+          let totalPrem = 0
+          const premIdx = mapping.premium ?? -1
+          if (premIdx > -1) data.forEach((row) => { totalPrem += cleanNum(row[premIdx]) })
+          setPolicy({ headers, data, loaded: true, excludedIndices: new Set(), stats: { totalPrem } })
+          setColumnMap(mapping)
+          setFinRevenue(0)
+          const polParse = scorePolicyParse({
+            totalRows: data.length,
+            mappedColumns: Object.values(mapping).filter(v => v >= 0).length,
+            totalPossibleColumns: Object.keys(mapping).length,
+            hasPolicyCol: (mapping.policy ?? -1) >= 0,
+            hasPremiumCol: (mapping.premium ?? -1) >= 0,
+          })
+          log(`Loaded ${data.length} policies from ${file.name}. Parse confidence: ${polParse.score}/100 (${polParse.level})`)
+        }
+      } catch (err) { log(`Error parsing policy file: ${(err as Error).message}`) }
+    }
+
+    // Process PDFs as commission statements — sorted chronologically by extracted date
+    if (pdfFiles.length > 0) {
+      // Sort by extracted date so months load Jan→Dec
+      const sorted = [...pdfFiles].sort((a, b) => {
+        const da = extractDateFromFilename(a.name) || a.name
+        const db = extractDateFromFilename(b.name) || b.name
+        return da.localeCompare(db)
+      })
+      log(`[Drop] Auto-classified ${sorted.length} PDF(s) as Commission Statements — sorted chronologically`)
+
+      // Delegate to the existing PDF branch of handleCommUpload by constructing
+      // a synthetic FileList-like array and calling the core processing logic.
+      // We do this by directly calling processCommFiles (extracted below).
+      await processCommFiles(sorted)
+    }
+
+    setIsProcessing(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [log])
+
+  // ----- Core commission file processing (PDF + Excel) -----
+  // Extracted so both handleCommUpload and processFiles can call it.
+  const processCommFiles = useCallback(async (files: File[]) => {
+    const XLSX = await import("xlsx")
+
+    setComm(prev => {
+      // We'll build new data arrays outside setState and set them at the end
+      return prev
+    })
+
+    const newCommData: CommItem[] = []
+    const newSeen = new Set<string>()
+    const newFiles: Record<string, number> = {}
+
+    // Seed from current state
+    setComm(prev => {
+      prev.data.forEach(c => { newCommData.push(c); newSeen.add(c.id) })
+      Object.assign(newFiles, prev.files)
+      return prev
+    })
+
+    for (const file of files) {
+      log(`Scanning ${file.name}...`)
+      let fileTotal = 0
+      let parsedRows = 0
+      let skippedRows = 0
+      const fileDate = extractDateFromFilename(file.name) || "Unknown"
+
+      if (file.name.toLowerCase().endsWith(".pdf")) {
+        try {
+          const pdfjsLib = await import("pdfjs-dist")
+          pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
+          const ab = await file.arrayBuffer()
+          const pdf = await pdfjsLib.getDocument(new Uint8Array(ab)).promise
+          log(`  PDF has ${pdf.numPages} page(s)`)
+
+          let formatSampleText = ""
+          for (let pi = 1; pi <= Math.min(2, pdf.numPages); pi++) {
+            const pg = await pdf.getPage(pi)
+            const tc = await pg.getTextContent()
+            formatSampleText += tc.items
+              .filter((it): it is typeof it & { str: string } => "str" in it)
+              .map(it => it.str).join(" ") + "\n"
+          }
+          const detectedFmt = detectCommStatementFormat(formatSampleText)
+          setCommStatementFormat(detectedFmt)
+          log(`  Detected format: ${detectedFmt}`)
+
+          for (let pageIdx = 1; pageIdx <= pdf.numPages; pageIdx++) {
+            const page = await pdf.getPage(pageIdx)
+            const tc = await page.getTextContent()
+            type TItem = { str: string; x: number; y: number; fontSize: number; width: number }
+            const items: TItem[] = []
+            for (const item of tc.items) {
+              if (!("transform" in item) || !("str" in item)) continue
+              const str = (item.str ?? "").replace(/\r/g, "")
+              if (!str.trim()) continue
+              const fontSize = Math.abs(item.transform[0])
+              const itemWidth = ("width" in item && typeof item.width === "number" && item.width > 0)
+                ? item.width : str.length * fontSize * 0.52
+              items.push({ str, x: item.transform[4], y: Math.round(item.transform[5]), fontSize, width: itemWidth })
+            }
+
+            const rowMap: Record<number, TItem[]> = {}
+            for (const item of items) {
+              const foundKey = Object.keys(rowMap).find(k => Math.abs(Number(k) - item.y) <= 4)
+              if (foundKey) rowMap[Number(foundKey)].push(item)
+              else rowMap[item.y] = [item]
+            }
+            const sortedYs = Object.keys(rowMap).map(Number).sort((a, b) => b - a)
+
+            for (const yKey of sortedYs) {
+              const rowItems = rowMap[yKey]
+              rowItems.sort((a, b) => a.x - b.x)
+              let lineStr = ""
+              for (let ri = 0; ri < rowItems.length; ri++) {
+                const item = rowItems[ri]
+                if (!item.str) continue
+                if (ri > 0) {
+                  const prev = rowItems[ri - 1]
+                  const prevEnd = prev.x + prev.width
+                  const gap = item.x - prevEnd
+                  const charW = prev.fontSize * 0.5 || 5
+                  if (gap > charW * 3) lineStr += "  "
+                  else if (gap > charW * 0.3) lineStr += " "
+                }
+                lineStr += item.str
+              }
+              lineStr = lineStr.trim()
+              if (!lineStr) continue
+              const parsed = parsePdfCommissionRow(lineStr, pageIdx, fileDate, file.name)
+              if (parsed) {
+                const conf = scoreCommissionRow(parsed)
+                const uid = `${parsed.policy_number}_${parsed.commission.toFixed(2)}_${pageIdx}_${yKey}`
+                if (!newSeen.has(uid)) {
+                  newCommData.push({ id: uid, ...parsed, confidence: conf })
+                  newSeen.add(uid)
+                  fileTotal += parsed.commission
+                  parsedRows++
+                }
+              } else if (lineStr.length >= 10) {
+                skippedRows++
+              }
+            }
+          }
+          log(`  Found ${parsedRows} commission records (${skippedRows} rows skipped)`)
+          resetCommStatementFormat()
+        } catch (err) {
+          resetCommStatementFormat()
+          log(`Error parsing PDF: ${(err as Error).message}`)
+        }
+      } else {
+        // Excel / CSV commission
+        try {
+          const ab = await file.arrayBuffer()
+          const wb = XLSX.read(ab, { type: "array" })
+          for (const sheetName of wb.SheetNames) {
+            const ws = wb.Sheets[sheetName]
+            const rawData = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: "" })
+            let headerIdx = 0
+            for (let i = 0; i < Math.min(20, rawData.length); i++) {
+              const rowStr = JSON.stringify(rawData[i]).toLowerCase()
+              if ((rowStr.includes("commission") || rowStr.includes("comm") || rowStr.includes("revenue") || rowStr.includes("amount")) &&
+                  (rowStr.includes("poli") || rowStr.includes("number") || rowStr.includes("insured") || rowStr.includes("name"))) {
+                headerIdx = i; break
+              }
+            }
+            const headers = (rawData[headerIdx] as string[]).map(String)
+            const dataRows = rawData.slice(headerIdx + 1)
+            const commColKeywords: Record<string, string[]> = {
+              policy: ["policy number","policy no","policyno","policy #","pol#","pol #","policy num","policy","certificate"],
+              commission: ["commission","comm amt","comm $","agent comm","comm","net amount","split","earned","pay amount"],
+              premium: ["written premium","annualized premium","premium","prem","annualized","gross premium"],
+              name: ["insured name","named insured","insured","account name","client name","customer name","policyholder","account","client","customer"],
+              carrier: ["carrier","company","master company","insurer","writing company"],
+              lob: ["lob","line of business","coverage","class code","coverage type"],
+              producer: ["producer","agent","csr","writer","writing agent"],
+              transType: ["trans type","transaction","trans","action","status"],
+            }
+            const colMap: Record<string, number> = {}
+            const usedCommCols = new Set<number>()
+            for (const [key, keywords] of Object.entries(commColKeywords)) {
+              for (const kw of keywords) {
+                const idx = headers.findIndex((h, i) => !usedCommCols.has(i) && h.toLowerCase().includes(kw.toLowerCase()))
+                if (idx !== -1 && colMap[key] === undefined) { colMap[key] = idx; usedCommCols.add(idx); break }
+              }
+            }
+            if (colMap.commission === undefined) { log(`  Sheet "${sheetName}": No commission column found.`); continue }
+            const mappedCommCols = Object.entries(colMap).map(([key, idx]) => `${key}→col${idx}("${headers[idx] ?? "?"}")`).join(", ")
+            log(`  Sheet "${sheetName}": ${mappedCommCols}`)
+            for (let idx = 0; idx < dataRows.length; idx++) {
+              const row = (dataRows[idx] as string[]).map(String)
+              const val = cleanNum(row[colMap.commission])
+              if (val === 0 || Math.abs(val) > 500000) continue
+              const polNum = colMap.policy !== undefined ? normalizePolicy(row[colMap.policy]) : `ROW${idx}`
+              const clientName = colMap.name !== undefined ? row[colMap.name] : ""
+              const premium = colMap.premium !== undefined ? cleanNum(row[colMap.premium]) : 0
+              const carrier = colMap.carrier !== undefined ? row[colMap.carrier] : "-"
+              const lob = colMap.lob !== undefined ? row[colMap.lob] : "-"
+              const producer = colMap.producer !== undefined ? row[colMap.producer] : "-"
+              const transType = colMap.transType !== undefined ? row[colMap.transType] : "-"
+              const uID = `${polNum}_${val.toFixed(2)}_${idx}_${sheetName}`
+              if (!newSeen.has(uID)) {
+                const conf = scoreCommissionRow({ policy_number: polNum, commission: val, premium, client_name: clientName, raw_line: row.join(" | "), policyConfidence: colMap.policy !== undefined ? 85 : 20 })
+                newCommData.push({ id: uID, policy_number: polNum, commission: val, month: fileDate, file: file.name, client_name: clientName, raw_line: row.join(" | "), producer, carrier, lob, trans_type: transType, premium, confidence: conf })
+                newSeen.add(uID)
+                fileTotal += val
+                parsedRows++
+              }
+            }
+            log(`  Sheet "${sheetName}": ${parsedRows} records`)
+          }
+        } catch (err) { log(`Error parsing Excel: ${(err as Error).message}`) }
+      }
+
+      newFiles[file.name] = fileTotal
+    }
+
+    setComm({ data: newCommData, files: newFiles, loaded: newCommData.length > 0, seen: newSeen })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [log])
+
   // ----- Handle Policy Upload -----
   const handlePolicyUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -407,292 +670,16 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
     [log]
   )
 
-  // ----- Handle Commission Upload -----
+  // ----- Handle Commission Upload (delegates to processCommFiles) -----
   const handleCommUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files || [])
       if (files.length === 0) return
-
-      const XLSX = await import("xlsx")
-      const newCommData: CommItem[] = [...comm.data]
-      const newSeen = new Set(comm.seen)
-      const newFiles: Record<string, number> = { ...comm.files }
-
-      for (const file of files) {
-        log(`Scanning ${file.name}...`)
-        let fileTotal = 0
-        let parsedRows = 0
-        let skippedRows = 0
-        const fileDate = extractDateFromFilename(file.name) || "Unknown"
-
-        if (file.name.toLowerCase().endsWith(".pdf")) {
-          // ── PDF parsing via pdfjs-dist ──
-          // Strategy: extract text items with X/Y positions, group into rows,
-          // reconstruct each row as a string using gap-based spacing, then pass
-          // to parsePdfCommissionRow() which does heuristic field extraction.
-          try {
-            const pdfjsLib = await import("pdfjs-dist")
-            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
-
-            const ab = await file.arrayBuffer()
-            const pdf = await pdfjsLib.getDocument(new Uint8Array(ab)).promise
-            log(`  PDF has ${pdf.numPages} page(s)`)
-
-            // ── Detect statement format from first page text ──
-            // Collect raw text from page 1 (or 2 if page 1 is a cover) to identify format.
-            let formatSampleText = ""
-            for (let pi = 1; pi <= Math.min(2, pdf.numPages); pi++) {
-              const pg = await pdf.getPage(pi)
-              const tc = await pg.getTextContent()
-              formatSampleText += tc.items
-                .filter((it): it is typeof it & { str: string } => "str" in it)
-                .map(it => it.str)
-                .join(" ") + "\n"
-            }
-            const detectedFmt = detectCommStatementFormat(formatSampleText)
-            setCommStatementFormat(detectedFmt)
-            log(`  Detected format: ${detectedFmt}`)
-
-            for (let pageIdx = 1; pageIdx <= pdf.numPages; pageIdx++) {
-              const page = await pdf.getPage(pageIdx)
-              const tc = await page.getTextContent()
-
-              // Build positioned items -- use pdfjs width if available,
-              // otherwise estimate from charCount * fontSize * avgCharFactor
-              type TItem = { str: string; x: number; y: number; fontSize: number; width: number }
-              const items: TItem[] = []
-              for (const item of tc.items) {
-                if (!("transform" in item) || !("str" in item)) continue
-                const str = (item.str ?? "").replace(/\r/g, "")
-                if (!str.trim()) continue
-                const fontSize = Math.abs(item.transform[0])
-                // pdfjs items have a `width` property (in user-space units)
-                const itemWidth = ("width" in item && typeof item.width === "number" && item.width > 0)
-                  ? item.width
-                  : str.length * fontSize * 0.52
-                items.push({
-                  str,
-                  x: item.transform[4],
-                  y: Math.round(item.transform[5]),
-                  fontSize,
-                  width: itemWidth,
-                })
-              }
-
-              // Group into rows by Y (cluster within 4px)
-              const rowMap: Record<number, TItem[]> = {}
-              for (const item of items) {
-                const foundKey = Object.keys(rowMap).find(k => Math.abs(Number(k) - item.y) <= 4)
-                if (foundKey) rowMap[Number(foundKey)].push(item)
-                else rowMap[item.y] = [item]
-              }
-
-              // Sort rows top-to-bottom (higher Y = top of page)
-              const sortedYs = Object.keys(rowMap).map(Number).sort((a, b) => b - a)
-
-              for (const yKey of sortedYs) {
-                const rowItems = rowMap[yKey]
-                rowItems.sort((a, b) => a.x - b.x)
-
-                // Build line string: use gaps between items to insert
-                // tab (big gap = column separator) or space (small gap = word separator).
-                // We use the actual X positions and estimate item widths from
-                // string length * fontSize * 0.5 (rough average char width).
-                let lineStr = ""
-                for (let ri = 0; ri < rowItems.length; ri++) {
-                  const item = rowItems[ri]
-                  if (!item.str) continue
-
-                  if (ri > 0) {
-                    const prev = rowItems[ri - 1]
-                    const prevEnd = prev.x + prev.width
-                    const gap = item.x - prevEnd
-                    const charW = prev.fontSize * 0.5 || 5
-
-                    if (gap > charW * 3) {
-                      // Big gap -> column separator (double space for parsePdfCommissionRow)
-                      lineStr += "  "
-                    } else if (gap > charW * 0.3) {
-                      // Small gap -> word separator
-                      lineStr += " "
-                    }
-                    // Tiny/negative gap -> same token, just concatenate
-                  }
-                  lineStr += item.str
-                }
-                lineStr = lineStr.trim()
-                if (!lineStr) continue
-
-                const parsed = parsePdfCommissionRow(lineStr, pageIdx, fileDate, file.name)
-                if (parsed) {
-                  const conf = scoreCommissionRow(parsed)
-                  const uid = `${parsed.policy_number}_${parsed.commission.toFixed(2)}_${pageIdx}_${yKey}`
-                  if (!newSeen.has(uid)) {
-                    newCommData.push({ id: uid, ...parsed, confidence: conf })
-                    newSeen.add(uid)
-                    fileTotal += parsed.commission
-                    parsedRows++
-                  }
-                } else if (lineStr.length >= 10) {
-                  skippedRows++
-                }
-              }
-            }
-
-            log(`  Found ${parsedRows} commission records (${skippedRows} rows skipped)`)
-            resetCommStatementFormat()
-          } catch (err) {
-            resetCommStatementFormat()
-            log(`Error parsing PDF: ${(err as Error).message}`)
-          }
-        } else {
-          // Excel / CSV
-          try {
-            const ab = await file.arrayBuffer()
-            const wb = XLSX.read(ab, { type: "array" })
-
-            // Try each sheet
-            for (const sheetName of wb.SheetNames) {
-              const ws = wb.Sheets[sheetName]
-              const rawData = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: "" })
-
-              // Find the header row -- look for rows with commission-like keywords
-              let headerIdx = 0
-              for (let i = 0; i < Math.min(20, rawData.length); i++) {
-                const rowStr = JSON.stringify(rawData[i]).toLowerCase()
-                if (
-                  (rowStr.includes("commission") || rowStr.includes("comm") || rowStr.includes("revenue") || rowStr.includes("amount")) &&
-                  (rowStr.includes("poli") || rowStr.includes("number") || rowStr.includes("insured") || rowStr.includes("name"))
-                ) {
-                  headerIdx = i
-                  break
-                }
-              }
-
-              const headers = (rawData[headerIdx] as string[]).map(String)
-              const dataRows = rawData.slice(headerIdx + 1)
-
-              // Auto-detect column indices for commission data
-              const commColKeywords: Record<string, string[]> = {
-                policy: [
-                  "policy number", "policy no", "policyno", "policy #", "pol#", "pol #",
-                  "policy num", "policy", "certificate",
-                ],
-                commission: [
-                  "commission", "comm amt", "comm $", "agent comm", "comm",
-                  "net amount", "split", "earned", "pay amount",
-                ],
-                premium: [
-                  "written premium", "annualized premium", "premium", "prem",
-                  "annualized", "gross premium",
-                ],
-                name: [
-                  "insured name", "named insured", "insured", "account name",
-                  "client name", "customer name", "policyholder",
-                  "account", "client", "customer",
-                ],
-                carrier: ["carrier", "company", "master company", "insurer", "writing company"],
-                lob: ["lob", "line of business", "coverage", "class code", "coverage type"],
-                producer: ["producer", "agent", "csr", "writer", "writing agent"],
-                transType: ["trans type", "transaction", "trans", "action", "status"],
-              }
-
-              const colMap: Record<string, number> = {}
-              const usedCommCols = new Set<number>()
-              for (const [key, keywords] of Object.entries(commColKeywords)) {
-                for (const kw of keywords) {
-                  const idx = headers.findIndex((h, i) =>
-                    !usedCommCols.has(i) && h.toLowerCase().includes(kw.toLowerCase())
-                  )
-                  if (idx !== -1 && colMap[key] === undefined) {
-                    colMap[key] = idx
-                    usedCommCols.add(idx)
-                    break
-                  }
-                }
-              }
-
-              // Need at minimum a commission column
-              if (colMap.commission === undefined) {
-                log(`  Sheet "${sheetName}": No commission column found in headers.`)
-                continue
-              }
-
-              const mappedCommCols = Object.entries(colMap)
-                .map(([key, idx]) => `${key}→col${idx}("${headers[idx] ?? "?"}")`)
-                .join(", ")
-              log(`  Sheet "${sheetName}": ${mappedCommCols}`)
-
-              for (let idx = 0; idx < dataRows.length; idx++) {
-                const row = (dataRows[idx] as string[]).map(String)
-                const val = cleanNum(row[colMap.commission])
-                if (val === 0 || Math.abs(val) > 500000) continue
-
-                const polNum = colMap.policy !== undefined ? normalizePolicy(row[colMap.policy]) : `ROW${idx}`
-                const clientName = colMap.name !== undefined ? row[colMap.name] : ""
-                const premium = colMap.premium !== undefined ? cleanNum(row[colMap.premium]) : 0
-                const carrier = colMap.carrier !== undefined ? row[colMap.carrier] : "-"
-                const lob = colMap.lob !== undefined ? row[colMap.lob] : "-"
-                const producer = colMap.producer !== undefined ? row[colMap.producer] : "-"
-                const transType = colMap.transType !== undefined ? row[colMap.transType] : "-"
-
-                const uID = `${polNum}_${val.toFixed(2)}_${idx}_${sheetName}`
-                if (!newSeen.has(uID)) {
-                  const conf = scoreCommissionRow({
-                    policy_number: polNum,
-                    commission: val,
-                    premium,
-                    client_name: clientName,
-                    raw_line: row.join(" | "),
-                    policyConfidence: colMap.policy !== undefined ? 85 : 20,
-                  })
-                  newCommData.push({
-                    id: uID,
-                    policy_number: polNum,
-                    commission: val,
-                    month: fileDate,
-                    file: file.name,
-                    client_name: clientName,
-                    raw_line: row.join(" | "),
-                    producer,
-                    carrier,
-                    lob,
-                    trans_type: transType,
-                    premium,
-                    confidence: conf,
-                  })
-                  newSeen.add(uID)
-                  fileTotal += val
-                  parsedRows++
-                }
-              }
-
-              if (parsedRows > 0) break // found data in this sheet
-            }
-            log(`  Found ${parsedRows} commission records from Excel`)
-          } catch (err) {
-            log(`Error parsing Excel: ${(err as Error).message}`)
-          }
-        }
-
-        newFiles[file.name] = fileTotal
-        log(`Scanned ${file.name}: ${formatCurrency(fileTotal)} total from ${parsedRows} records`)
-      }
-
-      setComm({
-        data: newCommData,
-        files: newFiles,
-        loaded: true,
-        seen: newSeen,
-      })
-
-      // Auto-fill revenue from comm data
-      const totalCommRevenue = newCommData.reduce((sum, c) => sum + c.commission, 0)
-      if (finRevenue === 0) {
-        setFinRevenue(totalCommRevenue)
-      }
+      await processCommFiles(files)
+      // Reset input so the same file can be re-uploaded
+      e.target.value = ""
     },
-    [comm, log, finRevenue]
+    [processCommFiles]
   )
 
   // ----- Save Deal -----
@@ -1263,43 +1250,112 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
             </div>
           </div>
 
-          {/* Step 2: Upload Policy List */}
+          {/* Step 2: Single Drop Zone — EZLynx CSV + Commission PDFs */}
           <div className="mb-10 border-b border-border pb-8">
             <div className="mb-4 flex items-center gap-3">
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
                 2
               </span>
-              <h3 className="text-lg font-bold text-foreground">Upload Client / Policy List</h3>
+              <h3 className="text-lg font-bold text-foreground">Drop All Files Here</h3>
+              <span className="rounded-full border border-border bg-secondary/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                1 CSV/XLSX + up to 12 PDFs
+              </span>
             </div>
 
-            <button
-              onClick={() => policyFileRef.current?.click()}
+            {/* Unified drag-and-drop zone */}
+            <div
+              onDragOver={(e) => { e.preventDefault(); setDropZoneActive(true) }}
+              onDragEnter={(e) => { e.preventDefault(); setDropZoneActive(true) }}
+              onDragLeave={(e) => {
+                // Only deactivate if leaving the zone itself (not a child)
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropZoneActive(false)
+              }}
+              onDrop={async (e) => {
+                e.preventDefault()
+                setDropZoneActive(false)
+                const dropped = Array.from(e.dataTransfer.files)
+                if (dropped.length > 0) await processFiles(dropped)
+              }}
+              onClick={() => dropAllRef.current?.click()}
               className={cn(
-                "w-full rounded-xl border-2 border-dashed p-8 text-center transition-all",
-                policy.loaded
-                  ? "border-success bg-success/5"
-                  : "border-border bg-secondary/30 hover:border-primary"
+                "w-full cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition-all select-none",
+                dropZoneActive
+                  ? "border-primary bg-primary/5 scale-[1.01]"
+                  : (policy.loaded || comm.loaded)
+                    ? "border-success bg-success/5"
+                    : "border-border bg-secondary/30 hover:border-primary hover:bg-secondary/50"
               )}
             >
-              <Upload className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
-              <p className="font-semibold text-foreground">
-                {policy.loaded
-                  ? `Loaded ${policy.data.length} policies`
-                  : "Upload Policy List (Excel / CSV)"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {policy.loaded
-                  ? `Total Premium: ${formatCurrency(policy.stats.totalPrem)}`
-                  : "System auto-maps columns"}
-              </p>
-            </button>
+              {isProcessing ? (
+                <>
+                  <div className="mx-auto mb-2 h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  <p className="font-semibold text-foreground">Processing files...</p>
+                  <p className="text-xs text-muted-foreground">Parsing PDFs and CSV simultaneously</p>
+                </>
+              ) : dropZoneActive ? (
+                <>
+                  <Upload className="mx-auto mb-2 h-8 w-8 text-primary" />
+                  <p className="font-bold text-primary">Release to auto-classify</p>
+                  <p className="text-xs text-muted-foreground">CSV/XLSX → Policy List &bull; PDFs → Commission Statements</p>
+                </>
+              ) : (policy.loaded || comm.loaded) ? (
+                <div className="flex flex-wrap items-center justify-center gap-6">
+                  {policy.loaded && (
+                    <div className="text-center">
+                      <p className="text-base font-extrabold text-success">{policy.data.length.toLocaleString()}</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground">policies loaded</p>
+                    </div>
+                  )}
+                  {comm.loaded && (
+                    <div className="text-center">
+                      <p className="text-base font-extrabold text-success">{Object.keys(comm.files).length}</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground">statement{Object.keys(comm.files).length !== 1 ? "s" : ""} loaded</p>
+                    </div>
+                  )}
+                  {comm.loaded && (
+                    <div className="text-center">
+                      <p className="text-base font-extrabold text-foreground">{comm.data.length.toLocaleString()}</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground">comm records</p>
+                    </div>
+                  )}
+                  <div className="text-center">
+                    <p className="text-[10px] font-semibold text-muted-foreground">Click or drop more files to add</p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <Upload className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
+                  <p className="font-semibold text-foreground">Drag &amp; drop all 13 files at once</p>
+                  <p className="text-xs text-muted-foreground">or click to browse &bull; auto-classifies by file type</p>
+                  <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
+                    <span className="rounded-md border border-border bg-secondary px-2 py-1 font-mono">.csv / .xlsx</span>
+                    <span className="text-muted-foreground/50">→</span>
+                    <span className="text-foreground font-medium">EZLynx Policy List</span>
+                    <span className="mx-2 text-border">|</span>
+                    <span className="rounded-md border border-border bg-secondary px-2 py-1 font-mono">.pdf &times;12</span>
+                    <span className="text-muted-foreground/50">→</span>
+                    <span className="text-foreground font-medium">Monthly Statements (sorted Jan–Dec)</span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Hidden file input for click-to-browse */}
             <input
-              ref={policyFileRef}
+              ref={dropAllRef}
               type="file"
-              accept=".xlsx,.csv,.xls"
+              accept=".xlsx,.csv,.xls,.pdf"
+              multiple
               className="hidden"
-              onChange={handlePolicyUpload}
+              onChange={async (e) => {
+                const files = Array.from(e.target.files || [])
+                e.target.value = ""
+                if (files.length > 0) await processFiles(files)
+              }}
             />
+            {/* Legacy individual inputs kept for potential re-use */}
+            <input ref={policyFileRef} type="file" accept=".xlsx,.csv,.xls" className="hidden" onChange={handlePolicyUpload} />
+            <input ref={commFileRef} type="file" accept=".pdf,.xlsx,.csv,.xls" multiple className="hidden" onChange={handleCommUpload} />
 
             {/* Policy Table Preview */}
             {policy.loaded && policy.data.length > 0 && (() => {
@@ -1411,46 +1467,8 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
             })()}
           </div>
 
-          {/* Step 3: Upload Commission Statements */}
+          {/* Parse Verification Panel + Commission Files List (rendered inside Step 2 section) */}
           <div className="mb-10 border-b border-border pb-8">
-            <div className="mb-4 flex items-center gap-3">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                3
-              </span>
-              <h3 className="text-lg font-bold text-foreground">
-                Upload Commission Statements
-              </h3>
-            </div>
-
-            <button
-              onClick={() => commFileRef.current?.click()}
-              className={cn(
-                "w-full rounded-xl border-2 border-dashed p-8 text-center transition-all",
-                comm.loaded
-                  ? "border-success bg-success/5"
-                  : "border-border bg-secondary/30 hover:border-primary"
-              )}
-            >
-              <FileText className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
-              <p className="font-semibold text-foreground">
-                {comm.loaded
-                  ? `${Object.keys(comm.files).length} files uploaded`
-                  : "Upload Commission Statements (PDF / Excel)"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {comm.loaded
-                  ? `${comm.data.length} records parsed`
-                  : "System scans PDFs and auto-detects dates"}
-              </p>
-            </button>
-            <input
-              ref={commFileRef}
-              type="file"
-              accept=".pdf,.xlsx,.csv,.xls"
-              multiple
-              className="hidden"
-              onChange={handleCommUpload}
-            />
 
             {/* ── Parse Verification Panel ── */}
             {comm.loaded && comm.data.length > 0 && (() => {
@@ -1619,12 +1637,48 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
 
               const totalCommission = comm.data.reduce((s, c) => s + c.commission, 0)
 
+              // ── 12-Month Annualization Guardrail ──────────────────────────────────
+              const distinctMonths = new Set(
+                comm.data.map(c => c.month).filter(m => m && m !== "Unknown")
+              )
+              const nMonths = distinctMonths.size || 1
+              const annualizedCommission = totalCommission * (12 / nMonths)
+              const isAnnualized = nMonths < 12
+
+              // ── Policy Persistence Tracker ────────────────────────────────────────
+              // For each normalized policy number, track which distinct months it appeared in.
+              const policyMonthMap = new Map<string, Set<string>>()
+              comm.data.forEach(c => {
+                const norm = normalizePolicy(c.policy_number)
+                if (!norm) return
+                if (!policyMonthMap.has(norm)) policyMonthMap.set(norm, new Set())
+                if (c.month && c.month !== "Unknown") policyMonthMap.get(norm)!.add(c.month)
+              })
+              // Classify by month coverage
+              const persistActive   = [...policyMonthMap.values()].filter(s => s.size >= 10).length  // 10-12/12
+              const persistPartial  = [...policyMonthMap.values()].filter(s => s.size >= 4 && s.size < 10).length
+              const persistLapsed   = [...policyMonthMap.values()].filter(s => s.size > 0 && s.size < 4).length
+
               return (
                 <div className="mt-4">
                   <div className="mb-2 flex items-center gap-2">
                     <BarChart3 className="h-4 w-4 text-primary" />
                     <p className="text-xs font-bold text-foreground">Book Analytics</p>
+                    <span className="text-[10px] text-muted-foreground">{nMonths} month{nMonths !== 1 ? "s" : ""} of data &bull; {Object.keys(comm.files).length} file{Object.keys(comm.files).length !== 1 ? "s" : ""}</span>
                   </div>
+
+                  {/* Annualization banner */}
+                  {isAnnualized && (
+                    <div className="mb-3 flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/8 px-3 py-2">
+                      <span className="mt-0.5 shrink-0 text-warning">&#9432;</span>
+                      <p className="text-xs text-warning">
+                        <span className="font-bold">Annualized from {nMonths} month{nMonths !== 1 ? "s" : ""} of statement data.</span>{" "}
+                        Effective annual commission estimated at {formatCurrency(annualizedCommission)} ({nMonths}/12 months uploaded).
+                        Upload the remaining {12 - nMonths} statement{12 - nMonths !== 1 ? "s" : ""} for a full 12-month trailing figure.
+                      </p>
+                    </div>
+                  )}
+
                   {/* Match breakdown row */}
                   <div className="mb-2 flex flex-wrap items-center gap-1.5 text-[11px]">
                     <span className="font-semibold text-muted-foreground">Match breakdown:</span>
@@ -1662,8 +1716,17 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
                   <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <div className="rounded-lg border border-border bg-card p-3 text-center">
                       <p className="text-lg font-extrabold text-foreground">{formatCurrency(totalCommission)}</p>
-                      <p className="text-[10px] font-semibold text-muted-foreground">Total Commission</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground">
+                        {isAnnualized ? `${nMonths}-Mo Commission` : "12-Mo Commission"}
+                      </p>
                     </div>
+                    {isAnnualized && (
+                      <div className="rounded-lg border border-warning/40 bg-warning/8 p-3 text-center" title={`Extrapolated from ${nMonths} months of data`}>
+                        <p className="text-lg font-extrabold text-warning">{formatCurrency(annualizedCommission)}</p>
+                        <p className="text-[10px] font-semibold text-muted-foreground">Annualized (est.)</p>
+                        <p className="mt-0.5 text-[9px] text-muted-foreground/70">{nMonths}/12 months</p>
+                      </div>
+                    )}
                     <div className="rounded-lg border border-border bg-card p-3 text-center">
                       <p className="text-lg font-extrabold text-warning">{formatCurrency(ms.unmatchedCommTotal)}</p>
                       <p className="text-[10px] font-semibold text-muted-foreground">Unmatched Comm $</p>
@@ -1691,6 +1754,32 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
                       )
                     })()}
                   </div>
+
+                  {/* Policy Persistence Tracker */}
+                  {nMonths >= 2 && (
+                    <div className="mt-3 rounded-lg border border-border bg-secondary/30 p-3">
+                      <p className="mb-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                        12-Month Policy Lifecycle &bull; {policyMonthMap.size} unique policies tracked
+                      </p>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="rounded-md border border-success/30 bg-success/8 p-2 text-center" title="Paid commission in 10-12 distinct months">
+                          <p className="text-base font-extrabold text-success">{persistActive}</p>
+                          <p className="text-[9px] font-semibold text-muted-foreground">Consistently Active</p>
+                          <p className="text-[8px] text-muted-foreground/70">10+ months</p>
+                        </div>
+                        <div className="rounded-md border border-warning/30 bg-warning/8 p-2 text-center" title="Paid commission in 4-9 distinct months">
+                          <p className="text-base font-extrabold text-warning">{persistPartial}</p>
+                          <p className="text-[9px] font-semibold text-muted-foreground">Partial / Seasonal</p>
+                          <p className="text-[8px] text-muted-foreground/70">4–9 months</p>
+                        </div>
+                        <div className="rounded-md border border-destructive/30 bg-destructive/8 p-2 text-center" title="Paid commission in fewer than 4 distinct months">
+                          <p className="text-base font-extrabold text-destructive">{persistLapsed}</p>
+                          <p className="text-[9px] font-semibold text-muted-foreground">Lapsed / Cancelled</p>
+                          <p className="text-[8px] text-muted-foreground/70">1–3 months</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )
             })()}
