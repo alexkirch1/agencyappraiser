@@ -714,3 +714,98 @@ export interface CommissionRow {
   trans_type: string
   confidence: ParseConfidence
 }
+
+// ─── 3-Pass Commission Row Matcher ───────────────────────────────────────────
+
+export type MatchType = "exact" | "suffix" | "rewrite" | "unmatched"
+
+export interface MatchStats {
+  /** Per comm-row match result keyed by CommissionRow.id */
+  byId: Map<string, MatchType>
+  exactCount: number
+  suffixCount: number
+  rewriteCount: number
+  unmatchedCount: number
+  matchedCommTotal: number   // exact + suffix + rewrite commission $
+  unmatchedCommTotal: number
+}
+
+/**
+ * Match every commission row against the EZLynx policy list using a 3-pass cascade.
+ *
+ * Pass 1 — Exact:   normalizePolicy(commRow.policy_number) === normalizePolicy(ezlynxRow.policyNumber)
+ * Pass 2 — Suffix:  one normalized key starts with or contains the other (both >= 6 chars)
+ *                   e.g. "CBG00165372" matches "CBG00165372-02" → both normalize similarly
+ * Pass 3 — Rewrite: case-insensitive substring match on client/account name (length >= 5)
+ *                   classifies as "rewrite" (same client, different policy number)
+ *
+ * @param ezlynxPolicies  Rows from EZLynx CSV. Each entry: policyNumber (raw), clientName (raw).
+ * @param commRows        Parsed commission statement rows.
+ */
+export function matchCommRows(
+  ezlynxPolicies: Array<{ policyNumber: string; clientName: string }>,
+  commRows: CommissionRow[],
+): MatchStats {
+  // Pre-build normalized EZLynx structures
+  const ezNormSet = new Set<string>()
+  const ezClientNames: string[] = [] // lower-cased for Pass 3
+
+  for (const e of ezlynxPolicies) {
+    const norm = normalizePolicy(e.policyNumber)
+    if (norm) ezNormSet.add(norm)
+    if (e.clientName) ezClientNames.push(e.clientName.toLowerCase().trim())
+  }
+
+  const ezNormArr = [...ezNormSet] // array for Pass 2 iteration
+
+  const byId = new Map<string, MatchType>()
+  let exactCount = 0
+  let suffixCount = 0
+  let rewriteCount = 0
+  let unmatchedCount = 0
+  let matchedCommTotal = 0
+  let unmatchedCommTotal = 0
+
+  for (const row of commRows) {
+    const normComm = normalizePolicy(row.policy_number)
+    let result: MatchType = "unmatched"
+
+    // Pass 1 — Exact normalized match
+    if (ezNormSet.has(normComm)) {
+      result = "exact"
+    }
+
+    // Pass 2 — Suffix / substring match (both sides >= 6 chars)
+    if (result === "unmatched" && normComm.length >= 6) {
+      for (const normEZ of ezNormArr) {
+        if (normEZ.length < 6) continue
+        if (normEZ.startsWith(normComm) || normComm.startsWith(normEZ) ||
+            normEZ.includes(normComm)   || normComm.includes(normEZ)) {
+          result = "suffix"
+          break
+        }
+      }
+    }
+
+    // Pass 3 — Client name rewrite match (case-insensitive substring, >= 5 chars)
+    if (result === "unmatched" && row.client_name && row.client_name.trim().length >= 5) {
+      const commClient = row.client_name.toLowerCase().trim()
+      for (const ezClient of ezClientNames) {
+        if (ezClient.length < 5) continue
+        if (commClient.includes(ezClient) || ezClient.includes(commClient)) {
+          result = "rewrite"
+          break
+        }
+      }
+    }
+
+    byId.set(row.id, result)
+
+    if (result === "exact")    { exactCount++;    matchedCommTotal   += row.commission }
+    else if (result === "suffix")  { suffixCount++;   matchedCommTotal   += row.commission }
+    else if (result === "rewrite") { rewriteCount++;  matchedCommTotal   += row.commission }
+    else                       { unmatchedCount++; unmatchedCommTotal += row.commission }
+  }
+
+  return { byId, exactCount, suffixCount, rewriteCount, unmatchedCount, matchedCommTotal, unmatchedCommTotal }
+}

@@ -22,6 +22,9 @@ import {
   detectCommStatementFormat,
   setCommStatementFormat,
   resetCommStatementFormat,
+  matchCommRows,
+  type MatchType,
+  type MatchStats,
   type ParseConfidence,
   type ConfidenceLevel,
 } from "@/lib/parse-utils"
@@ -1505,56 +1508,51 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
               const expIdx = columnMap.expiration ?? -1
               const typeIdx = columnMap.type ?? -1
 
-              // Build policy set
-              const policyNumbers = new Set<string>()
+              // Build EZLynx policy + name list for 3-pass matcher
+              const nameIdx = columnMap.name ?? -1
               const activePolicies: string[][] = []
+              const ezlynxList: { policyNumber: string; clientName: string }[] = []
               policy.data.forEach((row, i) => {
                 if (!policy.excludedIndices.has(i)) {
-                  const pNorm = polIdx >= 0 ? normalizePolicy(row[polIdx]) : ""
-                  if (pNorm) policyNumbers.add(pNorm)
                   activePolicies.push(row)
+                  const polNum    = polIdx  >= 0 ? (row[polIdx]  ?? "") : ""
+                  const clientNm  = nameIdx >= 0 ? (row[nameIdx] ?? "") : ""
+                  if (polNum) ezlynxList.push({ policyNumber: polNum, clientName: clientNm })
                 }
               })
 
-              // Build comm policy set
-              const commPolicySet = new Set<string>()
-              let matchedCommTotal = 0
-              let unmatchedCommTotal = 0
+              // 3-pass cascade match — returns per-row MatchType + aggregate totals
+              const ms: MatchStats = matchCommRows(ezlynxList, comm.data)
+              const totalMatched = ms.exactCount + ms.suffixCount + ms.rewriteCount
+              const ezlynxTotal  = ezlynxList.length
+
+              // Match Rate = (matched comm rows / total comm rows) × 100
+              const matchRate = comm.data.length > 0
+                ? (totalMatched / comm.data.length) * 100
+                : 0
+
+              // Retention Rate — EZLynx policies with at least one matched comm row
+              // (exact or suffix) / total EZLynx policies
+              const matchedEZPolicies = new Set<string>()
               comm.data.forEach(c => {
-                const normP = normalizePolicy(c.policy_number)
-                commPolicySet.add(normP)
-                if (policyNumbers.has(normP)) matchedCommTotal += c.commission
-                else unmatchedCommTotal += c.commission
+                const t = ms.byId.get(c.id)
+                if (t === "exact" || t === "suffix") {
+                  matchedEZPolicies.add(normalizePolicy(c.policy_number))
+                }
               })
-
-              const matchedPolicies = [...policyNumbers].filter(p => commPolicySet.has(p)).length
-              const unmatchedPolicies = policyNumbers.size - matchedPolicies
-              const matchRate = policyNumbers.size > 0 ? ((matchedPolicies / policyNumbers.size) * 100) : 0
-
-              // Retention Rate: active policies that appear on at least one commission statement.
-              // These are policies we are actively receiving commission on -- they renewed.
-              // In a perfect world this equals the match rate.
-              //
-              // New Policy Rate: active policies that do NOT appear on any commission statement.
-              // These are brand-new accounts that have not yet generated a commission entry.
-              //
-              // Both use the total active policy count as the denominator.
-              const retentionRate = policyNumbers.size > 0
-                ? (matchedPolicies / policyNumbers.size) * 100
+              const retentionRate = ezlynxTotal > 0
+                ? (matchedEZPolicies.size / ezlynxTotal) * 100
+                : 0
+              const newPolicyRate = ezlynxTotal > 0
+                ? ((ezlynxTotal - matchedEZPolicies.size) / ezlynxTotal) * 100
                 : 0
 
-              const newPolicyCount = unmatchedPolicies // policies active but not on any statement
-              const newPolicyRate = policyNumbers.size > 0
-                ? (newPolicyCount / policyNumbers.size) * 100
-                : 0
-
-              // Total premium
+              // Total premium from EZLynx CSV
               let totalPrem = 0
               if (premIdx >= 0) {
                 activePolicies.forEach(row => { totalPrem += cleanNum(row[premIdx]) })
               }
 
-              // Commission match $ stats
               const totalCommission = comm.data.reduce((s, c) => s + c.commission, 0)
 
               return (
@@ -1563,29 +1561,37 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
                     <BarChart3 className="h-4 w-4 text-primary" />
                     <p className="text-xs font-bold text-foreground">Book Analytics</p>
                   </div>
+                  {/* Match breakdown row */}
+                  <div className="mb-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+                    <span className="font-semibold text-muted-foreground">Match breakdown:</span>
+                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-bold text-emerald-600 dark:text-emerald-400">{ms.exactCount} Exact</span>
+                    <span className="rounded-full bg-sky-500/15 px-2 py-0.5 font-bold text-sky-600 dark:text-sky-400">{ms.suffixCount} Term Suffix</span>
+                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-bold text-amber-600 dark:text-amber-400">{ms.rewriteCount} Rewrite</span>
+                    <span className="rounded-full bg-destructive/15 px-2 py-0.5 font-bold text-destructive">{ms.unmatchedCount} Unmatched</span>
+                  </div>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
                     <div className="rounded-lg border border-border bg-card p-3 text-center">
-                      <p className="text-lg font-extrabold text-primary">{matchedPolicies}</p>
-                      <p className="text-[10px] font-semibold text-muted-foreground">Matched Policies</p>
+                      <p className="text-lg font-extrabold text-primary">{totalMatched}</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground">Matched Rows</p>
                     </div>
                     <div className="rounded-lg border border-border bg-card p-3 text-center">
-                      <p className="text-lg font-extrabold text-warning">{unmatchedPolicies}</p>
-                      <p className="text-[10px] font-semibold text-muted-foreground">Unmatched Policies</p>
+                      <p className="text-lg font-extrabold text-warning">{ms.unmatchedCount}</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground">Unmatched Rows</p>
                     </div>
                     <div className="rounded-lg border border-border bg-card p-3 text-center">
                       <p className="text-lg font-extrabold text-success">{matchRate.toFixed(1)}%</p>
                       <p className="text-[10px] font-semibold text-muted-foreground">Match Rate</p>
                     </div>
-                    <div className="rounded-lg border border-border bg-card p-3 text-center" title="Active policies that appear on a commission statement — renewed and being paid on">
+                    <div className="rounded-lg border border-border bg-card p-3 text-center" title="EZLynx policies with at least one exact or suffix-matched commission row">
                       <p className="text-lg font-extrabold text-success">{retentionRate > 0 ? retentionRate.toFixed(1) + "%" : "N/A"}</p>
                       <p className="text-[10px] font-semibold text-muted-foreground">Retention Rate</p>
                     </div>
-                    <div className="rounded-lg border border-border bg-card p-3 text-center" title="Active policies with no matching commission statement — new accounts not yet on a statement">
+                    <div className="rounded-lg border border-border bg-card p-3 text-center" title="EZLynx policies with no commission statement entries">
                       <p className="text-lg font-extrabold text-primary">{newPolicyRate > 0 ? newPolicyRate.toFixed(1) + "%" : "N/A"}</p>
                       <p className="text-[10px] font-semibold text-muted-foreground">New Policy Rate</p>
                     </div>
                     <div className="rounded-lg border border-border bg-card p-3 text-center">
-                      <p className="text-lg font-extrabold text-success">{formatCurrency(matchedCommTotal)}</p>
+                      <p className="text-lg font-extrabold text-success">{formatCurrency(ms.matchedCommTotal)}</p>
                       <p className="text-[10px] font-semibold text-muted-foreground">Matched Comm $</p>
                     </div>
                   </div>
@@ -1595,7 +1601,7 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
                       <p className="text-[10px] font-semibold text-muted-foreground">Total Commission</p>
                     </div>
                     <div className="rounded-lg border border-border bg-card p-3 text-center">
-                      <p className="text-lg font-extrabold text-warning">{formatCurrency(unmatchedCommTotal)}</p>
+                      <p className="text-lg font-extrabold text-warning">{formatCurrency(ms.unmatchedCommTotal)}</p>
                       <p className="text-[10px] font-semibold text-muted-foreground">Unmatched Comm $</p>
                     </div>
                     <div className="rounded-lg border border-border bg-card p-3 text-center">
@@ -1627,16 +1633,19 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
               const totalCommPages = Math.ceil(filteredComm.length / ROWS_PER_PAGE)
               const commSlice = filteredComm.slice(commPage * ROWS_PER_PAGE, (commPage + 1) * ROWS_PER_PAGE)
 
-              // Pre-build policy lookup set
+              // Build 3-pass match map for per-row badges (reuse same inputs as Stats Panel)
               const polIdx = columnMap.policy ?? -1
-              const policySet = new Set<string>()
+              const nameIdx = columnMap.name ?? -1
+              let tableMatchMap: Map<string, MatchType> | null = null
               if (policy.loaded && polIdx >= 0) {
-                policy.data.forEach((row, i) => {
-                  if (!policy.excludedIndices.has(i)) {
-                    const pNorm = normalizePolicy(row[polIdx])
-                    if (pNorm) policySet.add(pNorm)
-                  }
-                })
+                const ezList = policy.data
+                  .filter((_, i) => !policy.excludedIndices.has(i))
+                  .map(row => ({
+                    policyNumber: row[polIdx] ?? "",
+                    clientName:   nameIdx >= 0 ? (row[nameIdx] ?? "") : "",
+                  }))
+                  .filter(e => e.policyNumber)
+                tableMatchMap = matchCommRows(ezList, filteredComm).byId
               }
 
               return (
@@ -1664,18 +1673,27 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
                       </thead>
                       <tbody>
                         {commSlice.map((c) => {
-                          const isMatched = policy.loaded && polIdx >= 0 && policySet.has(normalizePolicy(c.policy_number))
+                          const matchType: MatchType = tableMatchMap?.get(c.id) ?? "unmatched"
+                          const rowBg =
+                            matchType === "exact"     ? "bg-emerald-500/5" :
+                            matchType === "suffix"    ? "bg-sky-500/5" :
+                            matchType === "rewrite"   ? "bg-amber-500/5" : ""
                           return (
-                            <tr key={c.id} className={cn(
-                              "border-b border-border",
-                              isMatched ? "bg-success/5" : ""
-                            )}>
+                            <tr key={c.id} className={cn("border-b border-border", rowBg)}>
                               {policy.loaded && (
                                 <td className="px-2 py-1.5 text-center">
-                                  {isMatched
-                                    ? <span className="text-success font-bold">Yes</span>
-                                    : <span className="text-muted-foreground">No</span>
-                                  }
+                                  {matchType === "exact" && (
+                                    <span className="inline-block rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">Yes</span>
+                                  )}
+                                  {matchType === "suffix" && (
+                                    <span className="inline-block rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-600 dark:text-sky-400">Term Suffix</span>
+                                  )}
+                                  {matchType === "rewrite" && (
+                                    <span className="inline-block rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">Rewrite</span>
+                                  )}
+                                  {matchType === "unmatched" && (
+                                    <span className="inline-block rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-bold text-destructive">Unmatched</span>
+                                  )}
                                 </td>
                               )}
                               <td className="px-2 py-1.5 text-center" title={c.confidence?.reasons?.join(", ") || ""}>
