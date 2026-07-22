@@ -323,84 +323,8 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
     setLogMessages((prev) => [...prev, msg])
   }, [])
 
-  // ----- Unified file processor: classifies by extension then routes -----
-  const processFiles = useCallback(async (files: File[]) => {
-    if (files.length === 0) return
-    setIsProcessing(true)
-
-    const csvFiles  = files.filter(f => /\.(csv|xlsx|xls)$/i.test(f.name))
-    const pdfFiles  = files.filter(f => /\.pdf$/i.test(f.name))
-
-    // Process CSV/XLSX as EZLynx policy list (first one wins)
-    if (csvFiles.length > 0) {
-      const file = csvFiles[0]
-      log(`[Drop] Auto-classified as EZLynx Policy List: ${file.name}`)
-
-      const XLSX = await import("xlsx")
-      const ab = await file.arrayBuffer()
-      try {
-        const wb = XLSX.read(ab, { type: "array" })
-        let json: unknown[][] = []
-        for (let i = 0; i < wb.SheetNames.length; i++) {
-          const ws = wb.Sheets[wb.SheetNames[i]]
-          const tempJson = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: "" })
-          if (tempJson.length > 5) { json = tempJson; break }
-        }
-        if (json.length === 0) { log("Empty policy file — skipped.") }
-        else {
-          let headerIdx = 0
-          for (let i = 0; i < Math.min(30, json.length); i++) {
-            const rowStr = JSON.stringify(json[i]).toLowerCase()
-            if (rowStr.includes("policy") || rowStr.includes("prem")) { headerIdx = i; break }
-          }
-          const headers = (json[headerIdx] as string[]).map(String)
-          const data = json.slice(headerIdx + 1).map((row) => (row as string[]).map(String))
-          const mapping = autoMapColumns(headers)
-          const mappedNames = Object.entries(mapping)
-            .filter(([, idx]) => idx >= 0)
-            .map(([key, idx]) => `${key}→col${idx}("${headers[idx]}")`)
-            .join(", ")
-          log(`Column mapping: ${mappedNames || "No columns mapped"}`)
-          let totalPrem = 0
-          const premIdx = mapping.premium ?? -1
-          if (premIdx > -1) data.forEach((row) => { totalPrem += cleanNum(row[premIdx]) })
-          setPolicy({ headers, data, loaded: true, excludedIndices: new Set(), stats: { totalPrem } })
-          setColumnMap(mapping)
-          setFinRevenue(0)
-          const polParse = scorePolicyParse({
-            totalRows: data.length,
-            mappedColumns: Object.values(mapping).filter(v => v >= 0).length,
-            totalPossibleColumns: Object.keys(mapping).length,
-            hasPolicyCol: (mapping.policy ?? -1) >= 0,
-            hasPremiumCol: (mapping.premium ?? -1) >= 0,
-          })
-          log(`Loaded ${data.length} policies from ${file.name}. Parse confidence: ${polParse.score}/100 (${polParse.level})`)
-        }
-      } catch (err) { log(`Error parsing policy file: ${(err as Error).message}`) }
-    }
-
-    // Process PDFs as commission statements — sorted chronologically by extracted date
-    if (pdfFiles.length > 0) {
-      // Sort by extracted date so months load Jan→Dec
-      const sorted = [...pdfFiles].sort((a, b) => {
-        const da = extractDateFromFilename(a.name) || a.name
-        const db = extractDateFromFilename(b.name) || b.name
-        return da.localeCompare(db)
-      })
-      log(`[Drop] Auto-classified ${sorted.length} PDF(s) as Commission Statements — sorted chronologically`)
-
-      // Delegate to the existing PDF branch of handleCommUpload by constructing
-      // a synthetic FileList-like array and calling the core processing logic.
-      // We do this by directly calling processCommFiles (extracted below).
-      await processCommFiles(sorted)
-    }
-
-    setIsProcessing(false)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [log])
-
   // ----- Core commission file processing (PDF + Excel) -----
-  // Extracted so both handleCommUpload and processFiles can call it.
+  // Defined first so processFiles (below) can reference it in its dep array.
   const processCommFiles = useCallback(async (files: File[]) => {
     const XLSX = await import("xlsx")
 
@@ -580,6 +504,77 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
     setComm({ data: newCommData, files: newFiles, loaded: newCommData.length > 0, seen: newSeen })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [log])
+
+  // ----- Unified file processor: classifies by extension then routes -----
+  // Defined AFTER processCommFiles so it can reference it as a stable dep.
+  const processFiles = useCallback(async (files: File[]) => {
+    if (files.length === 0) return
+    setIsProcessing(true)
+
+    const csvFiles = files.filter(f => /\.(csv|xlsx|xls)$/i.test(f.name))
+    const pdfFiles = files.filter(f => /\.pdf$/i.test(f.name))
+
+    // Process CSV/XLSX as EZLynx policy list (first one wins)
+    if (csvFiles.length > 0) {
+      const file = csvFiles[0]
+      log(`[Drop] Auto-classified as EZLynx Policy List: ${file.name}`)
+
+      const XLSX = await import("xlsx")
+      const ab = await file.arrayBuffer()
+      try {
+        const wb = XLSX.read(ab, { type: "array" })
+        let json: unknown[][] = []
+        for (let i = 0; i < wb.SheetNames.length; i++) {
+          const ws = wb.Sheets[wb.SheetNames[i]]
+          const tempJson = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: "" })
+          if (tempJson.length > 5) { json = tempJson; break }
+        }
+        if (json.length === 0) { log("Empty policy file — skipped.") }
+        else {
+          let headerIdx = 0
+          for (let i = 0; i < Math.min(30, json.length); i++) {
+            const rowStr = JSON.stringify(json[i]).toLowerCase()
+            if (rowStr.includes("policy") || rowStr.includes("prem")) { headerIdx = i; break }
+          }
+          const headers = (json[headerIdx] as string[]).map(String)
+          const data = json.slice(headerIdx + 1).map((row) => (row as string[]).map(String))
+          const mapping = autoMapColumns(headers)
+          const mappedNames = Object.entries(mapping)
+            .filter(([, idx]) => idx >= 0)
+            .map(([key, idx]) => `${key}→col${idx}("${headers[idx]}")`)
+            .join(", ")
+          log(`Column mapping: ${mappedNames || "No columns mapped"}`)
+          let totalPrem = 0
+          const premIdx = mapping.premium ?? -1
+          if (premIdx > -1) data.forEach((row) => { totalPrem += cleanNum(row[premIdx]) })
+          setPolicy({ headers, data, loaded: true, excludedIndices: new Set(), stats: { totalPrem } })
+          setColumnMap(mapping)
+          setFinRevenue(0)
+          const polParse = scorePolicyParse({
+            totalRows: data.length,
+            mappedColumns: Object.values(mapping).filter(v => v >= 0).length,
+            totalPossibleColumns: Object.keys(mapping).length,
+            hasPolicyCol: (mapping.policy ?? -1) >= 0,
+            hasPremiumCol: (mapping.premium ?? -1) >= 0,
+          })
+          log(`Loaded ${data.length} policies from ${file.name}. Parse confidence: ${polParse.score}/100 (${polParse.level})`)
+        }
+      } catch (err) { log(`Error parsing policy file: ${(err as Error).message}`) }
+    }
+
+    // Process PDFs as commission statements — sorted chronologically by extracted date
+    if (pdfFiles.length > 0) {
+      const sorted = [...pdfFiles].sort((a, b) => {
+        const da = extractDateFromFilename(a.name) || a.name
+        const db = extractDateFromFilename(b.name) || b.name
+        return da.localeCompare(db)
+      })
+      log(`[Drop] Auto-classified ${sorted.length} PDF(s) as Commission Statements — sorted chronologically`)
+      await processCommFiles(sorted)
+    }
+
+    setIsProcessing(false)
+  }, [log, processCommFiles])
 
   // ----- Handle Policy Upload -----
   const handlePolicyUpload = useCallback(
