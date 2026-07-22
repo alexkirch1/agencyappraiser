@@ -5,7 +5,7 @@ import "./globals.css"
 import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
 import { ThemeProvider } from "@/components/theme-provider"
-import { AuthProvider } from "@/lib/use-auth"
+import { AuthProvider } from "@/components/auth/auth-provider-client"
 
 
 const FB_PIXEL_ID = process.env.NEXT_PUBLIC_FACEBOOK_PIXEL_ID
