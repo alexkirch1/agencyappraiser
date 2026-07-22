@@ -215,7 +215,15 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
 
   // ----- Derived values -----
   const ebitda = finRevenue - finOpex + finOwnerComp + finAddbacks
-  const baseRevenue = finRevenue || calculateBaseRevenue()
+
+  // totalComm: raw sum of all commission statement rows — this is the "revenue"
+  // figure that Section 5 (Consolidated Valuation) is based on.
+  const totalComm = comm.data.reduce((sum, c) => sum + c.commission, 0)
+
+  // baseRevenue: for Section 5 we always use totalComm directly from the uploaded
+  // 12-month commission statements. finRevenue (manual P&L entry) overrides when set.
+  // This ensures estimatedAgencyValue = totalComm * suggestedMultiple.
+  const baseRevenue = finRevenue || (totalComm > 0 ? totalComm : calculateBaseRevenue())
   const currentValuation = baseRevenue * valuationMultiple
 
   // Auto-feed live book metrics into valuationFactors when data is available.
