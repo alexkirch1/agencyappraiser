@@ -22,7 +22,6 @@ import {
   detectCommStatementFormat,
   setCommStatementFormat,
   resetCommStatementFormat,
-  matchPolicies,
   type ParseConfidence,
   type ConfidenceLevel,
 } from "@/lib/parse-utils"
@@ -200,8 +199,6 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
   const [valuationFactors, setValuationFactors] = useState<Partial<ValuationFactors>>({})
   // --- Override state ---
   const [isOverridden, setIsOverridden] = useState(false)
-  // --- Debug log panel toggle ---
-  const [showDebug, setShowDebug] = useState(false)
   const [overrideReason, setOverrideReason] = useState<OverrideReason>("")
 
   // Refs
@@ -1508,41 +1505,31 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
               const expIdx = columnMap.expiration ?? -1
               const typeIdx = columnMap.type ?? -1
 
-              // Build EZLynx policy list for the 3-pass matcher
+              // Build policy set
+              const policyNumbers = new Set<string>()
               const activePolicies: string[][] = []
-              const ezlynxList: { policyNumber: string; clientName: string; premium: number }[] = []
-
               policy.data.forEach((row, i) => {
                 if (!policy.excludedIndices.has(i)) {
+                  const pNorm = polIdx >= 0 ? normalizePolicy(row[polIdx]) : ""
+                  if (pNorm) policyNumbers.add(pNorm)
                   activePolicies.push(row)
-                  const polNum   = polIdx  >= 0 ? (row[polIdx]  ?? "") : ""
-                  const clientNm = /* try to find a name column */ (() => {
-                    // Look for a name-like column in the headers (account name, insured, etc.)
-                    const nameIdx = columnMap.name ?? -1
-                    return nameIdx >= 0 ? (row[nameIdx] ?? "") : ""
-                  })()
-                  const prem = premIdx >= 0 ? cleanNum(row[premIdx]) : 0
-                  if (polNum) ezlynxList.push({ policyNumber: polNum, clientName: clientNm, premium: prem })
                 }
               })
 
-              // 3-pass cascade match
-              const matchResult = matchPolicies(
-                ezlynxList,
-                comm.data.map(c => ({
-                  policy_number: c.policy_number,
-                  client_name:   c.client_name,
-                  premium:       c.premium,
-                  commission:    c.commission,
-                })),
-              )
+              // Build comm policy set
+              const commPolicySet = new Set<string>()
+              let matchedCommTotal = 0
+              let unmatchedCommTotal = 0
+              comm.data.forEach(c => {
+                const normP = normalizePolicy(c.policy_number)
+                commPolicySet.add(normP)
+                if (policyNumbers.has(normP)) matchedCommTotal += c.commission
+                else unmatchedCommTotal += c.commission
+              })
 
-              const matchedPolicies   = matchResult.matchedPolicies.size
-              const unmatchedPolicies = matchResult.unmatchedPolicies.size
-              const matchedCommTotal  = matchResult.matchedCommTotal
-              const unmatchedCommTotal = matchResult.unmatchedCommTotal
-              const policyNumbers     = new Set([...matchResult.matchedPolicies, ...matchResult.unmatchedPolicies])
-              const matchRate = policyNumbers.size > 0 ? (matchedPolicies / policyNumbers.size) * 100 : 0
+              const matchedPolicies = [...policyNumbers].filter(p => commPolicySet.has(p)).length
+              const unmatchedPolicies = policyNumbers.size - matchedPolicies
+              const matchRate = policyNumbers.size > 0 ? ((matchedPolicies / policyNumbers.size) * 100) : 0
 
               // Retention Rate: active policies that appear on at least one commission statement.
               // These are policies we are actively receiving commission on -- they renewed.
@@ -1628,179 +1615,6 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
                       )
                     })()}
                   </div>
-
-                  {/* ── DEBUG LOG PANEL ──────────────────────────────────────── */}
-                  {(() => {
-                    // Build matched/unmatched sample data from matchResult
-                    const commNormMap = new Map<string, CommItem>()
-                    comm.data.forEach(c => {
-                      const nk = normalizePolicy(c.policy_number)
-                      if (!commNormMap.has(nk)) commNormMap.set(nk, c)
-                    })
-
-                    // EZLynx norm → raw lookup
-                    const ezNormToRaw = new Map<string, { raw: string; client: string }>()
-                    ezlynxList.forEach(e => {
-                      const nk = normalizePolicy(e.policyNumber)
-                      if (!ezNormToRaw.has(nk)) ezNormToRaw.set(nk, { raw: e.policyNumber, client: e.clientName })
-                    })
-
-                    // 5 matched samples: find comm rows whose norm key is in matchedPolicies
-                    const matchedSamples: Array<{ rawPdf: string; normPdf: string; normEZ: string; client: string; pass: number }> = []
-                    for (const c of comm.data) {
-                      if (matchedSamples.length >= 5) break
-                      const nk = normalizePolicy(c.policy_number)
-                      if (matchResult.matchedPolicies.has(nk)) {
-                        const pass = matchResult.rowPassMap.get(c.policy_number) ?? 0
-                        const ez = ezNormToRaw.get(nk)
-                        matchedSamples.push({
-                          rawPdf: c.policy_number,
-                          normPdf: nk,
-                          normEZ: nk,
-                          client: ez?.client ?? c.client_name,
-                          pass,
-                        })
-                      }
-                    }
-
-                    // 10 unmatched samples: comm rows whose norm key is NOT in matchedPolicies
-                    const unmatchedSamples: Array<{ rawPdf: string; normPdf: string; client: string; comm: number; premium: number }> = []
-                    const seenUnmatched = new Set<string>()
-                    for (const c of comm.data) {
-                      if (unmatchedSamples.length >= 10) break
-                      const nk = normalizePolicy(c.policy_number)
-                      if (!matchResult.matchedPolicies.has(nk) && !seenUnmatched.has(nk)) {
-                        seenUnmatched.add(nk)
-                        unmatchedSamples.push({ rawPdf: c.policy_number, normPdf: nk, client: c.client_name, comm: c.commission, premium: c.premium })
-                      }
-                    }
-
-                    // 10 EZLynx samples
-                    const ezSamples = ezlynxList.slice(0, 10).map(e => ({
-                      raw: e.policyNumber,
-                      norm: normalizePolicy(e.policyNumber),
-                      client: e.clientName,
-                    }))
-
-                    // Gap analysis: compare structure of unmatched PDF keys vs EZLynx keys
-                    const unmatchedNorms = [...seenUnmatched].slice(0, 50)
-                    const ezNorms = [...ezNormToRaw.keys()].slice(0, 50)
-                    const avgPdfLen = unmatchedNorms.length > 0 ? Math.round(unmatchedNorms.reduce((s, k) => s + k.length, 0) / unmatchedNorms.length) : 0
-                    const avgEZLen  = ezNorms.length > 0 ? Math.round(ezNorms.reduce((s, k) => s + k.length, 0) / ezNorms.length) : 0
-                    const pdfAllDigit = unmatchedNorms.filter(k => /^\d+$/.test(k)).length
-                    const pdfAlphaNum = unmatchedNorms.filter(k => /[A-Z]/.test(k)).length
-                    const ezAllDigit  = ezNorms.filter(k => /^\d+$/.test(k)).length
-                    const ezAlphaNum  = ezNorms.filter(k => /[A-Z]/.test(k)).length
-
-                    let gapNote = ""
-                    if (avgPdfLen > 0 && avgEZLen > 0) {
-                      if (Math.abs(avgPdfLen - avgEZLen) >= 3) {
-                        gapNote += `PDF keys avg ${avgPdfLen} chars vs EZLynx avg ${avgEZLen} chars — likely sub-policy vs master policy mismatch. `
-                      }
-                      if (pdfAllDigit > pdfAlphaNum && ezAlphaNum > ezAllDigit) {
-                        gapNote += "PDF keys are mostly numeric; EZLynx keys have alphanumeric prefixes (carrier codes). "
-                      } else if (pdfAlphaNum > pdfAllDigit && ezAllDigit > ezAlphaNum) {
-                        gapNote += "PDF keys have alpha prefixes; EZLynx keys are mostly numeric. "
-                      }
-                      if (!gapNote) gapNote = "No obvious structural pattern difference detected — may be data entry format or carrier-specific numbering."
-                    } else {
-                      gapNote = "Insufficient unmatched samples to derive a structural pattern."
-                    }
-
-                    return (
-                      <div className="mt-3 rounded-lg border border-amber-400/40 bg-amber-50/10 dark:bg-amber-900/10">
-                        <button
-                          className="flex w-full items-center justify-between px-3 py-2 text-left"
-                          onClick={() => setShowDebug(v => !v)}
-                        >
-                          <span className="text-[11px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400">
-                            Debug Log — Matching Pipeline
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">{showDebug ? "hide" : "show"}</span>
-                        </button>
-
-                        {showDebug && (
-                          <div className="space-y-4 px-3 pb-4 font-mono text-[11px]">
-
-                            {/* 1. Pipeline Breakdown */}
-                            <section>
-                              <p className="mb-1 font-sans text-[11px] font-bold text-foreground">1. Pipeline Breakdown</p>
-                              <div className="rounded bg-muted p-2 leading-5 text-muted-foreground">
-                                <p>Step 1 — PDF pages split into lines via pdfjs-dist text extraction</p>
-                                <p>Step 2 — Each line passed to parsePdfCommissionRow(line, pageNum, format)</p>
-                                <p>Step 3 — SUMMARY_BLACKLIST checked (TOTAL, SUBTOTAL, DEPOSIT …) → skip if matched</p>
-                                <p>Step 4 — isLikelyPolicyNumber() scores candidate tokens (score ≥50 required)</p>
-                                <p>Step 5 — Row skipped if foundPol is null OR commAmount.val === 0</p>
-                                <p>Step 6 — normalizePolicy() applied: strip non-alnum, strip trailing 00/01/000, strip leading zeros</p>
-                                <p>Step 7 — matchPolicies() runs 3-pass cascade against EZLynx CSV policy list</p>
-                                <p className="mt-1 text-foreground">
-                                  Parsed comm rows: <strong>{comm.data.length}</strong> &nbsp;|&nbsp;
-                                  EZLynx policies: <strong>{ezlynxList.length}</strong> &nbsp;|&nbsp;
-                                  Matched (Pass 1+2+3): <strong>{matchResult.matchedPolicies.size}</strong> &nbsp;|&nbsp;
-                                  Unmatched: <strong>{matchResult.unmatchedPolicies.size}</strong> &nbsp;|&nbsp;
-                                  Pass 1: <strong>{[...matchResult.rowPassMap.values()].filter(v => v === 1).length}</strong> &nbsp;
-                                  Pass 2: <strong>{[...matchResult.rowPassMap.values()].filter(v => v === 2).length}</strong> &nbsp;
-                                  Pass 3: <strong>{[...matchResult.rowPassMap.values()].filter(v => v === 3).length}</strong>
-                                </p>
-                              </div>
-                            </section>
-
-                            {/* 2. Matched Samples */}
-                            <section>
-                              <p className="mb-1 font-sans text-[11px] font-bold text-foreground">2. Sample Matched Rows (up to 5)</p>
-                              <div className="rounded bg-muted p-2 leading-5">
-                                {matchedSamples.length === 0 && <p className="text-muted-foreground">No matched rows yet.</p>}
-                                {matchedSamples.map((s, i) => (
-                                  <p key={i} className="text-emerald-600 dark:text-emerald-400">
-                                    [{s.rawPdf}] &rarr; [{s.normPdf}] === [{s.normEZ}] &nbsp;| {s.client} &nbsp;| Pass {s.pass}
-                                  </p>
-                                ))}
-                              </div>
-                            </section>
-
-                            {/* 3. Unmatched Samples */}
-                            <section>
-                              <p className="mb-1 font-sans text-[11px] font-bold text-foreground">3. Sample Unmatched PDF Rows (up to 10)</p>
-                              <div className="rounded bg-muted p-2 leading-5">
-                                {unmatchedSamples.length === 0 && <p className="text-muted-foreground">No unmatched rows.</p>}
-                                {unmatchedSamples.map((s, i) => (
-                                  <p key={i} className="text-destructive">
-                                    [{s.rawPdf}] &rarr; [{s.normPdf}] &nbsp;| {s.client || "—"} &nbsp;| Comm: ${s.comm.toFixed(2)} &nbsp;| Prem: ${s.premium.toFixed(2)}
-                                  </p>
-                                ))}
-                              </div>
-                            </section>
-
-                            {/* 4. EZLynx Sample Keys */}
-                            <section>
-                              <p className="mb-1 font-sans text-[11px] font-bold text-foreground">4. EZLynx Sample Keys (first 10)</p>
-                              <div className="rounded bg-muted p-2 leading-5">
-                                {ezSamples.length === 0 && <p className="text-muted-foreground">No EZLynx data loaded.</p>}
-                                {ezSamples.map((s, i) => (
-                                  <p key={i} className="text-sky-600 dark:text-sky-400">
-                                    [{s.raw}] &rarr; [{s.norm}] &nbsp;| {s.client}
-                                  </p>
-                                ))}
-                              </div>
-                            </section>
-
-                            {/* 5. Gap Analysis */}
-                            <section>
-                              <p className="mb-1 font-sans text-[11px] font-bold text-foreground">5. Gap Analysis Summary</p>
-                              <div className="rounded bg-muted p-2 leading-5 text-muted-foreground">
-                                <p>Unmatched PDF keys sampled: {unmatchedNorms.length} &nbsp;| avg length: {avgPdfLen} chars &nbsp;| all-digit: {pdfAllDigit} &nbsp;| alphanumeric: {pdfAlphaNum}</p>
-                                <p>EZLynx keys sampled: {ezNorms.length} &nbsp;| avg length: {avgEZLen} chars &nbsp;| all-digit: {ezAllDigit} &nbsp;| alphanumeric: {ezAlphaNum}</p>
-                                <p className="mt-1 font-sans font-semibold text-foreground">{gapNote}</p>
-                              </div>
-                            </section>
-
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })()}
-                  {/* ── END DEBUG LOG ─────────────────────────────────────────── */}
-
                 </div>
               )
             })()}
