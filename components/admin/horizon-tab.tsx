@@ -1226,11 +1226,11 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
                 // Only deactivate if leaving the zone itself (not a child)
                 if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropZoneActive(false)
               }}
-              onDrop={async (e) => {
+              onDrop={(e) => {
                 e.preventDefault()
                 setDropZoneActive(false)
                 const dropped = Array.from(e.dataTransfer.files)
-                if (dropped.length > 0) await processFiles(dropped)
+                if (dropped.length > 0) void processFiles(dropped)
               }}
               onClick={() => dropAllRef.current?.click()}
               className={cn(
@@ -1303,10 +1303,10 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
               accept=".xlsx,.csv,.xls,.pdf"
               multiple
               className="hidden"
-              onChange={async (e) => {
+              onChange={(e) => {
                 const files = Array.from(e.target.files || [])
                 e.target.value = ""
-                if (files.length > 0) await processFiles(files)
+                if (files.length > 0) void processFiles(files)
               }}
             />
             {/* Legacy individual inputs kept for potential re-use */}
