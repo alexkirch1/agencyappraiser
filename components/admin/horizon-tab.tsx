@@ -328,21 +328,12 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
   const processCommFiles = useCallback(async (files: File[]) => {
     const XLSX = await import("xlsx")
 
-    setComm(prev => {
-      // We'll build new data arrays outside setState and set them at the end
-      return prev
-    })
-
-    const newCommData: CommItem[] = []
-    const newSeen = new Set<string>()
-    const newFiles: Record<string, number> = {}
-
-    // Seed from current state
-    setComm(prev => {
-      prev.data.forEach(c => { newCommData.push(c); newSeen.add(c.id) })
-      Object.assign(newFiles, prev.files)
-      return prev
-    })
+    // Seed from the current comm state captured in the closure.
+    // Do NOT use setComm updater here — updaters must be synchronous and
+    // must not cause side-effects on external variables.
+    const newCommData: CommItem[] = [...comm.data]
+    const newSeen = new Set<string>(comm.data.map(c => c.id))
+    const newFiles: Record<string, number> = { ...comm.files }
 
     for (const file of files) {
       log(`Scanning ${file.name}...`)
@@ -503,7 +494,7 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
 
     setComm({ data: newCommData, files: newFiles, loaded: newCommData.length > 0, seen: newSeen })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [log])
+  }, [log, comm])
 
   // ----- Unified file processor: classifies by extension then routes -----
   // Defined AFTER processCommFiles so it can reference it as a stable dep.
