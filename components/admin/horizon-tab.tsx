@@ -575,83 +575,53 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
 
       log(`Reading Client List: ${file.name}...`)
 
-      const XLSX = await import("xlsx")
-      const reader = new FileReader()
-      reader.onload = (evt) => {
-        try {
-          const wb = XLSX.read(evt.target?.result, { type: "array" })
-          let json: unknown[][] = []
-          for (let i = 0; i < wb.SheetNames.length; i++) {
-            const ws = wb.Sheets[wb.SheetNames[i]]
-            const tempJson = XLSX.utils.sheet_to_json<unknown[]>(ws, {
-              header: 1,
-              defval: "",
-            })
-            if (tempJson.length > 5) {
-              json = tempJson
-              break
-            }
-          }
-          if (json.length === 0) {
-            alert("Empty file.")
-            return
-          }
-
-          // Find header row
-          let headerIdx = 0
-          for (let i = 0; i < Math.min(30, json.length); i++) {
-            const rowStr = JSON.stringify(json[i]).toLowerCase()
-            if (rowStr.includes("policy") || rowStr.includes("prem")) {
-              headerIdx = i
-              break
-            }
-          }
-
-          const headers = (json[headerIdx] as string[]).map(String)
-          const data = json.slice(headerIdx + 1).map((row) =>
-            (row as string[]).map(String)
-          )
-          const mapping = autoMapColumns(headers)
-          // Log column mapping for debugging
-          const mappedNames = Object.entries(mapping)
-            .filter(([, idx]) => idx >= 0)
-            .map(([key, idx]) => `${key}→col${idx}("${headers[idx]}")`)
-            .join(", ")
-          log(`Column mapping: ${mappedNames || "No columns mapped"}`)
-
-          // Calculate total premium
-          let totalPrem = 0
-          const premIdx = mapping.premium ?? -1
-          if (premIdx > -1) {
-            data.forEach((row) => {
-              totalPrem += cleanNum(row[premIdx])
-            })
-          }
-
-          setPolicy({
-            headers,
-            data,
-            loaded: true,
-            excludedIndices: new Set(),
-            stats: { totalPrem },
-          })
-          setColumnMap(mapping)
-          setFinRevenue(0) // will be calculated from comm data
-
-          const mappedCount = Object.values(mapping).filter(v => v >= 0).length
-          const polParse = scorePolicyParse({
-            totalRows: data.length,
-            mappedColumns: mappedCount,
-            totalPossibleColumns: Object.keys(mapping).length,
-            hasPolicyCol: (mapping.policy ?? -1) >= 0,
-            hasPremiumCol: (mapping.premium ?? -1) >= 0,
-          })
-          log(`Loaded ${data.length} policies from ${file.name}. Parse confidence: ${polParse.score}/100 (${polParse.level})`)
-        } catch (err) {
-          alert("Error parsing file: " + (err as Error).message)
+      try {
+        const XLSX = await import("xlsx")
+        const ab = await file.arrayBuffer()
+        const wb = XLSX.read(ab, { type: "array" })
+        let json: unknown[][] = []
+        for (let i = 0; i < wb.SheetNames.length; i++) {
+          const ws = wb.Sheets[wb.SheetNames[i]]
+          const tempJson = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: "" })
+          if (tempJson.length > 5) { json = tempJson; break }
         }
+        if (json.length === 0) { alert("Empty file."); return }
+
+        // Find header row
+        let headerIdx = 0
+        for (let i = 0; i < Math.min(30, json.length); i++) {
+          const rowStr = JSON.stringify(json[i]).toLowerCase()
+          if (rowStr.includes("policy") || rowStr.includes("prem")) { headerIdx = i; break }
+        }
+
+        const headers = (json[headerIdx] as string[]).map(String)
+        const data = json.slice(headerIdx + 1).map((row) => (row as string[]).map(String))
+        const mapping = autoMapColumns(headers)
+        const mappedNames = Object.entries(mapping)
+          .filter(([, idx]) => idx >= 0)
+          .map(([key, idx]) => `${key}→col${idx}("${headers[idx]}")`)
+          .join(", ")
+        log(`Column mapping: ${mappedNames || "No columns mapped"}`)
+
+        let totalPrem = 0
+        const premIdx = mapping.premium ?? -1
+        if (premIdx > -1) data.forEach((row) => { totalPrem += cleanNum(row[premIdx]) })
+
+        setPolicy({ headers, data, loaded: true, excludedIndices: new Set(), stats: { totalPrem } })
+        setColumnMap(mapping)
+        setFinRevenue(0)
+
+        const polParse = scorePolicyParse({
+          totalRows: data.length,
+          mappedColumns: Object.values(mapping).filter(v => v >= 0).length,
+          totalPossibleColumns: Object.keys(mapping).length,
+          hasPolicyCol: (mapping.policy ?? -1) >= 0,
+          hasPremiumCol: (mapping.premium ?? -1) >= 0,
+        })
+        log(`Loaded ${data.length} policies from ${file.name}. Parse confidence: ${polParse.score}/100 (${polParse.level})`)
+      } catch (err) {
+        alert("Error parsing file: " + (err as Error).message)
       }
-      reader.readAsArrayBuffer(file)
     },
     [log]
   )
