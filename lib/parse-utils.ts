@@ -22,11 +22,16 @@ export function cleanNum(val: unknown): number {
 // ----- Policy number normalization -----
 // Handles policy numbers that may contain spaces, dashes, or dots.
 // Examples: "BOP 1234567" → "BOP1234567", "CPP-001234" → "CPP001234",
-//           "00987654" → "987654"
+//           "00987654" → "987654", "G01047708109" → "47708109"
 export function normalizePolicy(val: unknown): string {
   let s = String(val || "").trim().toUpperCase()
-  // Strip everything except letters, digits
+  // Strip everything except letters, digits (removes spaces, dashes, dots, slashes)
   s = s.replace(/[^A-Z0-9]/g, "")
+  // Strip Bristol West / legacy carrier prefixes that are prepended to the base
+  // policy number. These prefixes appear in PDF statements but not in EZLynx CSVs:
+  //   G01  G0  GA  G  — followed immediately by digits
+  // Only strip when the remainder has at least 6 digits so we don't mangle short numbers.
+  s = s.replace(/^(G01|G0|GA|G)(?=\d{6,})/, "")
   // Only strip leading zeros on pure-digit strings (so "00987654" → "987654")
   // but keep "CPP0012345" intact
   if (/^\d+$/.test(s)) {
@@ -563,65 +568,77 @@ export function parsePdfCommissionRow(
   ])
 
   // --- 4. Pick the best client name ---
-  // Score each candidate segment. Prefer segments that:
-  //  - Have multiple alpha words (person/business name pattern)
-  //  - Come before the policy number position in the line
-  //  - Are NOT carrier names or jargon
   let bestName = ""
-  let bestScore = -1
 
-  // Find the approximate character position of the policy number in the original line
-  const polPos = foundPol ? lineStr.indexOf(bestPol!.normalized.slice(0, 5)) : lineStr.length
-
-  for (const seg of candidateNameSegments) {
-    const words = seg.split(/\s+/)
-    const alphaWords = words.filter(w => isLikelyNameWord(w))
-
-    if (alphaWords.length === 0) continue
-
-    let score = 0
-    const nameRatio = alphaWords.length / words.length
-
-    // High ratio of name-like words = likely a name field
-    score += nameRatio * 30
-
-    // 2-6 words is ideal for a name (includes business names)
-    if (alphaWords.length >= 2 && alphaWords.length <= 6) score += 35
-    else if (alphaWords.length === 1 && alphaWords[0].length >= 4) score += 10
-    else if (alphaWords.length > 6) score += 15
-
-    // Prefer longer text (full names vs abbreviations)
-    score += Math.min(seg.length, 30)
-
-    // Comma pattern bonus ("Last, First")
-    if (seg.includes(",")) score += 15
-
-    // Bonus if this segment appears before the policy number
-    const segPos = lineStr.indexOf(seg.slice(0, Math.min(8, seg.length)))
-    if (segPos >= 0 && segPos < polPos) score += 20
-
-    // Penalize LOB / line-of-business jargon
-    const lowerSeg = seg.toLowerCase()
-    const jobHits = ["auto", "home", "fire", "bop", "gl", "wc", "liability",
-      "property", "umbrella", "dwelling", "flood", "commercial", "personal",
-      "homeowners", "renters", "motorcycle", "boat", "farm"]
-      .filter(j => lowerSeg.includes(j)).length
-    score -= jobHits * 10
-
-    // Penalize if this is clearly a single known carrier name
-    if (alphaWords.length === 1 && CARRIER_TAIL_WORDS.has(alphaWords[0].toLowerCase())) {
-      score -= 40
-    }
-
-    if (score > bestScore) {
-      bestScore = score
-      // Strip trailing carrier keywords that bled in from an adjacent column
-      let nameWords = [...words]
-      while (nameWords.length > 1 && CARRIER_TAIL_WORDS.has(nameWords[nameWords.length - 1].toLowerCase())) {
-        nameWords = nameWords.slice(0, -1)
+  const fmt3 = _currentStatementFormat
+  if (fmt3 === "horizon_a" || fmt3 === "horizon_b") {
+    // Horizon column layout (L→R):
+    //   Col 0: Producer
+    //   Col 1: Account Name   ← this is what we want
+    //   Col 2: Master Company (carrier)  ← do NOT use this
+    //   Col 3+: Policy, LOB, TRX, dates, money...
+    //
+    // segments[] maps directly to these columns after money tokens are blanked.
+    // Use segments[1] as the Account Name. Fall back to "Unknown Client" if absent.
+    const accountNameSeg = (segments[1] ?? "").trim()
+    if (accountNameSeg.length >= 2) {
+      // Strip trailing carrier tail words that occasionally bleed in from column 2
+      const nameWords = accountNameSeg.split(/\s+/)
+      const cleanWords: string[] = []
+      for (const w of nameWords) {
+        if (CARRIER_TAIL_WORDS.has(w.toLowerCase()) && cleanWords.length > 0) break
+        cleanWords.push(w)
       }
-      // Cap at 6 words -- handles long business names while avoiding runaway text
-      bestName = nameWords.slice(0, 6).join(" ").trim()
+      bestName = cleanWords.slice(0, 6).join(" ").trim() || "Unknown Client"
+    } else {
+      bestName = "Unknown Client"
+    }
+  } else {
+    // Generic format: score candidate segments as before
+    let bestScore = -1
+
+    // Find the approximate character position of the policy number in the original line
+    const polPos = foundPol ? lineStr.indexOf(bestPol!.normalized.slice(0, 5)) : lineStr.length
+
+    for (const seg of candidateNameSegments) {
+      const words = seg.split(/\s+/)
+      const alphaWords = words.filter(w => isLikelyNameWord(w))
+
+      if (alphaWords.length === 0) continue
+
+      let score = 0
+      const nameRatio = alphaWords.length / words.length
+
+      score += nameRatio * 30
+      if (alphaWords.length >= 2 && alphaWords.length <= 6) score += 35
+      else if (alphaWords.length === 1 && alphaWords[0].length >= 4) score += 10
+      else if (alphaWords.length > 6) score += 15
+
+      score += Math.min(seg.length, 30)
+      if (seg.includes(",")) score += 15
+
+      const segPos = lineStr.indexOf(seg.slice(0, Math.min(8, seg.length)))
+      if (segPos >= 0 && segPos < polPos) score += 20
+
+      const lowerSeg = seg.toLowerCase()
+      const jobHits = ["auto", "home", "fire", "bop", "gl", "wc", "liability",
+        "property", "umbrella", "dwelling", "flood", "commercial", "personal",
+        "homeowners", "renters", "motorcycle", "boat", "farm"]
+        .filter(j => lowerSeg.includes(j)).length
+      score -= jobHits * 10
+
+      if (alphaWords.length === 1 && CARRIER_TAIL_WORDS.has(alphaWords[0].toLowerCase())) {
+        score -= 40
+      }
+
+      if (score > bestScore) {
+        bestScore = score
+        let nameWords = [...words]
+        while (nameWords.length > 1 && CARRIER_TAIL_WORDS.has(nameWords[nameWords.length - 1].toLowerCase())) {
+          nameWords = nameWords.slice(0, -1)
+        }
+        bestName = nameWords.slice(0, 6).join(" ").trim()
+      }
     }
   }
 
