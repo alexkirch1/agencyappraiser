@@ -743,8 +743,26 @@ export interface MatchStats {
   suffixCount: number
   rewriteCount: number
   unmatchedCount: number
-  matchedCommTotal: number   // exact + suffix + rewrite commission $
+  matchedCommTotal: number        // exact + suffix + rewrite commission $
   unmatchedCommTotal: number
+
+  // ── Active-policy premium model ──────────────────────────────────────────
+  /** Sum of annualized premium for EZLynx active policies that matched a comm row */
+  matchedActiveEzlynxPremium: number
+  /** Count of active EZLynx policies that matched (exact or suffix) */
+  matchedActiveCount: number
+  /** effectiveCommRate = matchedCommTotal / matchedActiveEzlynxPremium (or 0.12 default) */
+  effectiveCommRate: number
+  /** estimatedUnmatchedPremium = unmatchedCommTotal / effectiveCommRate */
+  estimatedUnmatchedPremium: number
+  /** totalBookPremium = matchedActiveEzlynxPremium + estimatedUnmatchedPremium */
+  totalBookPremium: number
+  /** avgCommPerMatchedPolicy = matchedCommTotal / matchedActiveCount */
+  avgCommPerMatchedPolicy: number
+  /** estimatedUnmatchedPolicies = round(unmatchedCommTotal / avgCommPerMatchedPolicy) */
+  estimatedUnmatchedPolicies: number
+  /** totalActivePolicies = matchedActiveCount + estimatedUnmatchedPolicies */
+  totalActivePolicies: number
 }
 
 /**
@@ -752,28 +770,34 @@ export interface MatchStats {
  *
  * Pass 1 — Exact:   normalizePolicy(commRow.policy_number) === normalizePolicy(ezlynxRow.policyNumber)
  * Pass 2 — Suffix:  one normalized key starts with or contains the other (both >= 6 chars)
- *                   e.g. "CBG00165372" matches "CBG00165372-02" → both normalize similarly
  * Pass 3 — Rewrite: case-insensitive substring match on client/account name (length >= 5)
- *                   classifies as "rewrite" (same client, different policy number)
  *
- * @param ezlynxPolicies  Rows from EZLynx CSV. Each entry: policyNumber (raw), clientName (raw).
- * @param commRows        Parsed commission statement rows.
+ * @param ezlynxPolicies  Rows from EZLynx CSV.
+ *   Each entry: policyNumber (raw), clientName (raw), premium (annualized $), isActive (bool).
+ * @param commRows  Parsed commission statement rows.
  */
 export function matchCommRows(
-  ezlynxPolicies: Array<{ policyNumber: string; clientName: string }>,
+  ezlynxPolicies: Array<{ policyNumber: string; clientName: string; premium?: number; isActive?: boolean }>,
   commRows: CommissionRow[],
 ): MatchStats {
   // Pre-build normalized EZLynx structures
   const ezNormSet = new Set<string>()
-  const ezClientNames: string[] = [] // lower-cased for Pass 3
+  const ezClientNames: string[] = []
+  // norm → premium map (for matched-active premium accumulation)
+  const ezNormPremium = new Map<string, number>()
+  const ezNormActive  = new Map<string, boolean>()
 
   for (const e of ezlynxPolicies) {
     const norm = normalizePolicy(e.policyNumber)
-    if (norm) ezNormSet.add(norm)
+    if (norm) {
+      ezNormSet.add(norm)
+      ezNormPremium.set(norm, e.premium ?? 0)
+      ezNormActive.set(norm, e.isActive !== false) // default true if not provided
+    }
     if (e.clientName) ezClientNames.push(e.clientName.toLowerCase().trim())
   }
 
-  const ezNormArr = [...ezNormSet] // array for Pass 2 iteration
+  const ezNormArr = [...ezNormSet]
 
   const byId = new Map<string, MatchType>()
   let exactCount = 0
@@ -783,13 +807,18 @@ export function matchCommRows(
   let matchedCommTotal = 0
   let unmatchedCommTotal = 0
 
+  // Track which EZ norm keys contributed to active-premium sum (avoid double-counting)
+  const contributedActiveNorms = new Set<string>()
+
   for (const row of commRows) {
     const normComm = normalizePolicy(row.policy_number)
     let result: MatchType = "unmatched"
+    let matchedNormEZ: string | null = null
 
     // Pass 1 — Exact normalized match
     if (ezNormSet.has(normComm)) {
       result = "exact"
+      matchedNormEZ = normComm
     }
 
     // Pass 2 — Suffix / substring match (both sides >= 6 chars)
@@ -799,6 +828,7 @@ export function matchCommRows(
         if (normEZ.startsWith(normComm) || normComm.startsWith(normEZ) ||
             normEZ.includes(normComm)   || normComm.includes(normEZ)) {
           result = "suffix"
+          matchedNormEZ = normEZ
           break
         }
       }
@@ -818,11 +848,63 @@ export function matchCommRows(
 
     byId.set(row.id, result)
 
-    if (result === "exact")    { exactCount++;    matchedCommTotal   += row.commission }
+    // Accumulate matched-active premium (only for exact/suffix, only active EZ policies)
+    if ((result === "exact" || result === "suffix") && matchedNormEZ) {
+      const isActive = ezNormActive.get(matchedNormEZ) !== false
+      if (isActive && !contributedActiveNorms.has(matchedNormEZ)) {
+        contributedActiveNorms.add(matchedNormEZ)
+      }
+    }
+
+    if (result === "exact")        { exactCount++;    matchedCommTotal   += row.commission }
     else if (result === "suffix")  { suffixCount++;   matchedCommTotal   += row.commission }
     else if (result === "rewrite") { rewriteCount++;  matchedCommTotal   += row.commission }
-    else                       { unmatchedCount++; unmatchedCommTotal += row.commission }
+    else                           { unmatchedCount++; unmatchedCommTotal += row.commission }
   }
 
-  return { byId, exactCount, suffixCount, rewriteCount, unmatchedCount, matchedCommTotal, unmatchedCommTotal }
+  // ── Active-policy premium model ────────────────────────────────────────────
+  let matchedActiveEzlynxPremium = 0
+  for (const norm of contributedActiveNorms) {
+    matchedActiveEzlynxPremium += ezNormPremium.get(norm) ?? 0
+  }
+  const matchedActiveCount = contributedActiveNorms.size
+
+  const DEFAULT_COMM_RATE = 0.12
+  const effectiveCommRate =
+    matchedActiveEzlynxPremium > 0
+      ? matchedCommTotal / matchedActiveEzlynxPremium
+      : DEFAULT_COMM_RATE
+
+  const estimatedUnmatchedPremium =
+    effectiveCommRate > 0 ? unmatchedCommTotal / effectiveCommRate : 0
+
+  const totalBookPremium = matchedActiveEzlynxPremium + estimatedUnmatchedPremium
+
+  const avgCommPerMatchedPolicy =
+    matchedActiveCount > 0 ? matchedCommTotal / matchedActiveCount : 0
+
+  const estimatedUnmatchedPolicies =
+    avgCommPerMatchedPolicy > 0
+      ? Math.round(unmatchedCommTotal / avgCommPerMatchedPolicy)
+      : 0
+
+  const totalActivePolicies = matchedActiveCount + estimatedUnmatchedPolicies
+
+  return {
+    byId,
+    exactCount,
+    suffixCount,
+    rewriteCount,
+    unmatchedCount,
+    matchedCommTotal,
+    unmatchedCommTotal,
+    matchedActiveEzlynxPremium,
+    matchedActiveCount,
+    effectiveCommRate,
+    estimatedUnmatchedPremium,
+    totalBookPremium,
+    avgCommPerMatchedPolicy,
+    estimatedUnmatchedPolicies,
+    totalActivePolicies,
+  }
 }

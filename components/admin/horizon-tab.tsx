@@ -218,17 +218,28 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
   // manually-entered factors (only sets fields that are currently null/undefined).
   useEffect(() => {
     if (!policy.loaded || !comm.loaded || comm.data.length === 0) return
-    const polIdx2 = columnMap.policy ?? -1
-    const nameIdx2 = columnMap.name ?? -1
-    const premIdx2 = columnMap.premium ?? -1
+    const polIdx2  = columnMap.policy     ?? -1
+    const nameIdx2 = columnMap.name       ?? -1
+    const premIdx2 = columnMap.premium    ?? -1
+    const expIdx2  = columnMap.expiration ?? -1
     if (polIdx2 < 0) return
+
+    const today2 = new Date()
+    today2.setHours(0, 0, 0, 0)
 
     const ezList2 = policy.data
       .filter((_, i) => !policy.excludedIndices.has(i))
-      .map(row => ({
-        policyNumber: row[polIdx2] ?? "",
-        clientName:   nameIdx2 >= 0 ? (row[nameIdx2] ?? "") : "",
-      }))
+      .map(row => {
+        const polNum   = row[polIdx2] ?? ""
+        const clientNm = nameIdx2 >= 0 ? (row[nameIdx2] ?? "") : ""
+        const prem     = premIdx2 >= 0 ? cleanNum(row[premIdx2]) : 0
+        let isActive = true
+        if (expIdx2 >= 0 && row[expIdx2]) {
+          const expDate = new Date(row[expIdx2])
+          if (!isNaN(expDate.getTime())) isActive = expDate >= today2
+        }
+        return { policyNumber: polNum, clientName: clientNm, premium: prem, isActive }
+      })
       .filter(e => e.policyNumber)
 
     const ms2 = matchCommRows(ezList2, comm.data)
@@ -243,24 +254,17 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
     })
     const retentionRate2 = ezList2.length > 0 ? (matchedEZ2.size / ezList2.length) * 100 : 0
 
-    // Avg premium per policy from EZLynx CSV
-    let totalPrem2 = 0
-    let premCount = 0
-    if (premIdx2 >= 0) {
-      policy.data.forEach((row, i) => {
-        if (!policy.excludedIndices.has(i)) {
-          const p = cleanNum(row[premIdx2])
-          if (p > 0) { totalPrem2 += p; premCount++ }
-        }
-      })
-    }
-    const avgPrem2 = premCount > 0 ? totalPrem2 / premCount : null
+    // Avg premium per active matched policy (from premium model)
+    const avgPrem2 = ms2.matchedActiveCount > 0
+      ? ms2.matchedActiveEzlynxPremium / ms2.matchedActiveCount
+      : null
 
     setValuationFactors(prev => ({
       ...prev,
-      retention:       prev.retention       ?? (retentionRate2 > 0 ? parseFloat(retentionRate2.toFixed(1)) : null),
-      matchConfidence: prev.matchConfidence  ?? (matchRate2 > 0     ? parseFloat(matchRate2.toFixed(1))     : null),
-      avgPremium:      prev.avgPremium       ?? avgPrem2,
+      retention:       prev.retention       ?? (retentionRate2 > 0              ? parseFloat(retentionRate2.toFixed(1))          : null),
+      matchConfidence: prev.matchConfidence  ?? (matchRate2 > 0                  ? parseFloat(matchRate2.toFixed(1))              : null),
+      avgPremium:      prev.avgPremium       ?? (avgPrem2 !== null && avgPrem2 > 0 ? parseFloat(avgPrem2.toFixed(2))              : null),
+      totalPolicies:   prev.totalPolicies    ?? (ms2.totalActivePolicies > 0      ? ms2.totalActivePolicies                       : null),
     }))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [policy.loaded, policy.data, comm.loaded, comm.data, columnMap])
@@ -1560,20 +1564,35 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
               const expIdx = columnMap.expiration ?? -1
               const typeIdx = columnMap.type ?? -1
 
-              // Build EZLynx policy + name list for 3-pass matcher
+              // Build EZLynx policy list with premium + isActive for 3-pass matcher
               const nameIdx = columnMap.name ?? -1
               const activePolicies: string[][] = []
-              const ezlynxList: { policyNumber: string; clientName: string }[] = []
+
+              // Determine isActive: policy is active when its expiration date is in the
+              // future, OR when no date columns are mapped (treat all as active).
+              const today = new Date()
+              today.setHours(0, 0, 0, 0)
+
+              const ezlynxList: { policyNumber: string; clientName: string; premium: number; isActive: boolean }[] = []
               policy.data.forEach((row, i) => {
                 if (!policy.excludedIndices.has(i)) {
                   activePolicies.push(row)
-                  const polNum    = polIdx  >= 0 ? (row[polIdx]  ?? "") : ""
-                  const clientNm  = nameIdx >= 0 ? (row[nameIdx] ?? "") : ""
-                  if (polNum) ezlynxList.push({ policyNumber: polNum, clientName: clientNm })
+                  const polNum   = polIdx  >= 0 ? (row[polIdx]  ?? "") : ""
+                  const clientNm = nameIdx >= 0 ? (row[nameIdx] ?? "") : ""
+                  const prem     = premIdx >= 0 ? cleanNum(row[premIdx]) : 0
+
+                  // Expiration-based activity check
+                  let isActive = true
+                  if (expIdx >= 0 && row[expIdx]) {
+                    const expDate = new Date(row[expIdx])
+                    if (!isNaN(expDate.getTime())) isActive = expDate >= today
+                  }
+
+                  if (polNum) ezlynxList.push({ policyNumber: polNum, clientName: clientNm, premium: prem, isActive })
                 }
               })
 
-              // 3-pass cascade match — returns per-row MatchType + aggregate totals
+              // 3-pass cascade match — returns per-row MatchType + aggregate totals + premium model
               const ms: MatchStats = matchCommRows(ezlynxList, comm.data)
               const totalMatched = ms.exactCount + ms.suffixCount + ms.rewriteCount
               const ezlynxTotal  = ezlynxList.length
@@ -1583,8 +1602,7 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
                 ? (totalMatched / comm.data.length) * 100
                 : 0
 
-              // Retention Rate — EZLynx policies with at least one matched comm row
-              // (exact or suffix) / total EZLynx policies
+              // Retention Rate — EZLynx active policies with at least one exact/suffix match
               const matchedEZPolicies = new Set<string>()
               comm.data.forEach(c => {
                 const t = ms.byId.get(c.id)
@@ -1598,12 +1616,6 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
               const newPolicyRate = ezlynxTotal > 0
                 ? ((ezlynxTotal - matchedEZPolicies.size) / ezlynxTotal) * 100
                 : 0
-
-              // Total premium from EZLynx CSV
-              let totalPrem = 0
-              if (premIdx >= 0) {
-                activePolicies.forEach(row => { totalPrem += cleanNum(row[premIdx]) })
-              }
 
               const totalCommission = comm.data.reduce((s, c) => s + c.commission, 0)
 
@@ -1656,9 +1668,15 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
                       <p className="text-lg font-extrabold text-warning">{formatCurrency(ms.unmatchedCommTotal)}</p>
                       <p className="text-[10px] font-semibold text-muted-foreground">Unmatched Comm $</p>
                     </div>
-                    <div className="rounded-lg border border-border bg-card p-3 text-center">
-                      <p className="text-lg font-extrabold text-foreground">{formatCurrency(totalPrem)}</p>
-                      <p className="text-[10px] font-semibold text-muted-foreground">Total Premium</p>
+                    <div
+                      className="rounded-lg border border-border bg-card p-3 text-center"
+                      title={`Matched active EZLynx premium: ${formatCurrency(ms.matchedActiveEzlynxPremium)} + Estimated unmatched: ${formatCurrency(ms.estimatedUnmatchedPremium)} (@ ${(ms.effectiveCommRate * 100).toFixed(1)}% eff. rate)`}
+                    >
+                      <p className="text-lg font-extrabold text-foreground">{formatCurrency(ms.totalBookPremium)}</p>
+                      <p className="text-[10px] font-semibold text-muted-foreground">Total Book Premium</p>
+                      <p className="mt-0.5 text-[9px] text-muted-foreground/70">
+                        {formatCurrency(ms.matchedActiveEzlynxPremium)} matched + {formatCurrency(ms.estimatedUnmatchedPremium)} est.
+                      </p>
                     </div>
                     {(() => {
                       const avgConf = comm.data.length > 0
