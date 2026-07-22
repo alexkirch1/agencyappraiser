@@ -8,7 +8,11 @@ import {
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/theme-provider"
 import { OverviewTab } from "@/components/admin/overview-tab"
-import { HorizonTab } from "@/components/admin/horizon-tab-v2"
+import dynamic from "next/dynamic"
+const HorizonTab = dynamic(
+  () => import("@/components/admin/horizon-tab-v2").then(m => ({ default: m.HorizonTab })),
+  { ssr: false }
+)
 import { SettingsTab } from "@/components/admin/settings-tab"
 import { LeadsTab } from "@/components/admin/leads-tab"
 import { AnalyticsTab } from "@/components/admin/analytics-tab"
