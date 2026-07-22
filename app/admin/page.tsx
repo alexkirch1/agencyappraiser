@@ -39,7 +39,7 @@ export default function AdminPage() {
     checkAuth()
   }, [checkAuth])
 
-  const handleLogin = async (username: string, password: string) => {
+  const handleLogin = useCallback(async (username: string, password: string) => {
     const res = await fetch("/api/admin/auth", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -52,12 +52,12 @@ export default function AdminPage() {
       return { success: true }
     }
     return { success: false, error: data.error || "Login failed" }
-  }
+  }, [])
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     localStorage.removeItem(ADMIN_TOKEN_KEY)
     setAuthenticated(false)
-  }
+  }, [])
 
   if (checking) {
     return (
