@@ -273,12 +273,16 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
       ? ms2.totalEzlynxPremium / ezList2.length
       : null
 
+    // Always overwrite auto-calculated fields from live book data.
+    // Manual overrides entered by the user are preserved for non-calculated fields
+    // (lossRatio, commercialMix, carrierConcentration, revenueGrowth, agencyAge, etc.).
     setValuationFactors(prev => ({
       ...prev,
-      retention:       prev.retention       ?? (retentionRate2 > 0              ? parseFloat(retentionRate2.toFixed(1))          : null),
-      matchConfidence: prev.matchConfidence  ?? (matchRate2 > 0                  ? parseFloat(matchRate2.toFixed(1))              : null),
-      avgPremium:      prev.avgPremium       ?? (avgPrem2 !== null && avgPrem2 > 0 ? parseFloat(avgPrem2.toFixed(2))              : null),
-      totalPolicies:   prev.totalPolicies    ?? (ms2.totalActivePolicies > 0      ? ms2.totalActivePolicies                       : null),
+      retention:       retentionRate2 > 0               ? parseFloat(retentionRate2.toFixed(1)) : prev.retention ?? null,
+      matchConfidence: matchRate2 > 0                    ? parseFloat(matchRate2.toFixed(1))     : prev.matchConfidence ?? null,
+      avgPremium:      avgPrem2 !== null && avgPrem2 > 0  ? parseFloat(avgPrem2.toFixed(2))      : prev.avgPremium ?? null,
+      // totalPolicies: use raw EZLynx count (ground truth), not the estimated active count
+      totalPolicies:   ezList2.length > 0                ? ezList2.length                        : prev.totalPolicies ?? null,
     }))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [policy.loaded, policy.data, comm.loaded, comm.data, columnMap])

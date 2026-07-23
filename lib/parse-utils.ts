@@ -564,6 +564,9 @@ export function parsePdfCommissionRow(
     "shelter", "grinnell", "pekin", "island", "donegal", "selective",
     "utica", "central", "continental", "general", "american", "national",
     "federal", "standard", "united", "heritage", "horizon", "meridian",
+    // additional carriers seen in Horizon statements
+    "bristol", "west", "coterie", "hippo", "stillwater", "kemper", "cna",
+    "berkley", "assurant", "foremost", "bristol west", "coterie insurance",
     "insurance", "ins", "co", "corp", "inc", "llc", "ltd",
   ])
 
@@ -574,15 +577,18 @@ export function parsePdfCommissionRow(
   if (fmt3 === "horizon_a" || fmt3 === "horizon_b") {
     // Horizon column layout (L→R):
     //   Col 0: Producer
-    //   Col 1: Account Name   ← strictly use this
-    //   Col 2: Master Company (carrier)  ← never assign to client_name
+    //   Col 1: Account Name   ← strictly Column 2; this is the insured/client name
+    //   Col 2: Master Company ← carrier name (e.g. "Bristol West", "Coterie",
+    //                           "EncompassInsurance") — NEVER assign to client_name
     //   Col 3+: Policy, LOB, TRX, dates, money...
     //
     // segments[] maps directly to these columns after money tokens are blanked.
-    // We ONLY use segments[1] — never segments[2+] and never a policy number token.
+    // We read ONLY segments[1]. segments[2] (carrier) is explicitly skipped.
     const accountNameSeg = (segments[1] ?? "").trim()
+    // Explicitly discard segments[2] — it's always the Master Company / carrier name.
+    // No further reference to segments[2] should appear in this branch.
 
-    // Guard: reject if the segment looks like a policy number (e.g. numbers bled in)
+    // Guard: reject entire segment if it looks like a policy number
     const looksLikePolicy = isLikelyPolicyNumber(accountNameSeg).likely
 
     if (accountNameSeg.length >= 2 && !looksLikePolicy) {
@@ -590,15 +596,15 @@ export function parsePdfCommissionRow(
       const nameWords = accountNameSeg.split(/\s+/)
       const cleanWords: string[] = []
       for (const w of nameWords) {
-        // Stop accumulating once we hit a carrier word — that's column 2 bleeding in
+        // Stop if we hit a carrier word (column 2 bleed) and we already have a name
         if (CARRIER_TAIL_WORDS.has(w.toLowerCase()) && cleanWords.length > 0) break
-        // Also stop if we hit what looks like a policy number token
+        // Stop if we hit a policy number token mid-segment
         if (isLikelyPolicyNumber(w).likely) break
         cleanWords.push(w)
       }
-      bestName = cleanWords.slice(0, 6).join(" ").trim() || "Unknown Insured"
+      bestName = cleanWords.slice(0, 6).join(" ").trim() || "Unknown Client"
     } else {
-      bestName = "Unknown Insured"
+      bestName = "Unknown Client"
     }
   } else {
     // Generic format: score candidate segments as before
