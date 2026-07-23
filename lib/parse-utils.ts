@@ -575,34 +575,43 @@ export function parsePdfCommissionRow(
 
   const fmt3 = _currentStatementFormat
   if (fmt3 === "horizon_a" || fmt3 === "horizon_b") {
-    // Horizon column layout (L→R):
-    //   Col 0: Producer
-    //   Col 1: Account Name   ← strictly Column 2; this is the insured/client name
-    //   Col 2: Master Company ← carrier name (e.g. "Bristol West", "Coterie",
-    //                           "EncompassInsurance") — NEVER assign to client_name
-    //   Col 3+: Policy, LOB, TRX, dates, money...
+    // Horizon detail-row column layout after money is blanked and segments are split:
     //
-    // segments[] maps directly to these columns after money tokens are blanked.
-    // We read ONLY segments[1]. segments[2] (carrier) is explicitly skipped.
-    const accountNameSeg = (segments[1] ?? "").trim()
-    // Explicitly discard segments[2] — it's always the Master Company / carrier name.
-    // No further reference to segments[2] should appear in this branch.
+    //   segments[0]: Account Name  ← the insured/client name (e.g. "Luis Paz",
+    //                                "Robert & Olivia Vargas", "AZ Eagle Eye Inspections")
+    //   segments[1]: Master Company ← carrier (e.g. "Bristol West", "Coterie",
+    //                                 "Cabrillo Coastal") — store as carrier, NOT client_name
+    //   segments[2]: Policy Number  ← already captured by the policy-detection cascade above
+    //
+    // IMPORTANT: The Producer column (Col 0 in the PDF) is BLANK on detail rows.
+    // Therefore segments[0] is always the Account Name, not the producer.
+    // Previous code incorrectly used segments[1] (off-by-one), skipping the real name.
 
-    // Guard: reject entire segment if it looks like a policy number
+    const accountNameSeg = (segments[0] ?? "").trim()
+    const carrierSeg     = (segments[1] ?? "").trim()
+
+    // Override detectedCarrier with the explicit carrier column value for Horizon rows.
+    // This is more reliable than the regex scan on the full line.
+    if (carrierSeg.length >= 2 && !isLikelyPolicyNumber(carrierSeg).likely) {
+      detectedCarrier = carrierSeg
+    }
+
+    // Guard: reject the whole segment if it looks like a policy number (shouldn't happen,
+    // but protects against edge-case rows where the Producer column isn't blank).
     const looksLikePolicy = isLikelyPolicyNumber(accountNameSeg).likely
 
     if (accountNameSeg.length >= 2 && !looksLikePolicy) {
-      // Strip trailing carrier tail words that occasionally bleed in from column 2
+      // No splitting or truncation — use the segment as-is.
+      // The segment is already bounded by the 2-space column separator in the PDF,
+      // so carrier bleed is rare; strip it only if a carrier word appears at the end.
       const nameWords = accountNameSeg.split(/\s+/)
       const cleanWords: string[] = []
       for (const w of nameWords) {
-        // Stop if we hit a carrier word (column 2 bleed) and we already have a name
         if (CARRIER_TAIL_WORDS.has(w.toLowerCase()) && cleanWords.length > 0) break
-        // Stop if we hit a policy number token mid-segment
         if (isLikelyPolicyNumber(w).likely) break
         cleanWords.push(w)
       }
-      bestName = cleanWords.slice(0, 6).join(" ").trim() || "Unknown Client"
+      bestName = cleanWords.join(" ").trim() || "Unknown Client"
     } else {
       bestName = "Unknown Client"
     }
