@@ -572,6 +572,8 @@ export function parsePdfCommissionRow(
 
   // --- 4. Pick the best client name ---
   let bestName = ""
+  // Hoisted to function scope so it can be applied to detectedCarrier after its declaration.
+  let horizonCarrierSeg = ""
 
   const fmt3 = _currentStatementFormat
   if (fmt3 === "horizon_a" || fmt3 === "horizon_b") {
@@ -587,9 +589,9 @@ export function parsePdfCommissionRow(
     // Therefore segments[0] is always the Account Name, not the producer.
     // Previous code incorrectly used segments[1] (off-by-one), skipping the real name.
 
-    const accountNameSeg  = (segments[0] ?? "").trim()
-    // Capture carrier column now; applied to detectedCarrier below after its declaration.
-    const horizonCarrierSeg = (segments[1] ?? "").trim()
+    const accountNameSeg = (segments[0] ?? "").trim()
+    // Capture carrier column — applied to detectedCarrier below after its declaration.
+    horizonCarrierSeg = (segments[1] ?? "").trim()
 
     // Guard: reject the whole segment if it looks like a policy number (shouldn't happen,
     // but protects against edge-case rows where the Producer column isn't blank).
