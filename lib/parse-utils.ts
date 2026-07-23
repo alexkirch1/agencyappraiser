@@ -587,14 +587,9 @@ export function parsePdfCommissionRow(
     // Therefore segments[0] is always the Account Name, not the producer.
     // Previous code incorrectly used segments[1] (off-by-one), skipping the real name.
 
-    const accountNameSeg = (segments[0] ?? "").trim()
-    const carrierSeg     = (segments[1] ?? "").trim()
-
-    // Override detectedCarrier with the explicit carrier column value for Horizon rows.
-    // This is more reliable than the regex scan on the full line.
-    if (carrierSeg.length >= 2 && !isLikelyPolicyNumber(carrierSeg).likely) {
-      detectedCarrier = carrierSeg
-    }
+    const accountNameSeg  = (segments[0] ?? "").trim()
+    // Capture carrier column now; applied to detectedCarrier below after its declaration.
+    const horizonCarrierSeg = (segments[1] ?? "").trim()
 
     // Guard: reject the whole segment if it looks like a policy number (shouldn't happen,
     // but protects against edge-case rows where the Producer column isn't blank).
@@ -615,6 +610,8 @@ export function parsePdfCommissionRow(
     } else {
       bestName = "Unknown Client"
     }
+
+    // horizonCarrierSeg is applied to detectedCarrier after its declaration below.
   } else {
     // Generic format: score candidate segments as before
     let bestScore = -1
@@ -692,6 +689,13 @@ export function parsePdfCommissionRow(
     ]
     for (const [re, name] of carrierMap) {
       if (re.test(lineStr)) { detectedCarrier = name; break }
+    }
+
+    // Override with the explicit Master Company column value (segments[1] from the
+    // name-extraction block above). This is more reliable than a regex scan because
+    // it reads the actual column value rather than a keyword match.
+    if (horizonCarrierSeg.length >= 2 && !isLikelyPolicyNumber(horizonCarrierSeg).likely) {
+      detectedCarrier = horizonCarrierSeg
     }
 
     // LOB: scan segments for known LOB codes
