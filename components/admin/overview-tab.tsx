@@ -221,41 +221,83 @@ function deriveMetrics(
 }
 
 /** Build timeline chart data.
- *  For "all" window: spans from the earliest data point to today.
- *  For fixed windows: fills the last N days. */
+ *  Always receives the FULL allLeads list so bars are never clipped by the
+ *  analytics time-window. The windowDays param only controls which date range
+ *  of columns to render, not which leads contribute to the chart.
+ *
+ *  For "all": groups by calendar month (Mar, Apr … Jul) for a clean x-axis.
+ *  For 7D / 30D: fills daily columns for that window. */
 function buildChartData(
-  leads: AdminLead[],
+  allLeads: AdminLead[],
   seeds: SeedLead[],
   windowDays: number | "all",
 ): ChartDataPoint[] {
-  const metrics = deriveMetrics(leads, seeds)
-  const { chartMap } = metrics
   const now = new Date()
 
-  let startDate: Date
   if (windowDays === "all") {
-    // Find earliest date across real leads + seed records
+    // ── Monthly grouping ──────────────────────────────────────────────────
+    // Find the earliest month across all leads + seeds
     const allDates = [
-      ...leads.map((l) => l.created_at.slice(0, 10)),
-      ...seeds.map((s) => s.completedAt.slice(0, 10)),
+      ...allLeads.map((l) => l.created_at.slice(0, 7)),   // "YYYY-MM"
+      ...seeds.map((s) => s.completedAt.slice(0, 7)),
     ]
-    if (allDates.length === 0) {
-      startDate = new Date(now)
-      startDate.setDate(startDate.getDate() - 30)
-    } else {
-      const earliest = allDates.sort()[0]
-      startDate = new Date(earliest)
+    if (allDates.length === 0) return []
+
+    const earliestMonth = allDates.sort()[0]  // "2026-03"
+    const [ey, em] = earliestMonth.split("-").map(Number)
+
+    // Build a map keyed "YYYY-MM" → { completed, partial }
+    const monthMap = new Map<string, { completed: number; partial: number }>()
+    const addToMonth = (key: string, isCompleted: boolean) => {
+      const cur = monthMap.get(key) ?? { completed: 0, partial: 0 }
+      if (isCompleted) cur.completed += 1; else cur.partial += 1
+      monthMap.set(key, cur)
     }
-  } else {
-    startDate = new Date(now)
-    startDate.setDate(startDate.getDate() - (windowDays - 1))
+    for (const l of allLeads) {
+      const key = l.created_at.slice(0, 7)
+      const done = l.high_offer != null || l.low_offer != null || l.estimated_value != null
+      addToMonth(key, done)
+    }
+    for (const s of seeds) addToMonth(s.completedAt.slice(0, 7), true)
+
+    // Walk month-by-month from earliest to current
+    const points: ChartDataPoint[] = []
+    let cy = ey, cm = em
+    const curY = now.getFullYear(), curM = now.getMonth() + 1
+    while (cy < curY || (cy === curY && cm <= curM)) {
+      const key   = `${cy}-${String(cm).padStart(2, "0")}`
+      const label = new Date(cy, cm - 1, 1).toLocaleDateString("en-US", { month: "short" })
+      const counts = monthMap.get(key) ?? { completed: 0, partial: 0 }
+      points.push({ date: label, completed: counts.completed, partial: counts.partial, total: counts.completed + counts.partial })
+      cm++; if (cm > 12) { cm = 1; cy++ }
+    }
+    return points
   }
+
+  // ── Daily grouping (7D / 30D) ──────────────────────────────────────────
+  // Build chartMap from ALL leads (not the time-windowed slice) so a lead
+  // created 25 days ago shows on the 30D chart even if filteredAll excluded it.
+  const chartMap = new Map<string, { completed: number; partial: number }>()
+  const addToDay = (key: string, isCompleted: boolean) => {
+    const cur = chartMap.get(key) ?? { completed: 0, partial: 0 }
+    if (isCompleted) cur.completed += 1; else cur.partial += 1
+    chartMap.set(key, cur)
+  }
+  for (const l of allLeads) {
+    const key  = l.created_at.slice(0, 10)
+    const done = l.high_offer != null || l.low_offer != null || l.estimated_value != null
+    addToDay(key, done)
+  }
+  for (const s of seeds) addToDay(s.completedAt.slice(0, 10), true)
+
+  const startDate = new Date(now)
+  startDate.setDate(startDate.getDate() - (windowDays - 1))
 
   const points: ChartDataPoint[] = []
   const cursor = new Date(startDate)
   while (cursor <= now) {
-    const key   = cursor.toISOString().slice(0, 10)
-    const label = cursor.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    const key    = cursor.toISOString().slice(0, 10)
+    const label  = cursor.toLocaleDateString("en-US", { month: "short", day: "numeric" })
     const counts = chartMap.get(key) ?? { completed: 0, partial: 0 }
     points.push({ date: label, completed: counts.completed, partial: counts.partial, total: counts.completed + counts.partial })
     cursor.setDate(cursor.getDate() + 1)
@@ -359,7 +401,7 @@ const STATUS_STYLE: Record<Deal["status"], string> = {
   test:      "bg-slate-100 text-slate-600 border border-slate-300 dark:bg-slate-900/20 dark:text-slate-400 dark:border-slate-700",
 }
 
-// ─── Props ──────────────────────────────────��─────────────────────────────────
+// ─── Props ──────────────────────────────────���─────────────────────────────────
 
 interface OverviewTabProps {
   deals: Deal[]
@@ -446,11 +488,12 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
   // Pipeline-only metrics from activeLeads (pipeline $, hot leads)
   const mActive = useMemo(() => deriveMetrics(filteredActive, activeSeeds), [filteredActive, activeSeeds])
 
-  // Chart data — "all" spans earliest submission to today dynamically
+  // Chart always uses the full allLeads list so bars are never clipped by the
+  // analytics time-window. The window only controls which date columns to render.
   const chartData = useMemo<ChartDataPoint[]>(() => {
     const days: number | "all" = window === "7D" ? 7 : window === "30D" ? 30 : "all"
-    return buildChartData(filteredAll, activeSeeds, days)
-  }, [filteredAll, activeSeeds, window])
+    return buildChartData(allLeads, activeSeeds, days)
+  }, [allLeads, activeSeeds, window])
 
   // Recent Activity: top 10 newest from allLeads (includes archived, shows badge)
   const recentActivity = useMemo<AdminLead[]>(() =>
