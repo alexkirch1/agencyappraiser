@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback, useEffect } from "react"
+import { useState, useRef, useCallback, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SmartInput } from "@/components/ui/smart-input"
@@ -230,11 +230,13 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
   // Recomputed whenever EZLynx policy list or commission data changes.
   const topLevelMatchStats = useMemo(() => {
     const polIdx  = columnMap.policy  ?? -1
+    const nameIdx = columnMap.name    ?? -1
     const premIdx = columnMap.premium ?? -1
     if (!policy.loaded || polIdx < 0) return null
-    const ezList: { id: string; premium: number }[] = policy.data.map((row) => ({
-      id:      String(row[polIdx] ?? ""),
-      premium: premIdx >= 0 ? Number(row[premIdx]) || 0 : 0,
+    const ezList = policy.data.map((row) => ({
+      policyNumber: String(row[polIdx]  ?? ""),
+      clientName:   String(row[nameIdx] ?? ""),
+      premium:      premIdx >= 0 ? Number(row[premIdx]) || 0 : 0,
     }))
     return matchCommRows(ezList, comm.data)
   }, [policy.loaded, policy.data, comm.data, columnMap])
