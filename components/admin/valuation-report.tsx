@@ -256,7 +256,7 @@ export function ValuationReport({
 }: ValuationReportProps) {
   const [strategy, setStrategy] = useState<Strategy>("balanced")
   const [cashPct, setCashPct] = useState(85)
-  const [showFactors, setShowFactors] = useState(false)
+  const [showFactors, setShowFactors] = useState(true)
 
   const learnedAdj = intel?.learnedMultipleAdjustment ?? 0
 
