@@ -103,10 +103,13 @@ function deriveMetrics(leads: AdminLead[]) {
   // Total pipeline value: sum of getLeadValue across all leads
   const totalPipelineValue = leads.reduce((s, l) => s + getLeadValue(l), 0)
 
-  // Avg calculated multiple — only leads where calculated_multiple is not null
-  const withMultiple = leads.filter((l) => l.calculated_multiple != null)
-  const avgMultiple = withMultiple.length > 0
-    ? withMultiple.reduce((s, l) => s + Number(l.calculated_multiple!), 0) / withMultiple.length
+  // Avg calculated multiple — only full valuations with a calculated_multiple
+  // (restricts to full_valuation so the count in the sub-label matches)
+  const fullWithMultiple = leads.filter(
+    (l) => l.tool_used === "full_valuation" && l.calculated_multiple != null
+  )
+  const avgMultiple = fullWithMultiple.length > 0
+    ? fullWithMultiple.reduce((s, l) => s + Number(l.calculated_multiple!), 0) / fullWithMultiple.length
     : null
 
   // Hot leads: getLeadValue >= 500000 OR retention_rate >= 88
@@ -170,10 +173,12 @@ function buildChartData(leads: AdminLead[], windowDays: number): ChartDataPoint[
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
-const fmtDollars = (n: number | null | undefined): string => {
-  if (n == null || n === 0) return "—"
+const fmtDollars = (n: number | null | undefined, showZero = false): string => {
+  if (n == null) return "—"
+  if (n === 0) return showZero ? "$0" : "—"
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
-  return `$${Math.round(n / 1_000)}k`
+  if (n >= 1_000) return `$${Math.round(n / 1_000)}k`
+  return `$${Math.round(n)}`
 }
 
 const timeAgo = (iso: string): string => {
@@ -279,16 +284,12 @@ const ADMIN_TOKEN_KEY = "admin_session_token"
 
 function getAuthHeaders(): Record<string, string> {
   const token = typeof window !== "undefined" ? localStorage.getItem(ADMIN_TOKEN_KEY) : null
-  if (!token) console.error("[v0] overview-tab: no admin_session_token in localStorage — all API calls will 401")
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 const fetcher = (url: string) =>
   fetch(url, { headers: getAuthHeaders() }).then((res) => {
-    if (!res.ok) {
-      console.error("[v0] overview-tab fetch failed:", res.status, url)
-      throw new Error(`Fetch failed: ${res.status}`)
-    }
+    if (!res.ok) throw new Error(`Fetch failed: ${res.status}`)
     return res.json()
   })
 
@@ -370,14 +371,11 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
       })
       const json = await res.json()
       if (!res.ok) {
-        console.error("[v0] test-lead failed:", res.status, json)
         alert(`Test lead failed (${res.status}): ${json.error ?? "Unknown error"}`)
       } else {
-        console.log("[v0] test-lead inserted:", json)
         await mutate()
       }
-    } catch (err) {
-      console.error("[v0] test-lead error:", err)
+    } catch {
       alert("Test lead request threw an error — check the console.")
     } finally {
       setTestLeadLoading(false)
@@ -438,25 +436,46 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
         <KpiCard
           label="Total Valuations"
           value={isLoading ? "—" : mAll.total.toLocaleString()}
-          sub={isLoading ? "Loading…" : `${mAll.quick} Quick · ${mAll.full} Full · ${mAll.quiz} Quiz`}
+          sub={isLoading ? "Loading…" : (() => {
+            const parts: string[] = []
+            if (mAll.quick > 0) parts.push(`${mAll.quick} Quick`)
+            if (mAll.full  > 0) parts.push(`${mAll.full} Full`)
+            if (mAll.quiz  > 0) parts.push(`${mAll.quiz} Quiz`)
+            return parts.length > 0 ? parts.join(" · ") : "No completed valuations yet"
+          })()}
           trend={mAll.total > 0 ? "up" : "neutral"}
           trendLabel={`${mAll.total} total`}
         />
         {/* Pipeline — lead pipeline + active Horizon deals */}
-        <KpiCard
-          label="Est. Pipeline"
-          value={isLoading ? "—" : fmtDollars(mActive.totalPipelineValue + pipelineValue)}
-          sub={
-            (mActive.totalPipelineValue + pipelineValue) > 0
-              ? `${filteredActive.length} leads · ${activeDeals.length} Horizon deal${activeDeals.length !== 1 ? "s" : ""}`
-              : "No active pipeline on file"
+        {(() => {
+          const totalPipeline = mActive.totalPipelineValue + pipelineValue
+          const leadCount     = filteredActive.length
+          const dealCount     = activeDeals.length
+          let pipelineSub: string
+          if (totalPipeline > 0) {
+            const parts: string[] = []
+            if (leadCount > 0) parts.push(`${leadCount} lead${leadCount !== 1 ? "s" : ""}`)
+            if (dealCount > 0) parts.push(`${dealCount} Horizon deal${dealCount !== 1 ? "s" : ""}`)
+            pipelineSub = parts.join(" · ") || "Active pipeline"
+          } else {
+            pipelineSub = "No active pipeline on file"
           }
-        />
-        {/* Historical — uses allLeads for accurate average */}
+          return (
+            <KpiCard
+              label="Est. Pipeline"
+              value={isLoading ? "—" : fmtDollars(totalPipeline, true)}
+              sub={isLoading ? "Loading…" : pipelineSub}
+            />
+          )
+        })()}
+        {/* Historical — uses full valuations only for accurate average */}
         <KpiCard
           label="Avg Multiple"
           value={isLoading ? "—" : mAll.avgMultiple != null ? `${mAll.avgMultiple.toFixed(2)}x` : "—"}
-          sub={mAll.avgMultiple != null ? `From ${mAll.full} full valuations` : "No full valuations yet"}
+          sub={isLoading ? "Loading…" : mAll.avgMultiple != null
+            ? `From ${mAll.full} full valuation${mAll.full !== 1 ? "s" : ""}`
+            : mAll.total > 0 ? "No full valuations in range" : "No valuations yet"
+          }
         />
         {/* Pipeline — active hot leads needing follow-up */}
         <KpiCard
