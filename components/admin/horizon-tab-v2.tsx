@@ -226,6 +226,19 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
   const baseRevenue = finRevenue || (totalComm > 0 ? totalComm : calculateBaseRevenue())
   const currentValuation = baseRevenue * valuationMultiple
 
+  // Lifted match stats — used both in the reconciliation table render AND handleSaveToPipeline.
+  // Recomputed whenever EZLynx policy list or commission data changes.
+  const topLevelMatchStats = useMemo(() => {
+    const polIdx  = columnMap.policy  ?? -1
+    const premIdx = columnMap.premium ?? -1
+    if (!policy.loaded || polIdx < 0) return null
+    const ezList: { id: string; premium: number }[] = policy.data.map((row) => ({
+      id:      String(row[polIdx] ?? ""),
+      premium: premIdx >= 0 ? Number(row[premIdx]) || 0 : 0,
+    }))
+    return matchCommRows(ezList, comm.data)
+  }, [policy.loaded, policy.data, comm.data, columnMap])
+
   // Auto-feed live book metrics into valuationFactors when data is available.
   // Runs whenever EZLynx CSV or commission PDFs change. Does NOT overwrite
   // manually-entered factors (only sets fields that are currently null/undefined).
@@ -702,6 +715,39 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
     resetForm()
     setShowForm(false)
   }
+
+  // ----- Save Deal to Pipeline (Section 5 button) -----
+  const handleSaveToPipeline = useCallback(() => {
+    const deal: Deal = {
+      id:           `deal_${Date.now()}`,
+      deal_name:    dealName.trim() || "Coverguard Insurance Agency Inc (COVE285CA)",
+      deal_type:    "book",
+      valuation:    currentValuation,
+      premium_base: baseRevenue,
+      revenue:      totalComm > 0 ? totalComm : baseRevenue,
+      totalPremium: topLevelMatchStats?.totalBookPremium ?? 0,
+      multiple:     valuationMultiple,
+      status:       "active",
+      date_saved:   new Date().toISOString(),
+      shortDate:    new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      details: {
+        multiple:    valuationMultiple,
+        policyCount: policy.data.length,
+        commRecords: comm.data.length,
+        valuationFactors,
+        isOverridden,
+        overrideReason: isOverridden ? overrideReason : null,
+      },
+    }
+    onSaveDeal(deal)
+    // Log to activity timeline
+    try {
+      const logs = JSON.parse(localStorage.getItem("valuation_activity_log") || "[]")
+      logs.push({ date: deal.shortDate, status: "Partial" })
+      localStorage.setItem("valuation_activity_log", JSON.stringify(logs))
+    } catch {}
+  }, [dealName, currentValuation, baseRevenue, totalComm, topLevelMatchStats, valuationMultiple,
+      policy.data.length, comm.data.length, valuationFactors, isOverridden, overrideReason, onSaveDeal])
 
   const resetForm = () => {
     setDealName("")
@@ -2002,12 +2048,15 @@ export function HorizonTab({ deals, onSaveDeal, onUpdateDeal }: HorizonTabProps)
             intel={intel}
           />
 
-          {/* Save Button */}
-          <div className="mt-8 flex gap-4">
-            <Button className="flex-1" onClick={handleSave} disabled={saving}>
+          {/* Section 5 action buttons */}
+          <div className="mt-8 flex gap-3">
+            <Button className="flex-1" onClick={handleSaveToPipeline}>
+              Save Deal to Pipeline
+            </Button>
+            <Button variant="outline" onClick={handleSave} disabled={saving} className="flex-1">
               {saving ? "Saving..." : "Save Valuation"}
             </Button>
-            <Button variant="outline" onClick={() => setShowForm(false)}>
+            <Button variant="ghost" onClick={() => setShowForm(false)}>
               Cancel
             </Button>
           </div>

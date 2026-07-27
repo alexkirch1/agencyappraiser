@@ -442,11 +442,15 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
           trend={mAll.total > 0 ? "up" : "neutral"}
           trendLabel={`${mAll.total} total`}
         />
-        {/* Pipeline — uses activeLeads only */}
+        {/* Pipeline — lead pipeline + active Horizon deals */}
         <KpiCard
           label="Est. Pipeline"
-          value={isLoading ? "—" : fmtDollars(mActive.totalPipelineValue)}
-          sub={mActive.totalPipelineValue > 0 ? `${filteredActive.length} active leads` : "No active leads on file"}
+          value={isLoading ? "—" : fmtDollars(mActive.totalPipelineValue + pipelineValue)}
+          sub={
+            (mActive.totalPipelineValue + pipelineValue) > 0
+              ? `${filteredActive.length} leads · ${activeDeals.length} Horizon deal${activeDeals.length !== 1 ? "s" : ""}`
+              : "No active pipeline on file"
+          }
         />
         {/* Historical — uses allLeads for accurate average */}
         <KpiCard
@@ -480,12 +484,22 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
             {isLoading ? (
               <p className="py-4 text-center text-xs text-muted-foreground">Loading…</p>
             ) : (
-              <div className="space-y-3">
-                <FunnelBar label="All Submissions"    count={mAll.total} max={mAll.funnelMax} color="bg-primary" />
-                <FunnelBar label="Quick Valuations"   count={mAll.quick} max={mAll.funnelMax} color="bg-sky-400" />
-                <FunnelBar label="Full Valuations"    count={mAll.full}  max={mAll.funnelMax} color="bg-violet-500" />
-                <FunnelBar label="Readiness Quizzes"  count={mAll.quiz}  max={mAll.funnelMax} color="bg-amber-500" />
-              </div>
+              {(() => {
+                const horizonCount = deals.length
+                const funnelTotal  = mAll.total + horizonCount
+                const funnelMax    = Math.max(funnelTotal, mAll.quick, mAll.full, mAll.quiz, horizonCount, 1)
+                return (
+                  <div className="space-y-3">
+                    <FunnelBar label="All Submissions"    count={funnelTotal}    max={funnelMax} color="bg-primary" />
+                    <FunnelBar label="Quick Valuations"   count={mAll.quick}     max={funnelMax} color="bg-sky-400" />
+                    <FunnelBar label="Full Valuations"    count={mAll.full}      max={funnelMax} color="bg-violet-500" />
+                    <FunnelBar label="Readiness Quizzes"  count={mAll.quiz}      max={funnelMax} color="bg-amber-500" />
+                    {horizonCount > 0 && (
+                      <FunnelBar label="Horizon Book Deals" count={horizonCount} max={funnelMax} color="bg-emerald-500" />
+                    )}
+                  </div>
+                )
+              })()}
             )}
           </div>
         </div>
@@ -631,43 +645,74 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
           ) : (
             deals.map((deal) => {
               const daysOld = Math.floor((Date.now() - new Date(deal.date_saved).getTime()) / 86400000)
+              const revenue      = deal.revenue      ?? deal.premium_base ?? 0
+              const totalPremium = deal.totalPremium ?? 0
+              const multiple     = deal.multiple     ?? (deal.details?.multiple as number | undefined) ?? null
               return (
-                <div key={deal.id} className="flex items-center justify-between border-b border-border px-4 py-2.5 last:border-0 hover:bg-muted/30 transition-colors">
-                  <div className="min-w-0 flex-1">
+                <div key={deal.id} className="border-b border-border px-4 py-3 last:border-0 hover:bg-muted/30 transition-colors">
+                  {/* Row 1: name + status + valuation + delete */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <button
+                        onClick={() => onLoadDeal(deal.id)}
+                        className="text-left text-[13px] font-semibold text-foreground hover:text-primary transition-colors"
+                      >
+                        {deal.deal_name}
+                      </button>
+                      <p className="text-[11px] text-muted-foreground">
+                        {new Date(deal.date_saved).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        {" · "}<span className="font-semibold uppercase">{deal.deal_type}</span>
+                        {daysOld > 30 && deal.status === "active" && (
+                          <span className="ml-2 font-bold text-amber-500">STALE ({daysOld}d)</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        onClick={() => onStatusChange(deal.id, getNextStatus(deal.status))}
+                        className={cn(
+                          "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase transition-colors",
+                          STATUS_STYLE[deal.status],
+                        )}
+                      >
+                        {deal.status}
+                      </button>
+                      <Button
+                        variant="ghost" size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        onClick={() => { if (confirm("Delete this deal?")) onDelete(deal.id) }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                  {/* Row 2: revenue · premium · valuation @ multiple */}
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px]">
+                    {revenue > 0 && (
+                      <span className="text-muted-foreground">
+                        Rev <span className="font-semibold text-foreground">{fmtDollars(revenue)}</span>
+                      </span>
+                    )}
+                    {totalPremium > 0 && (
+                      <span className="text-muted-foreground">
+                        Prem <span className="font-semibold text-foreground">{fmtDollars(totalPremium)}</span>
+                      </span>
+                    )}
+                    <span className="text-muted-foreground">
+                      Val{" "}
+                      <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
+                        {fmtDollars(deal.valuation)}
+                      </span>
+                      {multiple != null && (
+                        <span className="ml-1 text-muted-foreground">@ {multiple.toFixed(2)}x</span>
+                      )}
+                    </span>
                     <button
                       onClick={() => onLoadDeal(deal.id)}
-                      className="text-left text-[13px] font-semibold text-foreground hover:text-primary transition-colors"
+                      className="ml-auto text-primary underline-offset-2 hover:underline"
                     >
-                      {deal.deal_name}
+                      View Valuation
                     </button>
-                    <p className="text-[11px] text-muted-foreground">
-                      {new Date(deal.date_saved).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                      {" · "}<span className="font-semibold uppercase">{deal.deal_type}</span>
-                      {daysOld > 30 && deal.status === "active" && (
-                        <span className="ml-2 font-bold text-amber-500">STALE ({daysOld}d)</span>
-                      )}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => onStatusChange(deal.id, getNextStatus(deal.status))}
-                      className={cn(
-                        "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase transition-colors",
-                        STATUS_STYLE[deal.status],
-                      )}
-                    >
-                      {deal.status}
-                    </button>
-                    <p className="w-20 text-right text-[13px] font-extrabold text-emerald-600 dark:text-emerald-400">
-                      {fmtDollars(deal.valuation)}
-                    </p>
-                    <Button
-                      variant="ghost" size="icon"
-                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                      onClick={() => { if (confirm("Delete this deal?")) onDelete(deal.id) }}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
                   </div>
                 </div>
               )

@@ -29,6 +29,12 @@ export interface Deal {
   deal_type: "full" | "book"
   valuation: number
   premium_base: number
+  /** 12-month trailing commission revenue (from uploaded statements) */
+  revenue?: number
+  /** Total EZLynx annualized book premium (ground truth) */
+  totalPremium?: number
+  /** Valuation multiple applied (e.g. 1.80) */
+  multiple?: number
   status: "active" | "completed" | "declined" | "test"
   date_saved: string
   shortDate?: string   // "Jul 17" — plain text tag used by the timeline chart
