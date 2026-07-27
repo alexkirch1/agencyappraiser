@@ -132,6 +132,7 @@ function getLeadValue(lead: AdminLead): number {
 interface DerivedMetrics {
   total: number; quick: number; full: number; quiz: number
   totalPipelineValue: number; avgMultiple: number | null; hotLeads: number
+  fullWithMultiple: number
   funnelMax: number; topStates: { state: string; count: number }[]
   riskGrades: { grade: string; count: number }[]
   chartMap: Map<string, { completed: number; partial: number }>
@@ -155,17 +156,23 @@ function deriveMetrics(
     leads.reduce((s, l) => s + getLeadValue(l), 0) +
     seeds.reduce((s, sd) => s + sd.estimated_value, 0)
 
-  // Avg multiple — full valuations only (coerce DB string numerics)
-  const fullLeadMultiples = leads
-    .filter((l) => l.tool_used === "full_valuation" && l.calculated_multiple != null)
-    .map((l) => toNum(l.calculated_multiple))
-  const fullSeedMultiples = seeds
-    .filter((s) => s.tool_used === "full_valuation")
+  // Avg multiple — all completed valuations (full, quick, quiz) that have a calculated_multiple.
+  // Uses quick_multiplier as fallback for quick_value leads that may not have calculated_multiple.
+  const leadMultiples = leads
+    .filter((l) => l.calculated_multiple != null || l.quick_multiplier != null)
+    .map((l) => toNum(l.calculated_multiple ?? l.quick_multiplier))
+    .filter((n) => n > 0)
+  const seedMultiples = seeds
+    .filter((s) => s.calculated_multiple > 0)
     .map((s) => s.calculated_multiple)
-  const allFullMultiples = [...fullLeadMultiples, ...fullSeedMultiples]
-  const avgMultiple = allFullMultiples.length > 0
-    ? allFullMultiples.reduce((a, b) => a + b, 0) / allFullMultiples.length
+  const allMultiples = [...leadMultiples, ...seedMultiples]
+  const avgMultiple = allMultiples.length > 0
+    ? allMultiples.reduce((a, b) => a + b, 0) / allMultiples.length
     : null
+
+  // Count of full valuations specifically (used for sub-label on Avg Multiple KPI)
+  const full_with_multiple = leads.filter((l) => l.tool_used === "full_valuation" && l.calculated_multiple != null).length
+                           + seeds.filter((s) => s.tool_used === "full_valuation").length
 
   // Hot leads
   const hotLeads =
@@ -217,7 +224,7 @@ function deriveMetrics(
     chartMap.set(day, cur)
   }
 
-  return { total, quick, full, quiz, totalPipelineValue, avgMultiple, hotLeads, funnelMax, topStates, riskGrades, chartMap }
+  return { total, quick, full, quiz, totalPipelineValue, avgMultiple, fullWithMultiple: full_with_multiple, hotLeads, funnelMax, topStates, riskGrades, chartMap }
 }
 
 /** Build timeline chart data.
@@ -482,11 +489,26 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
     [hasRealValuations],
   )
 
-  // Historical metrics from allLeads (totals, funnel, multiples, states, grades, chart)
+  // mAll: time-windowed analytics — Total Valuations count, funnel breakdown, chart
   const mAll = useMemo(() => deriveMetrics(filteredAll, activeSeeds), [filteredAll, activeSeeds])
 
-  // Pipeline-only metrics from activeLeads (pipeline $, hot leads)
-  const mActive = useMemo(() => deriveMetrics(filteredActive, activeSeeds), [filteredActive, activeSeeds])
+  // mBook: always full book — used for Avg Multiple, Top States, Risk Grades, Hot Leads.
+  // These should always reflect the complete picture regardless of the selected window.
+  const mBook = useMemo(() => deriveMetrics(allLeads, activeSeeds), [allLeads, activeSeeds])
+
+  // mActive: pipeline value — time-windowed for 7D/30D, full book for All Time
+  // For 7D/30D: only leads created in that window contribute to pipeline
+  // For All Time: all active non-archived leads
+  const pipelineLeads = useMemo<AdminLead[]>(() => {
+    if (window === "all") return filteredActive
+    return filteredActive.filter((l) => {
+      const days   = window === "7D" ? 7 : 30
+      const cutoff = new Date()
+      cutoff.setDate(cutoff.getDate() - days)
+      return new Date(l.created_at) >= cutoff
+    })
+  }, [filteredActive, window])
+  const mActive = useMemo(() => deriveMetrics(pipelineLeads, activeSeeds), [pipelineLeads, activeSeeds])
 
   // Chart always uses the full allLeads list so bars are never clipped by the
   // analytics time-window. The window only controls which date columns to render.
@@ -538,7 +560,7 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
           <p className="text-[11px] text-muted-foreground">
             {isLoading
               ? "Loading..."
-              : `${filteredAll.length} records (${filteredActive.length} active) · ${window === "all" ? "all time" : `last ${window}`}`
+              : `${mBook.total} total · ${filteredAll.length} in window · ${filteredActive.length} active · ${window === "all" ? "all time" : `last ${window}`}`
             }
             {!isLoading && !hasRealValuations && (
               <span className="ml-2 rounded border border-amber-300 bg-amber-50 px-1.5 py-px text-[10px] font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
@@ -595,10 +617,10 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
           trend={mAll.total > 0 ? "up" : "neutral"}
           trendLabel={`${mAll.total} total`}
         />
-        {/* Pipeline — always reflects ALL active leads regardless of time window */}
+        {/* Pipeline — scoped to selected window for 7D/30D, full book for All Time */}
         {(() => {
           const totalPipeline = mActive.totalPipelineValue + pipelineValue
-          const leadCount     = filteredActive.length
+          const leadCount     = pipelineLeads.length
           const dealCount     = activeDeals.length
           let pipelineSub: string
           if (totalPipeline > 0) {
@@ -617,22 +639,22 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
             />
           )
         })()}
-        {/* Historical — uses full valuations only for accurate average */}
+        {/* Full book — avg across all completed valuations */}
         <KpiCard
           label="Avg Multiple"
-          value={isLoading ? "—" : mAll.avgMultiple != null ? `${mAll.avgMultiple.toFixed(2)}x` : "—"}
-          sub={isLoading ? "Loading…" : mAll.avgMultiple != null
-            ? `From ${mAll.full} full valuation${mAll.full !== 1 ? "s" : ""}`
-            : mAll.total > 0 ? "No full valuations in range" : "No valuations yet"
+          value={isLoading ? "—" : mBook.avgMultiple != null ? `${mBook.avgMultiple.toFixed(2)}x` : "—"}
+          sub={isLoading ? "Loading…" : mBook.avgMultiple != null
+            ? `${mBook.total} completed valuation${mBook.total !== 1 ? "s" : ""}`
+            : "No valuations yet"
           }
         />
-        {/* Pipeline — active hot leads needing follow-up */}
+        {/* Full book — active hot leads needing follow-up */}
         <KpiCard
           label="Hot Leads"
-          value={isLoading ? "—" : mActive.hotLeads.toLocaleString()}
+          value={isLoading ? "—" : mBook.hotLeads.toLocaleString()}
           sub="Active · ≥$500k or ≥88% retention"
-          trend={mActive.hotLeads > 0 ? "up" : "neutral"}
-          trendLabel={`${mActive.hotLeads} active`}
+          trend={mBook.hotLeads > 0 ? "up" : "neutral"}
+          trendLabel={`${mBook.hotLeads} active`}
         />
       </div>
 
@@ -653,11 +675,11 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
               <p className="py-4 text-center text-xs text-muted-foreground">Loading…</p>
             ) : (() => {
                 const horizonCount = deals.length
-                const funnelTotal  = mAll.total + horizonCount
-                const funnelMax    = Math.max(funnelTotal, mAll.quick, mAll.full, mAll.quiz, horizonCount, 1)
+                // funnelMax is the largest single bar — never inflated by combining categories
+                const funnelMax    = Math.max(mAll.total, mAll.quick, mAll.full, mAll.quiz, horizonCount, 1)
                 return (
                   <div className="space-y-3">
-                    <FunnelBar label="All Submissions"    count={funnelTotal}    max={funnelMax} color="bg-primary" />
+                    <FunnelBar label="All Submissions"    count={mAll.total}     max={funnelMax} color="bg-primary" />
                     <FunnelBar label="Quick Valuations"   count={mAll.quick}     max={funnelMax} color="bg-sky-400" />
                     <FunnelBar label="Full Valuations"    count={mAll.full}      max={funnelMax} color="bg-violet-500" />
                     <FunnelBar label="Readiness Quizzes"  count={mAll.quiz}      max={funnelMax} color="bg-amber-500" />
@@ -673,15 +695,15 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
         {/* RIGHT — Top States + Risk Grades + Recent Activity */}
         <div className="space-y-4">
 
-          {/* Top States — only renders when primary_state data exists */}
-          {!isLoading && mAll.topStates.length > 0 && (
+          {/* Top States — always full book, not time-windowed */}
+          {!isLoading && mBook.topStates.length > 0 && (
             <div className="rounded-lg border border-border bg-card p-4">
               <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                 Top States
               </p>
               <div className="space-y-2">
-                {mAll.topStates.map((row, i) => {
-                  const pct = Math.round((row.count / mAll.topStates[0].count) * 100)
+                {mBook.topStates.map((row, i) => {
+                  const pct = Math.round((row.count / mBook.topStates[0].count) * 100)
                   return (
                     <div key={row.state} className="flex items-center gap-2">
                       <span className="w-4 shrink-0 text-[11px] text-muted-foreground">{i + 1}</span>
@@ -701,14 +723,14 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
             </div>
           )}
 
-          {/* Risk Grade Distribution — only renders when full valuation grades exist */}
-          {!isLoading && mAll.riskGrades.length > 0 && (
+          {/* Risk Grade Distribution — always full book, not time-windowed */}
+          {!isLoading && mBook.riskGrades.length > 0 && (
             <div className="rounded-lg border border-border bg-card p-4">
               <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                 Risk Grade Distribution
               </p>
               <div className="flex flex-wrap gap-2">
-                {mAll.riskGrades.map(({ grade, count }) => (
+                {mBook.riskGrades.map(({ grade, count }) => (
                   <div
                     key={grade}
                     className={cn(
