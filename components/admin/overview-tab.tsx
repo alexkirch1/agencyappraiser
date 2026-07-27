@@ -86,87 +86,179 @@ export interface AdminLead {
   quiz_answers: unknown
 }
 
-// ─── Data helpers ─────────────────────────────────────────────────────────────
+// ─── Seed / demo submissions ──────────────────────────────────────────────────
+// These 5 records are shown when the real DB has zero completed valuations.
+// They populate the timeline, funnel, multiples, and pipeline so the dashboard
+// looks useful before live submissions arrive.
 
-/** Best available dollar value for a lead — in priority order. */
-function getLeadValue(lead: AdminLead): number {
-  return lead.estimated_value ?? lead.quick_mid ?? 0
+interface SeedLead {
+  id: string
+  name: string
+  tool_used: AdminLead["tool_used"]
+  calculated_multiple: number
+  estimated_value: number
+  completedAt: string  // ISO date string used for timeline placement
+  primary_state: string
+  risk_grade: string
+  retention_rate: number
+  archived: boolean
 }
 
-/** Derive every metric the dashboard needs from a single AdminLead[]. No fallbacks. */
-function deriveMetrics(leads: AdminLead[]) {
-  const total = leads.length
+const SEED_LEADS: SeedLead[] = [
+  { id: "seed_1", name: "Kathy Landrigan",     tool_used: "full_valuation", calculated_multiple: 1.95, estimated_value: 152_000, completedAt: "2026-06-28", primary_state: "CA", risk_grade: "B+", retention_rate: 87, archived: false },
+  { id: "seed_2", name: "Chuy Cazares",         tool_used: "full_valuation", calculated_multiple: 2.10, estimated_value: 700_000, completedAt: "2026-03-22", primary_state: "TX", risk_grade: "A",  retention_rate: 92, archived: false },
+  { id: "seed_3", name: "Andrea DePasquale",    tool_used: "quick_value",    calculated_multiple: 1.85, estimated_value: 465_000, completedAt: "2026-03-18", primary_state: "FL", risk_grade: "B",  retention_rate: 83, archived: false },
+  { id: "seed_4", name: "Kelin Jones",          tool_used: "quick_value",    calculated_multiple: 1.80, estimated_value: 125_000, completedAt: "2026-03-14", primary_state: "AZ", risk_grade: "C",  retention_rate: 79, archived: false },
+  { id: "seed_5", name: "Patterson",            tool_used: "quiz",           calculated_multiple: 1.90, estimated_value: 500_000, completedAt: "2026-03-11", primary_state: "CO", risk_grade: "B",  retention_rate: 88, archived: false },
+]
+
+// ─── Data helpers ─────────────────────────────────────────────────────────────
+
+/** Best available dollar value for a lead — coerces DB string numerics to number. */
+function toNum(v: number | string | null | undefined): number {
+  if (v == null) return 0
+  const n = typeof v === "string" ? parseFloat(v) : v
+  return isNaN(n) ? 0 : n
+}
+
+function getLeadValue(lead: AdminLead): number {
+  const ev = toNum(lead.estimated_value)
+  if (ev > 0) return ev
+  const qm = toNum(lead.quick_mid)
+  if (qm > 0) return qm
+  return 0
+}
+
+interface DerivedMetrics {
+  total: number; quick: number; full: number; quiz: number
+  totalPipelineValue: number; avgMultiple: number | null; hotLeads: number
+  funnelMax: number; topStates: { state: string; count: number }[]
+  riskGrades: { grade: string; count: number }[]
+  chartMap: Map<string, { completed: number; partial: number }>
+}
+
+/** Derive every metric from a unified set of real + seed leads. */
+function deriveMetrics(
+  leads: AdminLead[],
+  seeds: SeedLead[] = [],
+): DerivedMetrics {
+  const total = leads.length + seeds.length
   const quick = leads.filter((l) => l.tool_used === "quick_value").length
+              + seeds.filter((s) => s.tool_used === "quick_value").length
   const full  = leads.filter((l) => l.tool_used === "full_valuation").length
+              + seeds.filter((s) => s.tool_used === "full_valuation").length
   const quiz  = leads.filter((l) => l.tool_used === "quiz").length
+              + seeds.filter((s) => s.tool_used === "quiz").length
 
-  // Total pipeline value: sum of getLeadValue across all leads
-  const totalPipelineValue = leads.reduce((s, l) => s + getLeadValue(l), 0)
+  // Total pipeline value
+  const totalPipelineValue =
+    leads.reduce((s, l) => s + getLeadValue(l), 0) +
+    seeds.reduce((s, sd) => s + sd.estimated_value, 0)
 
-  // Avg calculated multiple — only full valuations with a calculated_multiple
-  // (restricts to full_valuation so the count in the sub-label matches)
-  const fullWithMultiple = leads.filter(
-    (l) => l.tool_used === "full_valuation" && l.calculated_multiple != null
-  )
-  const avgMultiple = fullWithMultiple.length > 0
-    ? fullWithMultiple.reduce((s, l) => s + Number(l.calculated_multiple!), 0) / fullWithMultiple.length
+  // Avg multiple — full valuations only (coerce DB string numerics)
+  const fullLeadMultiples = leads
+    .filter((l) => l.tool_used === "full_valuation" && l.calculated_multiple != null)
+    .map((l) => toNum(l.calculated_multiple))
+  const fullSeedMultiples = seeds
+    .filter((s) => s.tool_used === "full_valuation")
+    .map((s) => s.calculated_multiple)
+  const allFullMultiples = [...fullLeadMultiples, ...fullSeedMultiples]
+  const avgMultiple = allFullMultiples.length > 0
+    ? allFullMultiples.reduce((a, b) => a + b, 0) / allFullMultiples.length
     : null
 
-  // Hot leads: getLeadValue >= 500000 OR retention_rate >= 88
-  const hotLeads = leads.filter(
-    (l) => getLeadValue(l) >= 500_000 || (l.retention_rate != null && l.retention_rate >= 88)
-  ).length
+  // Hot leads
+  const hotLeads =
+    leads.filter((l) => getLeadValue(l) >= 500_000 || (l.retention_rate != null && l.retention_rate >= 88)).length +
+    seeds.filter((s) => s.estimated_value >= 500_000 || s.retention_rate >= 88).length
 
-  // Funnel max = highest individual count (guarantees no bar > 100%)
   const funnelMax = Math.max(total, quick, full, quiz, 1)
 
-  // Top 5 states (only leads where primary_state is present)
+  // Top states
   const stateMap = new Map<string, number>()
   for (const l of leads) {
     if (!l.primary_state) continue
     stateMap.set(l.primary_state, (stateMap.get(l.primary_state) ?? 0) + 1)
+  }
+  for (const s of seeds) {
+    stateMap.set(s.primary_state, (stateMap.get(s.primary_state) ?? 0) + 1)
   }
   const topStates = Array.from(stateMap.entries())
     .map(([state, count]) => ({ state, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 5)
 
-  // Risk grade distribution (only full valuations with a risk_grade)
+  // Risk grade distribution
   const gradeMap = new Map<string, number>()
   for (const l of leads) {
     if (!l.risk_grade) continue
     gradeMap.set(l.risk_grade, (gradeMap.get(l.risk_grade) ?? 0) + 1)
   }
+  for (const s of seeds) {
+    gradeMap.set(s.risk_grade, (gradeMap.get(s.risk_grade) ?? 0) + 1)
+  }
   const riskGrades = Array.from(gradeMap.entries())
     .map(([grade, count]) => ({ grade, count }))
     .sort((a, b) => a.grade.localeCompare(b.grade))
 
-  // Timeline chart — group by ISO date (YYYY-MM-DD from created_at)
+  // Timeline chart
   const chartMap = new Map<string, { completed: number; partial: number }>()
   for (const l of leads) {
-    const day = l.created_at.slice(0, 10) // "YYYY-MM-DD"
+    const day = l.created_at.slice(0, 10)
     const cur = chartMap.get(day) ?? { completed: 0, partial: 0 }
-    // A lead is "completed" if it has a full valuation offer
-    if (l.high_offer != null || l.low_offer != null) cur.completed += 1
+    if (l.high_offer != null || l.low_offer != null || l.estimated_value != null) cur.completed += 1
     else cur.partial += 1
+    chartMap.set(day, cur)
+  }
+  for (const s of seeds) {
+    const day = s.completedAt.slice(0, 10)
+    const cur = chartMap.get(day) ?? { completed: 0, partial: 0 }
+    cur.completed += 1
     chartMap.set(day, cur)
   }
 
   return { total, quick, full, quiz, totalPipelineValue, avgMultiple, hotLeads, funnelMax, topStates, riskGrades, chartMap }
 }
 
-/** Build the scaffold + overlay for the timeline chart. */
-function buildChartData(leads: AdminLead[], windowDays: number): ChartDataPoint[] {
-  const { chartMap } = deriveMetrics(leads)
+/** Build timeline chart data.
+ *  For "all" window: spans from the earliest data point to today.
+ *  For fixed windows: fills the last N days. */
+function buildChartData(
+  leads: AdminLead[],
+  seeds: SeedLead[],
+  windowDays: number | "all",
+): ChartDataPoint[] {
+  const metrics = deriveMetrics(leads, seeds)
+  const { chartMap } = metrics
   const now = new Date()
+
+  let startDate: Date
+  if (windowDays === "all") {
+    // Find earliest date across real leads + seed records
+    const allDates = [
+      ...leads.map((l) => l.created_at.slice(0, 10)),
+      ...seeds.map((s) => s.completedAt.slice(0, 10)),
+    ]
+    if (allDates.length === 0) {
+      startDate = new Date(now)
+      startDate.setDate(startDate.getDate() - 30)
+    } else {
+      const earliest = allDates.sort()[0]
+      startDate = new Date(earliest)
+    }
+  } else {
+    startDate = new Date(now)
+    startDate.setDate(startDate.getDate() - (windowDays - 1))
+  }
+
   const points: ChartDataPoint[] = []
-  for (let i = windowDays - 1; i >= 0; i--) {
-    const d = new Date(now)
-    d.setDate(d.getDate() - i)
-    const key   = d.toISOString().slice(0, 10)
-    const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+  const cursor = new Date(startDate)
+  while (cursor <= now) {
+    const key   = cursor.toISOString().slice(0, 10)
+    const label = cursor.toLocaleDateString("en-US", { month: "short", day: "numeric" })
     const counts = chartMap.get(key) ?? { completed: 0, partial: 0 }
     points.push({ date: label, completed: counts.completed, partial: counts.partial, total: counts.completed + counts.partial })
+    cursor.setDate(cursor.getDate() + 1)
   }
   return points
 }
@@ -342,17 +434,27 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
     return activeLeads.filter((l) => l.created_at >= cutoffStr)
   }, [activeLeads, window])
 
+  // Seeds shown when no real valuations exist yet (tool_used null = test/legacy row)
+  const hasRealValuations = useMemo(
+    () => allLeads.some((l) => l.tool_used != null),
+    [allLeads],
+  )
+  const activeSeeds = useMemo(
+    () => hasRealValuations ? [] : SEED_LEADS,
+    [hasRealValuations],
+  )
+
   // Historical metrics from allLeads (totals, funnel, multiples, states, grades, chart)
-  const mAll = useMemo(() => deriveMetrics(filteredAll), [filteredAll])
+  const mAll = useMemo(() => deriveMetrics(filteredAll, activeSeeds), [filteredAll, activeSeeds])
 
   // Pipeline-only metrics from activeLeads (pipeline $, hot leads)
-  const mActive = useMemo(() => deriveMetrics(filteredActive), [filteredActive])
+  const mActive = useMemo(() => deriveMetrics(filteredActive, activeSeeds), [filteredActive, activeSeeds])
 
-  // Chart data built from allLeads (historical, includes archived)
+  // Chart data — "all" spans earliest submission to today dynamically
   const chartData = useMemo<ChartDataPoint[]>(() => {
-    const days = window === "7D" ? 7 : window === "30D" ? 30 : 90
-    return buildChartData(filteredAll, days)
-  }, [filteredAll, window])
+    const days: number | "all" = window === "7D" ? 7 : window === "30D" ? 30 : "all"
+    return buildChartData(filteredAll, activeSeeds, days)
+  }, [filteredAll, activeSeeds, window])
 
   // Recent Activity: top 10 newest from allLeads (includes archived, shows badge)
   const recentActivity = useMemo<AdminLead[]>(() =>
@@ -395,7 +497,15 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
         <div>
           <h2 className="text-sm font-semibold text-foreground">Agency Overview</h2>
           <p className="text-[11px] text-muted-foreground">
-            {isLoading ? "Loading..." : `${filteredAll.length} records (${filteredActive.length} active) · ${window === "all" ? "all time" : `last ${window}`}`}
+            {isLoading
+              ? "Loading..."
+              : `${filteredAll.length} records (${filteredActive.length} active) · ${window === "all" ? "all time" : `last ${window}`}`
+            }
+            {!isLoading && !hasRealValuations && (
+              <span className="ml-2 rounded border border-amber-300 bg-amber-50 px-1.5 py-px text-[10px] font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
+                demo data
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-1">
@@ -446,11 +556,12 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
           trend={mAll.total > 0 ? "up" : "neutral"}
           trendLabel={`${mAll.total} total`}
         />
-        {/* Pipeline — lead pipeline + active Horizon deals */}
+        {/* Pipeline — for All Time shows full book value; otherwise active only */}
         {(() => {
-          const totalPipeline = mActive.totalPipelineValue + pipelineValue
-          const leadCount     = filteredActive.length
-          const dealCount     = activeDeals.length
+          const basePipelineValue = window === "all" ? mAll.totalPipelineValue : mActive.totalPipelineValue
+          const totalPipeline     = basePipelineValue + pipelineValue
+          const leadCount         = window === "all" ? filteredAll.length : filteredActive.length
+          const dealCount         = activeDeals.length
           let pipelineSub: string
           if (totalPipeline > 0) {
             const parts: string[] = []
