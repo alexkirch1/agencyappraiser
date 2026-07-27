@@ -483,8 +483,7 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
             </p>
             {isLoading ? (
               <p className="py-4 text-center text-xs text-muted-foreground">Loading…</p>
-            ) : (
-              {(() => {
+            ) : (() => {
                 const horizonCount = deals.length
                 const funnelTotal  = mAll.total + horizonCount
                 const funnelMax    = Math.max(funnelTotal, mAll.quick, mAll.full, mAll.quiz, horizonCount, 1)
@@ -500,7 +499,6 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
                   </div>
                 )
               })()}
-            )}
           </div>
         </div>
 
