@@ -359,7 +359,7 @@ const STATUS_STYLE: Record<Deal["status"], string> = {
   test:      "bg-slate-100 text-slate-600 border border-slate-300 dark:bg-slate-900/20 dark:text-slate-400 dark:border-slate-700",
 }
 
-// ─── Props ────────────────────────────────────────────────────────────────────
+// ─── Props ──────────────────────────────────��─────────────────────────────────
 
 interface OverviewTabProps {
   deals: Deal[]
@@ -414,7 +414,8 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
     [allLeads],
   )
 
-  // Apply time-window filter to allLeads before deriving historical metrics
+  // filteredAll: time-window scoped view of ALL leads (active + archived).
+  // Used for historical analytics — funnel counts, chart, multiples, state breakdown.
   const filteredAll = useMemo<AdminLead[]>(() => {
     if (window === "all") return allLeads
     const days = window === "7D" ? 7 : 30
@@ -424,15 +425,10 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
     return allLeads.filter((l) => l.created_at >= cutoffStr)
   }, [allLeads, window])
 
-  // Apply time-window filter to activeLeads for pipeline metrics
-  const filteredActive = useMemo<AdminLead[]>(() => {
-    if (window === "all") return activeLeads
-    const days = window === "7D" ? 7 : 30
-    const cutoff = new Date()
-    cutoff.setDate(cutoff.getDate() - days)
-    const cutoffStr = cutoff.toISOString()
-    return activeLeads.filter((l) => l.created_at >= cutoffStr)
-  }, [activeLeads, window])
+  // filteredActive: ALL non-archived leads, never time-windowed.
+  // Pipeline value and hot leads reflect the current book of business regardless
+  // of when a lead was created — a lead from 6 months ago is still in the pipeline.
+  const filteredActive = activeLeads
 
   // Seeds shown when no real valuations exist yet (tool_used null = test/legacy row)
   const hasRealValuations = useMemo(
@@ -556,12 +552,11 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
           trend={mAll.total > 0 ? "up" : "neutral"}
           trendLabel={`${mAll.total} total`}
         />
-        {/* Pipeline — for All Time shows full book value; otherwise active only */}
+        {/* Pipeline — always reflects ALL active leads regardless of time window */}
         {(() => {
-          const basePipelineValue = window === "all" ? mAll.totalPipelineValue : mActive.totalPipelineValue
-          const totalPipeline     = basePipelineValue + pipelineValue
-          const leadCount         = window === "all" ? filteredAll.length : filteredActive.length
-          const dealCount         = activeDeals.length
+          const totalPipeline = mActive.totalPipelineValue + pipelineValue
+          const leadCount     = filteredActive.length
+          const dealCount     = activeDeals.length
           let pipelineSub: string
           if (totalPipeline > 0) {
             const parts: string[] = []
