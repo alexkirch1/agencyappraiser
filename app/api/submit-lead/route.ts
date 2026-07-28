@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic"
 import { NextResponse } from "next/server"
 import sql from "@/lib/db"
 import { rateLimit, getClientIp } from "@/lib/rate-limit"
-import { adminNotificationEmail } from "@/lib/email-templates"
+import { adminNotificationEmail, leadConfirmationEmail } from "@/lib/email-templates"
 
 const PIPEDRIVE_TOKEN = process.env.PIPEDRIVE_API_TOKEN
 const PIPEDRIVE_DOMAIN = "rocky"
@@ -225,6 +225,42 @@ async function createPipedriveDeal(params: {
   }
 }
 
+// Send instant confirmation email to the lead with a copy of their report
+async function sendLeadConfirmationEmail(data: {
+  leadId: number
+  name: string
+  email: string
+  agencyName?: string
+  estimatedValue?: string
+  valuationSummary?: string
+}) {
+  if (!RESEND_API_KEY) return
+  try {
+    const firstName = data.name.split(" ")[0] ?? data.name
+    const { from, html, subject } = leadConfirmationEmail({
+      firstName,
+      agencyName: data.agencyName,
+      estimatedValue: data.estimatedValue,
+      valuationSummary: data.valuationSummary,
+      leadId: data.leadId,
+    })
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({ from, to: [data.email], subject, html }),
+    })
+    if (!res.ok) {
+      const err = await res.json()
+      console.error("[submit-lead] Lead confirmation email failed:", err)
+    }
+  } catch (err) {
+    console.error("[submit-lead] Lead confirmation email threw:", err)
+  }
+}
+
 async function sendEmailNotification(data: {
   leadName: string
   leadEmail: string
@@ -270,11 +306,6 @@ async function sendEmailNotification(data: {
 }
 
 export async function POST(req: Request) {
-  // Env var presence check — helps debug missing config without leaking values
-  console.log("[v0] submit-lead: DATABASE_URL set?", !!process.env.DATABASE_URL)
-  console.log("[v0] submit-lead: PIPEDRIVE_API_TOKEN set?", !!process.env.PIPEDRIVE_API_TOKEN)
-  console.log("[v0] submit-lead: RESEND_API_KEY set?", !!process.env.RESEND_API_KEY)
-
   // Rate limit: 5 leads per IP per 15 minutes
   const { allowed } = rateLimit(`submit-lead:${getClientIp(req)}`, 5, 15 * 60 * 1000)
   if (!allowed) {
@@ -420,7 +451,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // 2. Send admin notification email
+    // 2. Send admin notification email to alex@rockyquote.com
     await sendEmailNotification({
       leadName: name,
       leadEmail: email,
@@ -432,29 +463,31 @@ export async function POST(req: Request) {
     })
     results.email = true
 
-    // 3. Queue 3-email drip sequence for the lead
+    // 3. Send instant confirmation + report copy to the lead
+    if (results.leadId) {
+      await sendLeadConfirmationEmail({
+        leadId: results.leadId,
+        name,
+        email,
+        agencyName,
+        estimatedValue: estimatedValue?.toString(),
+        valuationSummary: valuationSummary || undefined,
+      })
+    }
+
+    // 4. Queue follow-up drip emails (sequences 2 & 3 only — seq 1 was already sent above)
     if (results.leadId) {
       const now = new Date()
-      const day2 = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000)
-      const day5 = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000)
+      const day3 = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000)
+      const day7 = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
       await sql`
-        INSERT INTO email_drip (lead_id, sequence, send_after)
+        INSERT INTO email_drip (lead_id, sequence, send_after, status)
         VALUES
-          (${results.leadId}, 1, ${now.toISOString()}),
-          (${results.leadId}, 2, ${day2.toISOString()}),
-          (${results.leadId}, 3, ${day5.toISOString()})
+          (${results.leadId}, 1, ${now.toISOString()}, 'sent'),
+          (${results.leadId}, 2, ${day3.toISOString()}, 'pending'),
+          (${results.leadId}, 3, ${day7.toISOString()}, 'pending')
         ON CONFLICT (lead_id, sequence) DO NOTHING
       `.catch((err) => console.error("[submit-lead] Failed to queue drip emails:", err))
-
-      // Trigger the drip processor immediately so Email 1 goes out right away
-      const appUrl = process.env.NEXT_PUBLIC_BASE_URL
-        ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
-      const cronHeaders: Record<string, string> = { "Content-Type": "application/json" }
-      if (process.env.CRON_SECRET) cronHeaders["Authorization"] = `Bearer ${process.env.CRON_SECRET}`
-      fetch(`${appUrl}/api/send-drip-email`, {
-        method: "POST",
-        headers: cronHeaders,
-      }).catch((e) => console.error("[submit-lead] Failed to trigger drip:", e))
     }
 
     return NextResponse.json({ success: true, ...results, leadId: results.leadId })
