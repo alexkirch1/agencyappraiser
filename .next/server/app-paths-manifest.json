@@ -1,4 +1,5 @@
 {
   "/api/auth/me/route": "app/api/auth/me/route.js",
+  "/api/send-drip-email/route": "app/api/send-drip-email/route.js",
   "/page": "app/page.js"
 }
