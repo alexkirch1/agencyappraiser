@@ -147,15 +147,16 @@ export default function QuickValuePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          leadId: savedLeadId,
           name: reportName.trim(),
           email: reportEmail.trim(),
+          sendReport: true,
+          // Include only the valuation data needed for the PDF
           revenue,
-          retention,
+          retention: retention ?? undefined,
           bookType,
           growth,
-          customers,
-          policies,
+          customers: customers ?? undefined,
+          policies: policies ?? undefined,
           ratio: estimate.ratio,
           multiplier,
           suggested: estimate.suggested,
@@ -164,7 +165,6 @@ export default function QuickValuePage() {
           highValue: estimate.highValue,
           tier: estimate.tier,
           isSuspiciousData: estimate.isSuspiciousData ?? false,
-          sendReport: true,
         }),
       })
       const data = await res.json()
