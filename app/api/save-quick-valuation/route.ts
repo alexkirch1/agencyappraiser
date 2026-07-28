@@ -43,6 +43,8 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { leadId, name, email, sendReport, revenue, retention, bookType, growth, customers, policies, ratio, multiplier, suggested, lowValue, midValue, highValue, tier, isSuspiciousData } = body
 
+    console.log("[v0] save-quick-valuation received:", JSON.stringify({ name, email, sendReport, revenue, retention, bookType, growth, customers, policies, ratio, multiplier, suggested, lowValue, midValue, highValue, tier }))
+
     // Validate numeric fields are numbers and within plausible bounds
     // When sendReport=true, only require the PDF-needed fields; allow others to be null/undefined
     const requiredFields = sendReport

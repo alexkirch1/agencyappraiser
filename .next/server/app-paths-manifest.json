@@ -3,6 +3,7 @@
   "/api/save-quick-valuation/route": "app/api/save-quick-valuation/route.js",
   "/api/send-drip-email/route": "app/api/send-drip-email/route.js",
   "/api/submit-lead/route": "app/api/submit-lead/route.js",
+  "/calculator/page": "app/calculator/page.js",
   "/carrier/page": "app/carrier/page.js",
   "/page": "app/page.js",
   "/quick-value/page": "app/quick-value/page.js"
