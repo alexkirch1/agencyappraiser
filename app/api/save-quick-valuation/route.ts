@@ -121,17 +121,20 @@ export async function POST(req: Request) {
         if (lead?.email) {
           const firstName = ((lead.name ?? name ?? "there") as string).split(" ")[0]
 
-          // Build the PDF report attachment
+          // Build the PDF report attachment with all form inputs
           const pdfBase64 = await buildReportPdf({
             type: "quick",
             name: lead.name ?? firstName,
             agencyName: lead.agency_name ?? undefined,
+            revenue: revenue ?? 0,
             lowValue: lowValue ?? 0,
             highValue: highValue ?? 0,
             suggested: suggested ?? multiplier ?? 0,
-            revenue: revenue ?? 0,
-            retention: retention ?? undefined,
-            policies: policies ?? undefined,
+            retention: typeof retention === "string" && retention ? retention : undefined,
+            bookType:  typeof bookType  === "string" && bookType  ? bookType  : undefined,
+            growth:    typeof growth    === "string" && growth    ? growth    : undefined,
+            customers: typeof customers === "number" ? customers : undefined,
+            policies:  typeof policies  === "number" ? policies  : undefined,
           })
 
           // Email 1: Simple thank-you to the lead with PDF attached

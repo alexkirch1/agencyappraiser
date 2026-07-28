@@ -390,7 +390,10 @@ export type ReportData =
       highValue: number
       suggested: number
       revenue: number
-      retention?: number
+      retention?: string   // "high" | "average" | "low"
+      bookType?: string    // "commercial" | "mixed" | "personal"
+      growth?: string      // "strong" | "moderate" | "flat" | "declining"
+      customers?: number
       policies?: number
       generatedAt?: string
     }
@@ -477,12 +480,20 @@ export async function buildReportPdf(data: ReportData): Promise<string> {
     doc.text(`Range: ${fmt(data.lowValue)} – ${fmt(data.highValue)}`, W / 2, y + 72, { align: "center" })
     y += 100
 
+    // Human-readable labels for string fields
+    const retentionLabel: Record<string, string> = { high: "90%+  (Excellent)", average: "80–89%  (Average)", low: "<80%  (Below Avg)" }
+    const bookLabel: Record<string, string> = { commercial: "Mostly Commercial", mixed: "Mixed", personal: "Mostly Personal" }
+    const growthLabel: Record<string, string> = { strong: "Strong (10%+/yr)", moderate: "Moderate (3–9%/yr)", flat: "Flat", declining: "Declining" }
+
     // Metrics grid
     const metrics: [string, string][] = [
       ["Annual Revenue", fmt(data.revenue)],
       ["Suggested Multiple", `${data.suggested.toFixed(2)}x`],
-      ...(data.retention != null ? [["Retention Rate", `${data.retention}%`] as [string, string]] : []),
-      ...(data.policies != null ? [["Active Policies", data.policies.toLocaleString()] as [string, string]] : []),
+      ...(data.retention ? [["Client Retention", retentionLabel[data.retention] ?? data.retention] as [string, string]] : []),
+      ...(data.bookType  ? [["Book Type",       bookLabel[data.bookType]    ?? data.bookType]   as [string, string]] : []),
+      ...(data.growth    ? [["Revenue Growth",  growthLabel[data.growth]   ?? data.growth]     as [string, string]] : []),
+      ...(data.customers != null ? [["Active Customers", data.customers.toLocaleString()] as [string, string]] : []),
+      ...(data.policies  != null ? [["Active Policies",  data.policies.toLocaleString()]  as [string, string]] : []),
     ]
     const colW = (W - pad * 2) / 2
     metrics.forEach(([label, value], i) => {
@@ -498,16 +509,17 @@ export async function buildReportPdf(data: ReportData): Promise<string> {
       doc.setFont("helvetica", "bold")
       doc.text(label.toUpperCase(), x + (col === 1 ? 14 : 8), my + 16)
       doc.setTextColor(15, 23, 42)
-      doc.setFontSize(14)
-      doc.text(value, x + (col === 1 ? 14 : 8), my + 36)
+      doc.setFontSize(12)
+      const valText = doc.splitTextToSize(value, colW - 24)
+      doc.text(valText, x + (col === 1 ? 14 : 8), my + 34)
     })
-    y += Math.ceil(metrics.length / 2) * 56 + 16
+    y += Math.ceil(metrics.length / 2) * 56 + 20
 
     // Disclaimer
     doc.setFillColor(248, 250, 252)
     doc.setDrawColor(14, 165, 233)
     doc.setLineWidth(2)
-    doc.line(pad, y, pad, y + 48)
+    doc.line(pad, y, pad, y + 56)
     doc.setLineWidth(0.5)
     doc.setTextColor(15, 23, 42)
     doc.setFontSize(9)
