@@ -30,7 +30,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json()
-    const { leadId, revenue, retention, bookType, growth, customers, policies, ratio, multiplier, suggested, lowValue, midValue, highValue, tier, isSuspiciousData } = body
+    const { leadId, name, email, sendReport, revenue, retention, bookType, growth, customers, policies, ratio, multiplier, suggested, lowValue, midValue, highValue, tier, isSuspiciousData } = body
 
     // Validate numeric fields are numbers and within plausible bounds
     const numericFields: Record<string, unknown> = { revenue, retention, customers, policies, ratio, multiplier, suggested, lowValue, midValue, highValue }
@@ -62,14 +62,52 @@ export async function POST(req: Request) {
       RETURNING id
     `
 
-    // Send emails — non-fatal: errors are logged but never break the DB save response
-    if (RESEND_API_KEY && leadId) {
+    // If sendReport=true and name+email provided, upsert a lead record so we
+    // have a full contact on file, then send both the agent report and admin notification.
+    let resolvedLeadId = leadId ?? null
+    if (sendReport && name && email) {
       try {
-        const leadRows = await sql`SELECT name, email, phone, agency_name FROM leads WHERE id = ${leadId} LIMIT 1`
-        const lead = leadRows[0]
+        const cleanName  = String(name).slice(0, 200)
+        const cleanEmail = String(email).slice(0, 200)
+        const existing = await sql`SELECT id FROM leads WHERE email = ${cleanEmail} LIMIT 1`
+        if (existing.length > 0) {
+          resolvedLeadId = existing[0].id
+        } else {
+          const inserted = await sql`
+            INSERT INTO leads (name, email, tool_used, estimated_value)
+            VALUES (${cleanName}, ${cleanEmail}, 'quick_value', ${midValue ?? null})
+            RETURNING id
+          `
+          resolvedLeadId = inserted[0].id
+          // Queue drip follow-ups (seq 1 = confirmation, marked sent since we send it now)
+          const day3 = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+          const day7 = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+          await sql`
+            INSERT INTO email_drip (lead_id, sequence, send_after, status)
+            VALUES
+              (${resolvedLeadId}, 1, NOW(), 'sent'),
+              (${resolvedLeadId}, 2, ${day3.toISOString()}, 'pending'),
+              (${resolvedLeadId}, 3, ${day7.toISOString()}, 'pending')
+            ON CONFLICT (lead_id, sequence) DO NOTHING
+          `.catch(() => {})
+        }
+        // Backfill the quick_valuation row with the resolved lead id
+        if (rows[0]?.id) {
+          await sql`UPDATE quick_valuations SET lead_id = ${resolvedLeadId} WHERE id = ${rows[0].id}`.catch(() => {})
+        }
+      } catch (leadErr) {
+        console.error("[save-quick-valuation] Lead upsert failed:", leadErr)
+      }
+    }
+
+    // Send emails — non-fatal: errors are logged but never break the DB save response
+    if (RESEND_API_KEY && resolvedLeadId && sendReport) {
+      try {
+        const leadRows = await sql`SELECT name, email, phone, agency_name FROM leads WHERE id = ${resolvedLeadId} LIMIT 1`
+        const lead = leadRows[0] ?? { name, email, phone: null, agency_name: null }
 
         if (lead?.email) {
-          const firstName = (lead.name ?? "there").split(" ")[0]
+          const firstName = ((lead.name ?? name ?? "there") as string).split(" ")[0]
 
           // Email 1: Agent valuation report
           const agentPayload = quickValuationAgentEmail({
@@ -82,7 +120,7 @@ export async function POST(req: Request) {
             revenue: revenue ?? 0,
             retention: retention ?? undefined,
             policies: policies ?? undefined,
-            leadId,
+            leadId: resolvedLeadId,
           })
           await sendEmail(lead.email, agentPayload.subject, agentPayload.html, agentPayload.from)
 
@@ -92,7 +130,7 @@ export async function POST(req: Request) {
             leadEmail: lead.email,
             leadPhone: lead.phone ?? undefined,
             agencyName: lead.agency_name ?? undefined,
-            leadId,
+            leadId: resolvedLeadId,
             revenue: revenue ?? 0,
             retention: retention ?? undefined,
             bookType: bookType ?? undefined,
@@ -117,7 +155,7 @@ export async function POST(req: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, id: rows[0]?.id })
+    return NextResponse.json({ success: true, id: rows[0]?.id, leadId: resolvedLeadId })
   } catch (err) {
     console.error("[v0] save-quick-valuation error:", err)
     return NextResponse.json({ error: "Failed to save quick valuation" }, { status: 500 })
