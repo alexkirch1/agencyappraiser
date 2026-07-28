@@ -30,8 +30,8 @@ export function ValuationSubmissionsTimeline({ chartData }: ValuationSubmissions
   const maxCount       = Math.max(...chartData.map((b) => b.total), 1)
 
   // Show a label every N bars to avoid overcrowding.
-  // Monthly mode (≤12 bars) shows every label; daily 30D shows every 5th.
-  const labelStep    = chartData.length > 30 ? 7 : chartData.length > 14 ? 5 : 1
+  // Monthly mode (≤12 bars): every bar. Daily 7D: every 1st. Daily 30D: every 5th.
+  const labelStep    = chartData.length > 14 ? 5 : 1
   // Minimum bar width: wider for monthly/sparse charts, narrow for daily
   const minBarPx     = chartData.length <= 12 ? 32 : 2
   // Chart area height in px — must match the h-40 (160px) container below
@@ -108,12 +108,17 @@ export function ValuationSubmissionsTimeline({ chartData }: ValuationSubmissions
             })}
           </div>
 
-          {/* X-axis labels */}
-          <div className="mt-1.5 flex items-start gap-px overflow-hidden">
+          {/* X-axis labels — rendered as relative positioned row; only every Nth bar
+              gets a label, and labels use overflow-visible so they don't get clipped */}
+          <div className="relative mt-1.5 flex gap-px" style={{ height: "14px" }}>
             {chartData.map((bar, i) => (
-              <div key={bar.date} className="flex flex-1 justify-center" style={{ minWidth: `${minBarPx}px` }}>
+              <div
+                key={bar.date}
+                className="relative flex flex-1 justify-center"
+                style={{ minWidth: `${minBarPx}px` }}
+              >
                 {i % labelStep === 0 && (
-                  <span className="truncate text-center text-[9px] text-muted-foreground">
+                  <span className="absolute top-0 whitespace-nowrap text-center text-[9px] text-muted-foreground">
                     {bar.date}
                   </span>
                 )}
