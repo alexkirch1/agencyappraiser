@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic"
 import { NextResponse } from "next/server"
 import sql from "@/lib/db"
 import { rateLimit, getClientIp } from "@/lib/rate-limit"
-import { adminNotificationEmail, leadConfirmationEmail } from "@/lib/email-templates"
+import { adminNotificationEmail, thankYouEmail } from "@/lib/email-templates"
 
 const PIPEDRIVE_TOKEN = process.env.PIPEDRIVE_API_TOKEN
 const PIPEDRIVE_DOMAIN = "rocky"
@@ -225,31 +225,19 @@ async function createPipedriveDeal(params: {
   }
 }
 
-// Send instant confirmation email to the lead with a copy of their report
+// Send simple thank-you email to the lead
 async function sendLeadConfirmationEmail(data: {
-  leadId: number
   name: string
   email: string
   agencyName?: string
-  estimatedValue?: string
-  valuationSummary?: string
 }) {
   if (!RESEND_API_KEY) return
   try {
     const firstName = data.name.split(" ")[0] ?? data.name
-    const { from, html, subject } = leadConfirmationEmail({
-      firstName,
-      agencyName: data.agencyName,
-      estimatedValue: data.estimatedValue,
-      valuationSummary: data.valuationSummary,
-      leadId: data.leadId,
-    })
+    const { from, html, subject } = thankYouEmail({ firstName, agencyName: data.agencyName })
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${RESEND_API_KEY}` },
       body: JSON.stringify({ from, to: [data.email], subject, html }),
     })
     if (!res.ok) {
@@ -463,32 +451,8 @@ export async function POST(req: Request) {
     })
     results.email = true
 
-    // 3. Send instant confirmation + report copy to the lead
-    if (results.leadId) {
-      await sendLeadConfirmationEmail({
-        leadId: results.leadId,
-        name,
-        email,
-        agencyName,
-        estimatedValue: estimatedValue?.toString(),
-        valuationSummary: valuationSummary || undefined,
-      })
-    }
-
-    // 4. Queue follow-up drip emails (sequences 2 & 3 only — seq 1 was already sent above)
-    if (results.leadId) {
-      const now = new Date()
-      const day3 = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000)
-      const day7 = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-      await sql`
-        INSERT INTO email_drip (lead_id, sequence, send_after, status)
-        VALUES
-          (${results.leadId}, 1, ${now.toISOString()}, 'sent'),
-          (${results.leadId}, 2, ${day3.toISOString()}, 'pending'),
-          (${results.leadId}, 3, ${day7.toISOString()}, 'pending')
-        ON CONFLICT (lead_id, sequence) DO NOTHING
-      `.catch((err) => console.error("[submit-lead] Failed to queue drip emails:", err))
-    }
+    // 3. Send simple thank-you email to the lead
+    await sendLeadConfirmationEmail({ name, email, agencyName })
 
     return NextResponse.json({ success: true, ...results, leadId: results.leadId })
   } catch (err) {

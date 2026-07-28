@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic"
 
 import { NextRequest, NextResponse } from "next/server"
 import sql from "@/lib/db"
-import { leadConfirmationEmail, dripEmail2, dripEmail3 } from "@/lib/email-templates"
+import { dripEmail2, dripEmail3 } from "@/lib/email-templates"
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY
 const CRON_SECRET = process.env.CRON_SECRET
@@ -135,15 +135,7 @@ export async function POST(req: NextRequest) {
       const firstName = row.lead_name.split(" ")[0] ?? row.lead_name
       let payload: { from: string; html: string; subject: string } | null = null
 
-      if (row.sequence === 1) {
-        payload = leadConfirmationEmail({
-          firstName,
-          agencyName: row.agency_name ?? undefined,
-          estimatedValue: row.estimated_value ?? undefined,
-          valuationSummary: row.valuation_summary ?? undefined,
-          leadId: row.lead_id,
-        })
-      } else if (row.sequence === 2) {
+      if (row.sequence === 2) {
         payload = dripEmail2({
           firstName,
           agencyName: row.agency_name ?? undefined,
