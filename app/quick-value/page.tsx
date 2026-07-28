@@ -150,21 +150,11 @@ export default function QuickValuePage() {
           name: reportName.trim(),
           email: reportEmail.trim(),
           sendReport: true,
-          // Include only the valuation data needed for the PDF
+          // Only send the calculated estimate values needed for the PDF
           revenue,
-          retention: retention ?? undefined,
-          bookType,
-          growth,
-          customers: customers ?? undefined,
-          policies: policies ?? undefined,
-          ratio: estimate.ratio,
-          multiplier,
-          suggested: estimate.suggested,
           lowValue: estimate.lowValue,
           midValue: estimate.value,
           highValue: estimate.highValue,
-          tier: estimate.tier,
-          isSuspiciousData: estimate.isSuspiciousData ?? false,
         }),
       })
       const data = await res.json()
