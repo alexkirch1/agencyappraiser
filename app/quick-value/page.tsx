@@ -9,7 +9,8 @@ import { Slider } from "@/components/ui/slider"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Button } from "@/components/ui/button"
 import { ValuationDisclaimerModal } from "@/components/valuation-disclaimer-modal"
-import { ArrowRight, Calculator, Zap, DollarSign, AlertTriangle, TrendingUp, ShieldAlert, Download, Share2, Check, Truck } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { ArrowRight, Calculator, Zap, DollarSign, AlertTriangle, TrendingUp, ShieldAlert, Download, Share2, Check, Truck, Mail, Loader2 } from "lucide-react"
 import { FeedbackWidget } from "@/components/feedback-widget"
 import { InfoTip } from "@/components/ui/info-tip"
 import { downloadQuickValuePDF } from "@/lib/generate-pdf"
@@ -111,6 +112,14 @@ export default function QuickValuePage() {
   const [savedLeadId, setSavedLeadId] = useState<number | null>(null)
   const [shareCopied, setShareCopied] = useState(false)
 
+  // "Send report to email" inline form state
+  const [emailFormOpen, setEmailFormOpen] = useState(false)
+  const [reportName, setReportName] = useState("")
+  const [reportEmail, setReportEmail] = useState("")
+  const [reportSending, setReportSending] = useState(false)
+  const [reportSent, setReportSent] = useState(false)
+  const [reportError, setReportError] = useState<string | null>(null)
+
   const handleShare = async () => {
     const url = savedLeadId
       ? `${window.location.origin}/valuation/${savedLeadId}`
@@ -127,6 +136,46 @@ export default function QuickValuePage() {
     }
     setShareCopied(true)
     setTimeout(() => setShareCopied(false), 2500)
+  }
+
+  const handleSendReport = async () => {
+    if (!reportName.trim() || !reportEmail.trim() || !estimate || !revenue) return
+    setReportSending(true)
+    setReportError(null)
+    try {
+      const res = await fetch("/api/save-quick-valuation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: reportName.trim(),
+          email: reportEmail.trim(),
+          sendReport: true,
+          // Exact values from the current form state and calculated estimate
+          revenue,
+          retention: retention || undefined,
+          bookType: bookType || undefined,
+          growth: growth || undefined,
+          customers: customers ?? undefined,
+          policies: policies ?? undefined,
+          ratio: estimate.ratio ?? undefined,
+          multiplier,
+          suggested: estimate.suggested,
+          lowValue: estimate.lowValue,
+          midValue: estimate.value,
+          highValue: estimate.highValue,
+          tier: estimate.tier,
+          isSuspiciousData: estimate.isSuspiciousData ?? false,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error ?? "Failed to send")
+      if (data?.leadId) setSavedLeadId(data.leadId)
+      setReportSent(true)
+    } catch (err: unknown) {
+      setReportError(err instanceof Error ? err.message : "Something went wrong. Try again.")
+    } finally {
+      setReportSending(false)
+    }
   }
 
   const estimate = useMemo(() => {
@@ -655,6 +704,73 @@ export default function QuickValuePage() {
                       {shareCopied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Share2 className="h-3.5 w-3.5" />}
                       {shareCopied ? "Link copied!" : "Share Results"}
                     </Button>
+
+                    {/* Send Report to Email */}
+                    {reportSent ? (
+                      <div className="w-full mt-1 flex items-center justify-center gap-2 rounded-lg border border-success/30 bg-success/10 px-3 py-3">
+                        <Check className="h-4 w-4 text-success shrink-0" />
+                        <p className="text-xs font-medium text-success">Report sent to {reportEmail}</p>
+                      </div>
+                    ) : emailFormOpen ? (
+                      <div className="w-full mt-1 rounded-lg border border-border bg-secondary/40 p-3 flex flex-col gap-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Email My Report</p>
+                        <Input
+                          type="text"
+                          placeholder="Your name"
+                          value={reportName}
+                          onChange={(e) => setReportName(e.target.value)}
+                          className="h-8 text-xs"
+                          disabled={reportSending}
+                        />
+                        <Input
+                          type="email"
+                          placeholder="Your email address"
+                          value={reportEmail}
+                          onChange={(e) => setReportEmail(e.target.value)}
+                          className="h-8 text-xs"
+                          disabled={reportSending}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.nativeEvent.isComposing) handleSendReport()
+                          }}
+                        />
+                        {reportError && (
+                          <p className="text-[11px] text-destructive">{reportError}</p>
+                        )}
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            className="flex-1 h-8 gap-1.5 text-xs"
+                            onClick={handleSendReport}
+                            disabled={reportSending || !reportName.trim() || !reportEmail.trim()}
+                          >
+                            {reportSending ? (
+                              <><Loader2 className="h-3 w-3 animate-spin" /> Sending...</>
+                            ) : (
+                              <><Mail className="h-3 w-3" /> Send Report</>
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 text-xs text-muted-foreground"
+                            onClick={() => { setEmailFormOpen(false); setReportError(null) }}
+                            disabled={reportSending}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full gap-2 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => setEmailFormOpen(true)}
+                      >
+                        <Mail className="h-3.5 w-3.5" />
+                        Send Report to Email
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <div className="flex flex-col items-center text-center">

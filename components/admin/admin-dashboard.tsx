@@ -8,7 +8,11 @@ import {
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/theme-provider"
 import { OverviewTab } from "@/components/admin/overview-tab"
-import { HorizonTab } from "@/components/admin/horizon-tab"
+import dynamic from "next/dynamic"
+const HorizonTab = dynamic(
+  () => import("@/components/admin/horizon-tab-v2").then(m => ({ default: m.HorizonTab })),
+  { ssr: false }
+)
 import { SettingsTab } from "@/components/admin/settings-tab"
 import { LeadsTab } from "@/components/admin/leads-tab"
 import { AnalyticsTab } from "@/components/admin/analytics-tab"
@@ -25,6 +29,12 @@ export interface Deal {
   deal_type: "full" | "book"
   valuation: number
   premium_base: number
+  /** 12-month trailing commission revenue (from uploaded statements) */
+  revenue?: number
+  /** Total EZLynx annualized book premium (ground truth) */
+  totalPremium?: number
+  /** Valuation multiple applied (e.g. 1.80) */
+  multiple?: number
   status: "active" | "completed" | "declined" | "test"
   date_saved: string
   shortDate?: string   // "Jul 17" — plain text tag used by the timeline chart

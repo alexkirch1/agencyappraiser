@@ -22,20 +22,18 @@ export function cleanNum(val: unknown): number {
 // ----- Policy number normalization -----
 // Handles policy numbers that may contain spaces, dashes, or dots.
 // Examples: "BOP 1234567" → "BOP1234567", "CPP-001234" → "CPP001234",
-//           "00987654" → "987654", "18037775701-00" → "18037775701"
+//           "00987654" → "987654", "G01047708109" → "47708109"
 export function normalizePolicy(val: unknown): string {
   let s = String(val || "").trim().toUpperCase()
-  // Strip everything except letters, digits
+  // Strip everything except letters, digits (removes spaces, dashes, dots, slashes)
   s = s.replace(/[^A-Z0-9]/g, "")
-  // Strip common carrier term suffixes appended after a dash:
-  //   "-00" / "-01" / "-000" — renewals/endorsements that share the same base number
-  // After non-alpha strip the suffix becomes trailing "00", "01", "000".
-  // Only strip when the remaining base is ≥6 chars so we don't corrupt short numbers.
-  if (/^\d+$/.test(s) || /^[A-Z]{1,4}\d+$/.test(s)) {
-    // Remove up to 3 trailing zeros that look like a term suffix
-    s = s.replace(/0{2,3}$/, (match, offset) => (s.length - match.length >= 6 ? "" : match))
-  }
-  // Strip leading zeros on pure-digit strings (so "0018037775701" → "18037775701")
+  // Strip Bristol West / legacy carrier prefixes that are prepended to the base
+  // policy number. These prefixes appear in PDF statements but not in EZLynx CSVs:
+  //   G01  G0  GA  G  — followed immediately by digits
+  // Only strip when the remainder has at least 6 digits so we don't mangle short numbers.
+  s = s.replace(/^(G01|G0|GA|G)(?=\d{6,})/, "")
+  // Only strip leading zeros on pure-digit strings (so "00987654" → "987654")
+  // but keep "CPP0012345" intact
   if (/^\d+$/.test(s)) {
     s = s.replace(/^0+/, "") || "0"
   }
@@ -566,77 +564,106 @@ export function parsePdfCommissionRow(
     "shelter", "grinnell", "pekin", "island", "donegal", "selective",
     "utica", "central", "continental", "general", "american", "national",
     "federal", "standard", "united", "heritage", "horizon", "meridian",
+    // additional carriers seen in Horizon statements
+    "bristol", "west", "coterie", "hippo", "stillwater", "kemper", "cna",
+    "berkley", "assurant", "foremost", "bristol west", "coterie insurance",
     "insurance", "ins", "co", "corp", "inc", "llc", "ltd",
   ])
 
   // --- 4. Pick the best client name ---
-  // Score each candidate segment. Prefer segments that:
-  //  - Have multiple alpha words (person/business name pattern)
-  //  - Come before the policy number position in the line
-  //  - Are NOT carrier names or jargon
   let bestName = ""
-  let bestScore = -1
+  // Hoisted to function scope so it can be applied to detectedCarrier after its declaration.
+  let horizonCarrierSeg = ""
 
-  // Find the approximate character position of the policy number in the original line
-  const polPos = foundPol ? lineStr.indexOf(bestPol!.normalized.slice(0, 5)) : lineStr.length
+  const fmt3 = _currentStatementFormat
+  if (fmt3 === "horizon_a" || fmt3 === "horizon_b") {
+    // Horizon detail-row column layout after money is blanked and segments are split:
+    //
+    //   segments[0]: Account Name  ← the insured/client name (e.g. "Luis Paz",
+    //                                "Robert & Olivia Vargas", "AZ Eagle Eye Inspections")
+    //   segments[1]: Master Company ← carrier (e.g. "Bristol West", "Coterie",
+    //                                 "Cabrillo Coastal") — store as carrier, NOT client_name
+    //   segments[2]: Policy Number  ← already captured by the policy-detection cascade above
+    //
+    // IMPORTANT: The Producer column (Col 0 in the PDF) is BLANK on detail rows.
+    // Therefore segments[0] is always the Account Name, not the producer.
+    // Previous code incorrectly used segments[1] (off-by-one), skipping the real name.
 
-  for (const seg of candidateNameSegments) {
-    const words = seg.split(/\s+/)
-    const alphaWords = words.filter(w => isLikelyNameWord(w))
+    const accountNameSeg = (segments[0] ?? "").trim()
+    // Capture carrier column — applied to detectedCarrier below after its declaration.
+    horizonCarrierSeg = (segments[1] ?? "").trim()
 
-    if (alphaWords.length === 0) continue
+    // Guard: reject the whole segment if it looks like a policy number (shouldn't happen,
+    // but protects against edge-case rows where the Producer column isn't blank).
+    const looksLikePolicy = isLikelyPolicyNumber(accountNameSeg).likely
 
-    let score = 0
-    const nameRatio = alphaWords.length / words.length
-
-    // High ratio of name-like words = likely a name field
-    score += nameRatio * 30
-
-    // 2-6 words is ideal for a name (includes business names)
-    if (alphaWords.length >= 2 && alphaWords.length <= 6) score += 35
-    else if (alphaWords.length === 1 && alphaWords[0].length >= 4) score += 10
-    else if (alphaWords.length > 6) score += 15
-
-    // Prefer longer text (full names vs abbreviations)
-    score += Math.min(seg.length, 30)
-
-    // Comma pattern bonus ("Last, First")
-    if (seg.includes(",")) score += 15
-
-    // Bonus if this segment appears before the policy number
-    const segPos = lineStr.indexOf(seg.slice(0, Math.min(8, seg.length)))
-    if (segPos >= 0 && segPos < polPos) score += 20
-
-    // Penalize LOB / line-of-business jargon
-    const lowerSeg = seg.toLowerCase()
-    const jobHits = ["auto", "home", "fire", "bop", "gl", "wc", "liability",
-      "property", "umbrella", "dwelling", "flood", "commercial", "personal",
-      "homeowners", "renters", "motorcycle", "boat", "farm"]
-      .filter(j => lowerSeg.includes(j)).length
-    score -= jobHits * 10
-
-    // Penalize if this is clearly a single known carrier name
-    if (alphaWords.length === 1 && CARRIER_TAIL_WORDS.has(alphaWords[0].toLowerCase())) {
-      score -= 40
+    if (accountNameSeg.length >= 2 && !looksLikePolicy) {
+      // No splitting or truncation — use the segment as-is.
+      // The segment is already bounded by the 2-space column separator in the PDF,
+      // so carrier bleed is rare; strip it only if a carrier word appears at the end.
+      const nameWords = accountNameSeg.split(/\s+/)
+      const cleanWords: string[] = []
+      for (const w of nameWords) {
+        if (CARRIER_TAIL_WORDS.has(w.toLowerCase()) && cleanWords.length > 0) break
+        if (isLikelyPolicyNumber(w).likely) break
+        cleanWords.push(w)
+      }
+      bestName = cleanWords.join(" ").trim() || "Unknown Client"
+    } else {
+      bestName = "Unknown Client"
     }
 
-    if (score > bestScore) {
-      bestScore = score
-      // Strip trailing carrier keywords that bled in from an adjacent column
-      let nameWords = [...words]
-      while (nameWords.length > 1 && CARRIER_TAIL_WORDS.has(nameWords[nameWords.length - 1].toLowerCase())) {
-        nameWords = nameWords.slice(0, -1)
+    // horizonCarrierSeg is applied to detectedCarrier after its declaration below.
+  } else {
+    // Generic format: score candidate segments as before
+    let bestScore = -1
+
+    // Find the approximate character position of the policy number in the original line
+    const polPos = foundPol ? lineStr.indexOf(bestPol!.normalized.slice(0, 5)) : lineStr.length
+
+    for (const seg of candidateNameSegments) {
+      const words = seg.split(/\s+/)
+      const alphaWords = words.filter(w => isLikelyNameWord(w))
+
+      if (alphaWords.length === 0) continue
+
+      let score = 0
+      const nameRatio = alphaWords.length / words.length
+
+      score += nameRatio * 30
+      if (alphaWords.length >= 2 && alphaWords.length <= 6) score += 35
+      else if (alphaWords.length === 1 && alphaWords[0].length >= 4) score += 10
+      else if (alphaWords.length > 6) score += 15
+
+      score += Math.min(seg.length, 30)
+      if (seg.includes(",")) score += 15
+
+      const segPos = lineStr.indexOf(seg.slice(0, Math.min(8, seg.length)))
+      if (segPos >= 0 && segPos < polPos) score += 20
+
+      const lowerSeg = seg.toLowerCase()
+      const jobHits = ["auto", "home", "fire", "bop", "gl", "wc", "liability",
+        "property", "umbrella", "dwelling", "flood", "commercial", "personal",
+        "homeowners", "renters", "motorcycle", "boat", "farm"]
+        .filter(j => lowerSeg.includes(j)).length
+      score -= jobHits * 10
+
+      if (alphaWords.length === 1 && CARRIER_TAIL_WORDS.has(alphaWords[0].toLowerCase())) {
+        score -= 40
       }
-      // Cap at 6 words -- handles long business names while avoiding runaway text
-      bestName = nameWords.slice(0, 6).join(" ").trim()
+
+      if (score > bestScore) {
+        bestScore = score
+        let nameWords = [...words]
+        while (nameWords.length > 1 && CARRIER_TAIL_WORDS.has(nameWords[nameWords.length - 1].toLowerCase())) {
+          nameWords = nameWords.slice(0, -1)
+        }
+        bestName = nameWords.slice(0, 6).join(" ").trim()
+      }
     }
   }
 
-  // Only discard if we have no commission amount at all.
-  // A missing policy number is recoverable — we emit a fallback key so the row
-  // still contributes to commission totals and can be matched via Pass 3 (client+premium).
-  if (commAmount.val === 0) return null
-  const finalPol = foundPol ?? `ROW_P${pageNum}_${Math.abs(commAmount.val).toFixed(2)}`
+  if (!foundPol || commAmount.val === 0) return null
 
   // --- 5. Extract carrier, LOB, trans_type, producer from Horizon rows ---
   // Horizon rows always start with the producer name, and carrier appears as a
@@ -666,6 +693,13 @@ export function parsePdfCommissionRow(
       if (re.test(lineStr)) { detectedCarrier = name; break }
     }
 
+    // Override with the explicit Master Company column value (segments[1] from the
+    // name-extraction block above). This is more reliable than a regex scan because
+    // it reads the actual column value rather than a keyword match.
+    if (horizonCarrierSeg.length >= 2 && !isLikelyPolicyNumber(horizonCarrierSeg).likely) {
+      detectedCarrier = horizonCarrierSeg
+    }
+
     // LOB: scan segments for known LOB codes
     const lobPattern = /\b(AUTOP?|HOME|BOAT|MOTO|UMBR|LIFE|BUSS|COMM|MC|RB|DWELL|FLOOD|FARM|RENTR?)\b/i
     const lobMatch = lineStr.match(lobPattern)
@@ -690,7 +724,7 @@ export function parsePdfCommissionRow(
 
   const polScore = Math.round(polConfidence * 100)
   return {
-    policy_number: finalPol,
+    policy_number: foundPol,
     commission: commAmount.val,
     premium: premAmount ? premAmount.val : 0,
     client_name: bestName,
@@ -726,170 +760,198 @@ export interface CommissionRow {
   confidence: ParseConfidence
 }
 
-// ─── 3-Pass Policy Matching ───────────────────────────────────────────────────
+// ─── 3-Pass Commission Row Matcher ───────────────────────────────────────────
 
-export interface MatchResult {
-  /** EZLynx policy numbers that were found in at least one commission row */
-  matchedPolicies: Set<string>
-  /** EZLynx policy numbers with no match across all three passes */
-  unmatchedPolicies: Set<string>
-  /** Commission rows that matched an EZLynx policy */
-  matchedCommTotal: number
-  /** Commission rows that didn't match any EZLynx policy */
+export type MatchType = "exact" | "suffix" | "rewrite" | "unmatched"
+
+export interface MatchStats {
+  /** Per comm-row match result keyed by CommissionRow.id */
+  byId: Map<string, MatchType>
+  exactCount: number
+  suffixCount: number
+  rewriteCount: number
+  unmatchedCount: number
+  matchedCommTotal: number        // exact + suffix + rewrite commission $
   unmatchedCommTotal: number
-  /** Debug: which pass each comm row was matched on (1/2/3) */
-  rowPassMap: Map<string, 1 | 2 | 3>
+
+  // ── EZLynx ground-truth premium model ────────────────────────────────────
+  /** Sum of ALL EZLynx annualized premiums — this is the canonical Total Book Premium */
+  totalEzlynxPremium: number
+  /** Sum of annualized premium for EZLynx policies that matched a comm row (exact/suffix) */
+  matchedEzlynxPremium: number
+  /** unmatchedEzlynxPremium = totalEzlynxPremium - matchedEzlynxPremium */
+  unmatchedEzlynxPremium: number
+  /** totalBookPremium = totalEzlynxPremium (anchored to EZLynx ground truth, no estimation) */
+  totalBookPremium: number
+  /** effectiveCommRate = totalCommission / totalEzlynxPremium */
+  effectiveCommRate: number
+
+  // ── Legacy fields kept for backward compat ───────────────────────────────
+  /** @deprecated use matchedEzlynxPremium */
+  matchedActiveEzlynxPremium: number
+  /** Count of active EZLynx policies that matched (exact or suffix) */
+  matchedActiveCount: number
+  /** @deprecated no longer used — estimation removed */
+  estimatedUnmatchedPremium: number
+  /** avgCommPerMatchedPolicy = matchedCommTotal / matchedActiveCount */
+  avgCommPerMatchedPolicy: number
+  /** estimatedUnmatchedPolicies = round(unmatchedCommTotal / avgCommPerMatchedPolicy) */
+  estimatedUnmatchedPolicies: number
+  /** totalActivePolicies = matchedActiveCount + estimatedUnmatchedPolicies */
+  totalActivePolicies: number
 }
 
 /**
- * Match commission statement rows against EZLynx policy list using a 3-pass cascade.
+ * Match every commission row against the EZLynx policy list using a 3-pass cascade.
  *
- * Pass 1 — Exact normalized match:   normalizePolicy(stmt) === normalizePolicy(ezlynx)
- * Pass 2 — Suffix/substring match:   one normalized number contains the other (≥6 chars)
- * Pass 3 — Client + premium fallback: fuzzy client name match + premium within 15%
+ * Pass 1 — Exact:   normalizePolicy(commRow.policy_number) === normalizePolicy(ezlynxRow.policyNumber)
+ * Pass 2 — Suffix:  one normalized key starts with or contains the other (both >= 6 chars)
+ * Pass 3 — Rewrite: case-insensitive substring match on client/account name (length >= 5)
  *
- * @param ezlynxPolicies  Rows from the EZLynx Book of Business CSV.
- *   Each entry must have: policyNumber (raw), clientName (raw), premium (number).
+ * @param ezlynxPolicies  Rows from EZLynx CSV.
+ *   Each entry: policyNumber (raw), clientName (raw), premium (annualized $), isActive (bool).
  * @param commRows  Parsed commission statement rows.
  */
-export function matchPolicies(
-  ezlynxPolicies: Array<{ policyNumber: string; clientName: string; premium: number }>,
-  commRows: Array<{ policy_number: string; client_name: string; premium: number; commission: number }>,
-): MatchResult {
-  // Pre-normalise EZLynx policies into a map: normPol → original index
-  const ezlynxNorm = new Map<string, number>() // normPol → index in ezlynxPolicies
-  for (let i = 0; i < ezlynxPolicies.length; i++) {
-    const norm = normalizePolicy(ezlynxPolicies[i].policyNumber)
-    if (norm) ezlynxNorm.set(norm, i)
+export function matchCommRows(
+  ezlynxPolicies: Array<{ policyNumber: string; clientName: string; premium?: number; isActive?: boolean }>,
+  commRows: CommissionRow[],
+): MatchStats {
+  // Pre-build normalized EZLynx structures
+  const ezNormSet = new Set<string>()
+  const ezClientNames: string[] = []
+  // norm → premium map (for matched-active premium accumulation)
+  const ezNormPremium = new Map<string, number>()
+  const ezNormActive  = new Map<string, boolean>()
+
+  for (const e of ezlynxPolicies) {
+    const norm = normalizePolicy(e.policyNumber)
+    if (norm) {
+      ezNormSet.add(norm)
+      ezNormPremium.set(norm, e.premium ?? 0)
+      ezNormActive.set(norm, e.isActive !== false) // default true if not provided
+    }
+    if (e.clientName) ezClientNames.push(e.clientName.toLowerCase().trim())
   }
 
-  // Build set of all EZLynx normalised policy numbers for fast lookup
-  const ezlynxNormSet = new Set(ezlynxNorm.keys())
+  const ezNormArr = [...ezNormSet]
 
-  const matchedPolicies   = new Set<string>()
-  const unmatchedPolicies = new Set<string>()
-  let matchedCommTotal    = 0
-  let unmatchedCommTotal  = 0
-  const rowPassMap        = new Map<string, 1 | 2 | 3>()
+  const byId = new Map<string, MatchType>()
+  let exactCount = 0
+  let suffixCount = 0
+  let rewriteCount = 0
+  let unmatchedCount = 0
+  let matchedCommTotal = 0
+  let unmatchedCommTotal = 0
 
-  // We iterate over EZLynx policies to determine matched/unmatched count.
-  // Build a lookup map from commRows keyed by normalized policy number.
-  const commByNormPol = new Map<string, typeof commRows[0][]>()
+  // Track which EZ norm keys contributed to active-premium sum (avoid double-counting)
+  const contributedActiveNorms = new Set<string>()
+
   for (const row of commRows) {
-    const norm = normalizePolicy(row.policy_number)
-    if (!commByNormPol.has(norm)) commByNormPol.set(norm, [])
-    commByNormPol.get(norm)!.push(row)
-  }
+    const normComm = normalizePolicy(row.policy_number)
+    let result: MatchType = "unmatched"
+    let matchedNormEZ: string | null = null
 
-  // Track which comm rows have already been matched (by row.policy_number raw value)
-  const commRowMatched = new Set<string>()
+    // Pass 1 — Exact normalized match
+    if (ezNormSet.has(normComm)) {
+      result = "exact"
+      matchedNormEZ = normComm
+    }
 
-  // ── Pass 1: exact normalized match ──────────────────────────────────────────
-  for (const normEZ of ezlynxNormSet) {
-    if (commByNormPol.has(normEZ)) {
-      matchedPolicies.add(normEZ)
-      for (const row of commByNormPol.get(normEZ)!) {
-        if (!commRowMatched.has(row.policy_number)) {
-          matchedCommTotal += row.commission
-          commRowMatched.add(row.policy_number)
-          rowPassMap.set(row.policy_number, 1)
+    // Pass 2 — Suffix / substring match (both sides >= 6 chars)
+    if (result === "unmatched" && normComm.length >= 6) {
+      for (const normEZ of ezNormArr) {
+        if (normEZ.length < 6) continue
+        if (normEZ.startsWith(normComm) || normComm.startsWith(normEZ) ||
+            normEZ.includes(normComm)   || normComm.includes(normEZ)) {
+          result = "suffix"
+          matchedNormEZ = normEZ
+          break
         }
       }
     }
-  }
 
-  // ── Pass 2: suffix/substring match ──────────────────────────────────────────
-  // For any EZLynx policy not yet matched, check if any comm row's normalized
-  // policy number is a substring of it (or vice-versa), minimum 6 chars overlap.
-  const unmatchedAfterPass1 = [...ezlynxNormSet].filter(p => !matchedPolicies.has(p))
-
-  for (const normEZ of unmatchedAfterPass1) {
-    if (normEZ.length < 6) continue
-    for (const [normComm, rows] of commByNormPol) {
-      if (normComm.length < 6) continue
-      // Skip fallback keys (ROW_P...) — they have no real policy number
-      if (normComm.startsWith("ROWP")) continue
-      // One must contain the other
-      const contained = normEZ.includes(normComm) || normComm.includes(normEZ)
-      if (contained) {
-        matchedPolicies.add(normEZ)
-        for (const row of rows) {
-          if (!commRowMatched.has(row.policy_number)) {
-            matchedCommTotal += row.commission
-            commRowMatched.add(row.policy_number)
-            rowPassMap.set(row.policy_number, 2)
-          }
+    // Pass 3 — Client name rewrite match (case-insensitive substring, >= 5 chars)
+    if (result === "unmatched" && row.client_name && row.client_name.trim().length >= 5) {
+      const commClient = row.client_name.toLowerCase().trim()
+      for (const ezClient of ezClientNames) {
+        if (ezClient.length < 5) continue
+        if (commClient.includes(ezClient) || ezClient.includes(commClient)) {
+          result = "rewrite"
+          break
         }
-        break
       }
     }
-  }
 
-  // ── Pass 3: client name + premium range fallback ─────────────────────────────
-  // For still-unmatched EZLynx policies, try to match on client name (fuzzy) +
-  // premium within 15%.
-  const unmatchedAfterPass2 = [...ezlynxNormSet].filter(p => !matchedPolicies.has(p))
+    byId.set(row.id, result)
 
-  // Build a list of unmatched comm rows for Pass 3
-  const unmatchedCommRows = commRows.filter(r => !commRowMatched.has(r.policy_number))
-
-  for (const normEZ of unmatchedAfterPass2) {
-    const idx = ezlynxNorm.get(normEZ)
-    if (idx === undefined) continue
-    const ezPol = ezlynxPolicies[idx]
-    if (!ezPol) continue
-    const ezNameLower = ezPol.clientName.toLowerCase().trim()
-    const ezPrem = ezPol.premium
-
-    for (const commRow of unmatchedCommRows) {
-      if (commRowMatched.has(commRow.policy_number)) continue
-      const commNameLower = (commRow.client_name ?? "").toLowerCase().trim()
-
-      // Fuzzy name match: one must include the other (handles truncated names)
-      const nameMatch =
-        commNameLower.length >= 4 && ezNameLower.length >= 4 &&
-        (commNameLower.includes(ezNameLower) ||
-          ezNameLower.includes(commNameLower) ||
-          // word-level: at least one significant word in common
-          commNameLower.split(/\s+/).some(w => w.length >= 4 && ezNameLower.includes(w)))
-
-      if (!nameMatch) continue
-
-      // Premium must be within 15% (or comm row has no premium — skip prem check)
-      let premMatch = true
-      if (commRow.premium > 0 && ezPrem > 0) {
-        const ratio = commRow.premium / ezPrem
-        premMatch = ratio >= 0.85 && ratio <= 1.15
+    // Accumulate matched-active premium (only for exact/suffix, only active EZ policies)
+    if ((result === "exact" || result === "suffix") && matchedNormEZ) {
+      const isActive = ezNormActive.get(matchedNormEZ) !== false
+      if (isActive && !contributedActiveNorms.has(matchedNormEZ)) {
+        contributedActiveNorms.add(matchedNormEZ)
       }
-      if (!premMatch) continue
-
-      matchedPolicies.add(normEZ)
-      if (!commRowMatched.has(commRow.policy_number)) {
-        matchedCommTotal += commRow.commission
-        commRowMatched.add(commRow.policy_number)
-        rowPassMap.set(commRow.policy_number, 3)
-      }
-      break
     }
+
+    if (result === "exact")        { exactCount++;    matchedCommTotal   += row.commission }
+    else if (result === "suffix")  { suffixCount++;   matchedCommTotal   += row.commission }
+    else if (result === "rewrite") { rewriteCount++;  matchedCommTotal   += row.commission }
+    else                           { unmatchedCount++; unmatchedCommTotal += row.commission }
   }
 
-  // ── Tally unmatched EZLynx policies ─────────────────────────────────────────
-  for (const normEZ of ezlynxNormSet) {
-    if (!matchedPolicies.has(normEZ)) unmatchedPolicies.add(normEZ)
-  }
+  // ── EZLynx ground-truth premium model ────────────────────────────────────
+  // totalEzlynxPremium: sum ALL EZLynx annualized premiums — the canonical book value
+  let totalEzlynxPremium = 0
+  for (const [, prem] of ezNormPremium) { totalEzlynxPremium += prem }
 
-  // ── Tally unmatched commission $ (comm rows with no EZLynx match) ────────────
-  for (const row of commRows) {
-    if (!commRowMatched.has(row.policy_number)) {
-      unmatchedCommTotal += row.commission
-    }
+  // matchedEzlynxPremium: sum for policies that got an exact/suffix match
+  let matchedEzlynxPremium = 0
+  for (const norm of contributedActiveNorms) {
+    matchedEzlynxPremium += ezNormPremium.get(norm) ?? 0
   }
+  const unmatchedEzlynxPremium = totalEzlynxPremium - matchedEzlynxPremium
+
+  // totalBookPremium is now anchored to EZLynx — no reverse-estimation math
+  const totalBookPremium = totalEzlynxPremium
+
+  const matchedActiveEzlynxPremium = matchedEzlynxPremium // backward compat alias
+  const matchedActiveCount = contributedActiveNorms.size
+
+  // effectiveCommRate = totalCommission / totalEzlynxPremium (true blended rate)
+  const totalCommission = matchedCommTotal + unmatchedCommTotal
+  const effectiveCommRate =
+    totalEzlynxPremium > 0 ? totalCommission / totalEzlynxPremium : 0.12
+
+  // Legacy estimation fields — kept for backward compat but no longer used for totalBookPremium
+  const estimatedUnmatchedPremium = unmatchedEzlynxPremium // now exact, not estimated
+
+  const avgCommPerMatchedPolicy =
+    matchedActiveCount > 0 ? matchedCommTotal / matchedActiveCount : 0
+
+  const estimatedUnmatchedPolicies =
+    avgCommPerMatchedPolicy > 0
+      ? Math.round(unmatchedCommTotal / avgCommPerMatchedPolicy)
+      : 0
+
+  const totalActivePolicies = matchedActiveCount + estimatedUnmatchedPolicies
 
   return {
-    matchedPolicies,
-    unmatchedPolicies,
+    byId,
+    exactCount,
+    suffixCount,
+    rewriteCount,
+    unmatchedCount,
     matchedCommTotal,
     unmatchedCommTotal,
-    rowPassMap,
+    totalEzlynxPremium,
+    matchedEzlynxPremium,
+    unmatchedEzlynxPremium,
+    totalBookPremium,
+    effectiveCommRate,
+    matchedActiveEzlynxPremium,
+    matchedActiveCount,
+    estimatedUnmatchedPremium,
+    avgCommPerMatchedPolicy,
+    estimatedUnmatchedPolicies,
+    totalActivePolicies,
   }
 }

@@ -86,94 +86,240 @@ export interface AdminLead {
   quiz_answers: unknown
 }
 
-// ─── Data helpers ─────────────────────────────────────────────────────────────
+// ─── Seed / demo submissions ──────────────────────────────────────────────────
+// These 5 records are shown when the real DB has zero completed valuations.
+// They populate the timeline, funnel, multiples, and pipeline so the dashboard
+// looks useful before live submissions arrive.
 
-/** Best available dollar value for a lead — in priority order. */
-function getLeadValue(lead: AdminLead): number {
-  return lead.estimated_value ?? lead.quick_mid ?? 0
+interface SeedLead {
+  id: string
+  name: string
+  tool_used: AdminLead["tool_used"]
+  calculated_multiple: number
+  estimated_value: number
+  completedAt: string  // ISO date string used for timeline placement
+  primary_state: string
+  risk_grade: string
+  retention_rate: number
+  archived: boolean
 }
 
-/** Derive every metric the dashboard needs from a single AdminLead[]. No fallbacks. */
-function deriveMetrics(leads: AdminLead[]) {
-  const total = leads.length
+const SEED_LEADS: SeedLead[] = [
+  { id: "seed_1", name: "Kathy Landrigan",     tool_used: "full_valuation", calculated_multiple: 1.95, estimated_value: 152_000, completedAt: "2026-06-28", primary_state: "CA", risk_grade: "B+", retention_rate: 87, archived: false },
+  { id: "seed_2", name: "Chuy Cazares",         tool_used: "full_valuation", calculated_multiple: 2.10, estimated_value: 700_000, completedAt: "2026-03-22", primary_state: "TX", risk_grade: "A",  retention_rate: 92, archived: false },
+  { id: "seed_3", name: "Andrea DePasquale",    tool_used: "quick_value",    calculated_multiple: 1.85, estimated_value: 465_000, completedAt: "2026-03-18", primary_state: "FL", risk_grade: "B",  retention_rate: 83, archived: false },
+  { id: "seed_4", name: "Kelin Jones",          tool_used: "quick_value",    calculated_multiple: 1.80, estimated_value: 125_000, completedAt: "2026-03-14", primary_state: "AZ", risk_grade: "C",  retention_rate: 79, archived: false },
+  { id: "seed_5", name: "Patterson",            tool_used: "quiz",           calculated_multiple: 1.90, estimated_value: 500_000, completedAt: "2026-03-11", primary_state: "CO", risk_grade: "B",  retention_rate: 88, archived: false },
+]
+
+// ─── Data helpers ─────────────────────────────────────────────────────────────
+
+/** Best available dollar value for a lead — coerces DB string numerics to number. */
+function toNum(v: number | string | null | undefined): number {
+  if (v == null) return 0
+  const n = typeof v === "string" ? parseFloat(v) : v
+  return isNaN(n) ? 0 : n
+}
+
+function getLeadValue(lead: AdminLead): number {
+  const ev = toNum(lead.estimated_value)
+  if (ev > 0) return ev
+  const qm = toNum(lead.quick_mid)
+  if (qm > 0) return qm
+  return 0
+}
+
+interface DerivedMetrics {
+  total: number; quick: number; full: number; quiz: number
+  totalPipelineValue: number; avgMultiple: number | null; hotLeads: number
+  fullWithMultiple: number
+  funnelMax: number; topStates: { state: string; count: number }[]
+  riskGrades: { grade: string; count: number }[]
+  chartMap: Map<string, { completed: number; partial: number }>
+}
+
+/** Derive every metric from a unified set of real + seed leads. */
+function deriveMetrics(
+  leads: AdminLead[],
+  seeds: SeedLead[] = [],
+): DerivedMetrics {
+  const total = leads.length + seeds.length
   const quick = leads.filter((l) => l.tool_used === "quick_value").length
+              + seeds.filter((s) => s.tool_used === "quick_value").length
   const full  = leads.filter((l) => l.tool_used === "full_valuation").length
+              + seeds.filter((s) => s.tool_used === "full_valuation").length
   const quiz  = leads.filter((l) => l.tool_used === "quiz").length
+              + seeds.filter((s) => s.tool_used === "quiz").length
 
-  // Total pipeline value: sum of getLeadValue across all leads
-  const totalPipelineValue = leads.reduce((s, l) => s + getLeadValue(l), 0)
+  // Total pipeline value
+  const totalPipelineValue =
+    leads.reduce((s, l) => s + getLeadValue(l), 0) +
+    seeds.reduce((s, sd) => s + sd.estimated_value, 0)
 
-  // Avg calculated multiple — only leads where calculated_multiple is not null
-  const withMultiple = leads.filter((l) => l.calculated_multiple != null)
-  const avgMultiple = withMultiple.length > 0
-    ? withMultiple.reduce((s, l) => s + Number(l.calculated_multiple!), 0) / withMultiple.length
+  // Avg multiple — all completed valuations (full, quick, quiz) that have a calculated_multiple.
+  // Uses quick_multiplier as fallback for quick_value leads that may not have calculated_multiple.
+  const leadMultiples = leads
+    .filter((l) => l.calculated_multiple != null || l.quick_multiplier != null)
+    .map((l) => toNum(l.calculated_multiple ?? l.quick_multiplier))
+    .filter((n) => n > 0)
+  const seedMultiples = seeds
+    .filter((s) => s.calculated_multiple > 0)
+    .map((s) => s.calculated_multiple)
+  const allMultiples = [...leadMultiples, ...seedMultiples]
+  const avgMultiple = allMultiples.length > 0
+    ? allMultiples.reduce((a, b) => a + b, 0) / allMultiples.length
     : null
 
-  // Hot leads: getLeadValue >= 500000 OR retention_rate >= 88
-  const hotLeads = leads.filter(
-    (l) => getLeadValue(l) >= 500_000 || (l.retention_rate != null && l.retention_rate >= 88)
-  ).length
+  // Count of full valuations specifically (used for sub-label on Avg Multiple KPI)
+  const full_with_multiple = leads.filter((l) => l.tool_used === "full_valuation" && l.calculated_multiple != null).length
+                           + seeds.filter((s) => s.tool_used === "full_valuation").length
 
-  // Funnel max = highest individual count (guarantees no bar > 100%)
+  // Hot leads
+  const hotLeads =
+    leads.filter((l) => getLeadValue(l) >= 500_000 || (l.retention_rate != null && l.retention_rate >= 88)).length +
+    seeds.filter((s) => s.estimated_value >= 500_000 || s.retention_rate >= 88).length
+
   const funnelMax = Math.max(total, quick, full, quiz, 1)
 
-  // Top 5 states (only leads where primary_state is present)
+  // Top states
   const stateMap = new Map<string, number>()
   for (const l of leads) {
     if (!l.primary_state) continue
     stateMap.set(l.primary_state, (stateMap.get(l.primary_state) ?? 0) + 1)
+  }
+  for (const s of seeds) {
+    stateMap.set(s.primary_state, (stateMap.get(s.primary_state) ?? 0) + 1)
   }
   const topStates = Array.from(stateMap.entries())
     .map(([state, count]) => ({ state, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 5)
 
-  // Risk grade distribution (only full valuations with a risk_grade)
+  // Risk grade distribution
   const gradeMap = new Map<string, number>()
   for (const l of leads) {
     if (!l.risk_grade) continue
     gradeMap.set(l.risk_grade, (gradeMap.get(l.risk_grade) ?? 0) + 1)
   }
+  for (const s of seeds) {
+    gradeMap.set(s.risk_grade, (gradeMap.get(s.risk_grade) ?? 0) + 1)
+  }
   const riskGrades = Array.from(gradeMap.entries())
     .map(([grade, count]) => ({ grade, count }))
     .sort((a, b) => a.grade.localeCompare(b.grade))
 
-  // Timeline chart — group by ISO date (YYYY-MM-DD from created_at)
+  // Timeline chart
   const chartMap = new Map<string, { completed: number; partial: number }>()
   for (const l of leads) {
-    const day = l.created_at.slice(0, 10) // "YYYY-MM-DD"
+    const day = l.created_at.slice(0, 10)
     const cur = chartMap.get(day) ?? { completed: 0, partial: 0 }
-    // A lead is "completed" if it has a full valuation offer
-    if (l.high_offer != null || l.low_offer != null) cur.completed += 1
+    if (l.high_offer != null || l.low_offer != null || l.estimated_value != null) cur.completed += 1
     else cur.partial += 1
     chartMap.set(day, cur)
   }
+  for (const s of seeds) {
+    const day = s.completedAt.slice(0, 10)
+    const cur = chartMap.get(day) ?? { completed: 0, partial: 0 }
+    cur.completed += 1
+    chartMap.set(day, cur)
+  }
 
-  return { total, quick, full, quiz, totalPipelineValue, avgMultiple, hotLeads, funnelMax, topStates, riskGrades, chartMap }
+  return { total, quick, full, quiz, totalPipelineValue, avgMultiple, fullWithMultiple: full_with_multiple, hotLeads, funnelMax, topStates, riskGrades, chartMap }
 }
 
-/** Build the scaffold + overlay for the timeline chart. */
-function buildChartData(leads: AdminLead[], windowDays: number): ChartDataPoint[] {
-  const { chartMap } = deriveMetrics(leads)
+/** Build timeline chart data.
+ *  Always receives the FULL allLeads list so bars are never clipped by the
+ *  analytics time-window. The windowDays param only controls which date range
+ *  of columns to render, not which leads contribute to the chart.
+ *
+ *  For "all": groups by calendar month (Mar, Apr … Jul) for a clean x-axis.
+ *  For 7D / 30D: fills daily columns for that window. */
+function buildChartData(
+  allLeads: AdminLead[],
+  seeds: SeedLead[],
+  windowDays: number | "all",
+): ChartDataPoint[] {
   const now = new Date()
+
+  if (windowDays === "all") {
+    // ── Monthly grouping ──────────────────────────────────────────────────
+    // Find the earliest month across all leads + seeds
+    const allDates = [
+      ...allLeads.map((l) => l.created_at.slice(0, 7)),   // "YYYY-MM"
+      ...seeds.map((s) => s.completedAt.slice(0, 7)),
+    ]
+    if (allDates.length === 0) return []
+
+    const earliestMonth = allDates.sort()[0]  // "2026-03"
+    const [ey, em] = earliestMonth.split("-").map(Number)
+
+    // Build a map keyed "YYYY-MM" → { completed, partial }
+    const monthMap = new Map<string, { completed: number; partial: number }>()
+    const addToMonth = (key: string, isCompleted: boolean) => {
+      const cur = monthMap.get(key) ?? { completed: 0, partial: 0 }
+      if (isCompleted) cur.completed += 1; else cur.partial += 1
+      monthMap.set(key, cur)
+    }
+    for (const l of allLeads) {
+      const key = l.created_at.slice(0, 7)
+      const done = l.high_offer != null || l.low_offer != null || l.estimated_value != null
+      addToMonth(key, done)
+    }
+    for (const s of seeds) addToMonth(s.completedAt.slice(0, 7), true)
+
+    // Walk month-by-month from earliest to current
+    const points: ChartDataPoint[] = []
+    let cy = ey, cm = em
+    const curY = now.getFullYear(), curM = now.getMonth() + 1
+    while (cy < curY || (cy === curY && cm <= curM)) {
+      const key   = `${cy}-${String(cm).padStart(2, "0")}`
+      const label = new Date(cy, cm - 1, 1).toLocaleDateString("en-US", { month: "short" })
+      const counts = monthMap.get(key) ?? { completed: 0, partial: 0 }
+      points.push({ date: label, completed: counts.completed, partial: counts.partial, total: counts.completed + counts.partial })
+      cm++; if (cm > 12) { cm = 1; cy++ }
+    }
+    return points
+  }
+
+  // ── Daily grouping (7D / 30D) ──────────────────────────────────────────
+  // Build chartMap from ALL leads (not the time-windowed slice) so a lead
+  // created 25 days ago shows on the 30D chart even if filteredAll excluded it.
+  const chartMap = new Map<string, { completed: number; partial: number }>()
+  const addToDay = (key: string, isCompleted: boolean) => {
+    const cur = chartMap.get(key) ?? { completed: 0, partial: 0 }
+    if (isCompleted) cur.completed += 1; else cur.partial += 1
+    chartMap.set(key, cur)
+  }
+  for (const l of allLeads) {
+    const key  = l.created_at.slice(0, 10)
+    const done = l.high_offer != null || l.low_offer != null || l.estimated_value != null
+    addToDay(key, done)
+  }
+  for (const s of seeds) addToDay(s.completedAt.slice(0, 10), true)
+
+  const startDate = new Date(now)
+  startDate.setDate(startDate.getDate() - (windowDays - 1))
+
   const points: ChartDataPoint[] = []
-  for (let i = windowDays - 1; i >= 0; i--) {
-    const d = new Date(now)
-    d.setDate(d.getDate() - i)
-    const key   = d.toISOString().slice(0, 10)
-    const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+  const cursor = new Date(startDate)
+  while (cursor <= now) {
+    const key    = cursor.toISOString().slice(0, 10)
+    const label  = cursor.toLocaleDateString("en-US", { month: "short", day: "numeric" })
     const counts = chartMap.get(key) ?? { completed: 0, partial: 0 }
     points.push({ date: label, completed: counts.completed, partial: counts.partial, total: counts.completed + counts.partial })
+    cursor.setDate(cursor.getDate() + 1)
   }
   return points
 }
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
-const fmtDollars = (n: number | null | undefined): string => {
-  if (n == null || n === 0) return "—"
+const fmtDollars = (n: number | null | undefined, showZero = false): string => {
+  if (n == null) return "—"
+  if (n === 0) return showZero ? "$0" : "—"
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
-  return `$${Math.round(n / 1_000)}k`
+  if (n >= 1_000) return `$${Math.round(n / 1_000)}k`
+  return `$${Math.round(n)}`
 }
 
 const timeAgo = (iso: string): string => {
@@ -262,7 +408,7 @@ const STATUS_STYLE: Record<Deal["status"], string> = {
   test:      "bg-slate-100 text-slate-600 border border-slate-300 dark:bg-slate-900/20 dark:text-slate-400 dark:border-slate-700",
 }
 
-// ─── Props ────────────────────────────────────────────────────────────────────
+// ─── Props ──────────────────────────────────���─────────────────────────────────
 
 interface OverviewTabProps {
   deals: Deal[]
@@ -279,16 +425,12 @@ const ADMIN_TOKEN_KEY = "admin_session_token"
 
 function getAuthHeaders(): Record<string, string> {
   const token = typeof window !== "undefined" ? localStorage.getItem(ADMIN_TOKEN_KEY) : null
-  if (!token) console.error("[v0] overview-tab: no admin_session_token in localStorage — all API calls will 401")
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 const fetcher = (url: string) =>
   fetch(url, { headers: getAuthHeaders() }).then((res) => {
-    if (!res.ok) {
-      console.error("[v0] overview-tab fetch failed:", res.status, url)
-      throw new Error(`Fetch failed: ${res.status}`)
-    }
+    if (!res.ok) throw new Error(`Fetch failed: ${res.status}`)
     return res.json()
   })
 
@@ -321,7 +463,8 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
     [allLeads],
   )
 
-  // Apply time-window filter to allLeads before deriving historical metrics
+  // filteredAll: time-window scoped view of ALL leads (active + archived).
+  // Used for historical analytics — funnel counts, chart, multiples, state breakdown.
   const filteredAll = useMemo<AdminLead[]>(() => {
     if (window === "all") return allLeads
     const days = window === "7D" ? 7 : 30
@@ -331,27 +474,48 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
     return allLeads.filter((l) => l.created_at >= cutoffStr)
   }, [allLeads, window])
 
-  // Apply time-window filter to activeLeads for pipeline metrics
-  const filteredActive = useMemo<AdminLead[]>(() => {
-    if (window === "all") return activeLeads
-    const days = window === "7D" ? 7 : 30
-    const cutoff = new Date()
-    cutoff.setDate(cutoff.getDate() - days)
-    const cutoffStr = cutoff.toISOString()
-    return activeLeads.filter((l) => l.created_at >= cutoffStr)
-  }, [activeLeads, window])
+  // filteredActive: ALL non-archived leads, never time-windowed.
+  // Pipeline value and hot leads reflect the current book of business regardless
+  // of when a lead was created — a lead from 6 months ago is still in the pipeline.
+  const filteredActive = activeLeads
 
-  // Historical metrics from allLeads (totals, funnel, multiples, states, grades, chart)
-  const mAll = useMemo(() => deriveMetrics(filteredAll), [filteredAll])
+  // Seeds shown when no real valuations exist yet (tool_used null = test/legacy row)
+  const hasRealValuations = useMemo(
+    () => allLeads.some((l) => l.tool_used != null),
+    [allLeads],
+  )
+  const activeSeeds = useMemo(
+    () => hasRealValuations ? [] : SEED_LEADS,
+    [hasRealValuations],
+  )
 
-  // Pipeline-only metrics from activeLeads (pipeline $, hot leads)
-  const mActive = useMemo(() => deriveMetrics(filteredActive), [filteredActive])
+  // mAll: time-windowed analytics — Total Valuations count, funnel breakdown, chart
+  const mAll = useMemo(() => deriveMetrics(filteredAll, activeSeeds), [filteredAll, activeSeeds])
 
-  // Chart data built from allLeads (historical, includes archived)
+  // mBook: always full book — used for Avg Multiple, Top States, Risk Grades, Hot Leads.
+  // These should always reflect the complete picture regardless of the selected window.
+  const mBook = useMemo(() => deriveMetrics(allLeads, activeSeeds), [allLeads, activeSeeds])
+
+  // mActive: pipeline value — time-windowed for 7D/30D, full book for All Time
+  // For 7D/30D: only leads created in that window contribute to pipeline
+  // For All Time: all active non-archived leads
+  const pipelineLeads = useMemo<AdminLead[]>(() => {
+    if (window === "all") return filteredActive
+    return filteredActive.filter((l) => {
+      const days   = window === "7D" ? 7 : 30
+      const cutoff = new Date()
+      cutoff.setDate(cutoff.getDate() - days)
+      return new Date(l.created_at) >= cutoff
+    })
+  }, [filteredActive, window])
+  const mActive = useMemo(() => deriveMetrics(pipelineLeads, activeSeeds), [pipelineLeads, activeSeeds])
+
+  // Chart always uses the full allLeads list so bars are never clipped by the
+  // analytics time-window. The window only controls which date columns to render.
   const chartData = useMemo<ChartDataPoint[]>(() => {
-    const days = window === "7D" ? 7 : window === "30D" ? 30 : 90
-    return buildChartData(filteredAll, days)
-  }, [filteredAll, window])
+    const days: number | "all" = window === "7D" ? 7 : window === "30D" ? 30 : "all"
+    return buildChartData(allLeads, activeSeeds, days)
+  }, [allLeads, activeSeeds, window])
 
   // Recent Activity: top 10 newest from allLeads (includes archived, shows badge)
   const recentActivity = useMemo<AdminLead[]>(() =>
@@ -370,14 +534,11 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
       })
       const json = await res.json()
       if (!res.ok) {
-        console.error("[v0] test-lead failed:", res.status, json)
         alert(`Test lead failed (${res.status}): ${json.error ?? "Unknown error"}`)
       } else {
-        console.log("[v0] test-lead inserted:", json)
         await mutate()
       }
-    } catch (err) {
-      console.error("[v0] test-lead error:", err)
+    } catch {
       alert("Test lead request threw an error — check the console.")
     } finally {
       setTestLeadLoading(false)
@@ -397,7 +558,15 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
         <div>
           <h2 className="text-sm font-semibold text-foreground">Agency Overview</h2>
           <p className="text-[11px] text-muted-foreground">
-            {isLoading ? "Loading..." : `${filteredAll.length} records (${filteredActive.length} active) · ${window === "all" ? "all time" : `last ${window}`}`}
+            {isLoading
+              ? "Loading..."
+              : `${mBook.total} total · ${filteredAll.length} in window · ${filteredActive.length} active · ${window === "all" ? "all time" : `last ${window}`}`
+            }
+            {!isLoading && !hasRealValuations && (
+              <span className="ml-2 rounded border border-amber-300 bg-amber-50 px-1.5 py-px text-[10px] font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
+                demo data
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-1">
@@ -438,29 +607,54 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
         <KpiCard
           label="Total Valuations"
           value={isLoading ? "—" : mAll.total.toLocaleString()}
-          sub={isLoading ? "Loading…" : `${mAll.quick} Quick · ${mAll.full} Full · ${mAll.quiz} Quiz`}
+          sub={isLoading ? "Loading…" : (() => {
+            const parts: string[] = []
+            if (mAll.quick > 0) parts.push(`${mAll.quick} Quick`)
+            if (mAll.full  > 0) parts.push(`${mAll.full} Full`)
+            if (mAll.quiz  > 0) parts.push(`${mAll.quiz} Quiz`)
+            return parts.length > 0 ? parts.join(" · ") : "No completed valuations yet"
+          })()}
           trend={mAll.total > 0 ? "up" : "neutral"}
           trendLabel={`${mAll.total} total`}
         />
-        {/* Pipeline — uses activeLeads only */}
-        <KpiCard
-          label="Est. Pipeline"
-          value={isLoading ? "—" : fmtDollars(mActive.totalPipelineValue)}
-          sub={mActive.totalPipelineValue > 0 ? `${filteredActive.length} active leads` : "No active leads on file"}
-        />
-        {/* Historical — uses allLeads for accurate average */}
+        {/* Pipeline — scoped to selected window for 7D/30D, full book for All Time */}
+        {(() => {
+          const totalPipeline = mActive.totalPipelineValue + pipelineValue
+          const leadCount     = pipelineLeads.length
+          const dealCount     = activeDeals.length
+          let pipelineSub: string
+          if (totalPipeline > 0) {
+            const parts: string[] = []
+            if (leadCount > 0) parts.push(`${leadCount} lead${leadCount !== 1 ? "s" : ""}`)
+            if (dealCount > 0) parts.push(`${dealCount} Horizon deal${dealCount !== 1 ? "s" : ""}`)
+            pipelineSub = parts.join(" · ") || "Active pipeline"
+          } else {
+            pipelineSub = "No active pipeline on file"
+          }
+          return (
+            <KpiCard
+              label="Est. Pipeline"
+              value={isLoading ? "—" : fmtDollars(totalPipeline, true)}
+              sub={isLoading ? "Loading…" : pipelineSub}
+            />
+          )
+        })()}
+        {/* Full book — avg across all completed valuations */}
         <KpiCard
           label="Avg Multiple"
-          value={isLoading ? "—" : mAll.avgMultiple != null ? `${mAll.avgMultiple.toFixed(2)}x` : "—"}
-          sub={mAll.avgMultiple != null ? `From ${mAll.full} full valuations` : "No full valuations yet"}
+          value={isLoading ? "—" : mBook.avgMultiple != null ? `${mBook.avgMultiple.toFixed(2)}x` : "—"}
+          sub={isLoading ? "Loading…" : mBook.avgMultiple != null
+            ? `${mBook.total} completed valuation${mBook.total !== 1 ? "s" : ""}`
+            : "No valuations yet"
+          }
         />
-        {/* Pipeline — active hot leads needing follow-up */}
+        {/* Full book — active hot leads needing follow-up */}
         <KpiCard
           label="Hot Leads"
-          value={isLoading ? "—" : mActive.hotLeads.toLocaleString()}
+          value={isLoading ? "—" : mBook.hotLeads.toLocaleString()}
           sub="Active · ≥$500k or ≥88% retention"
-          trend={mActive.hotLeads > 0 ? "up" : "neutral"}
-          trendLabel={`${mActive.hotLeads} active`}
+          trend={mBook.hotLeads > 0 ? "up" : "neutral"}
+          trendLabel={`${mBook.hotLeads} active`}
         />
       </div>
 
@@ -479,29 +673,37 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
             </p>
             {isLoading ? (
               <p className="py-4 text-center text-xs text-muted-foreground">Loading…</p>
-            ) : (
-              <div className="space-y-3">
-                <FunnelBar label="All Submissions"    count={mAll.total} max={mAll.funnelMax} color="bg-primary" />
-                <FunnelBar label="Quick Valuations"   count={mAll.quick} max={mAll.funnelMax} color="bg-sky-400" />
-                <FunnelBar label="Full Valuations"    count={mAll.full}  max={mAll.funnelMax} color="bg-violet-500" />
-                <FunnelBar label="Readiness Quizzes"  count={mAll.quiz}  max={mAll.funnelMax} color="bg-amber-500" />
-              </div>
-            )}
+            ) : (() => {
+                const horizonCount = deals.length
+                // funnelMax is the largest single bar — never inflated by combining categories
+                const funnelMax    = Math.max(mAll.total, mAll.quick, mAll.full, mAll.quiz, horizonCount, 1)
+                return (
+                  <div className="space-y-3">
+                    <FunnelBar label="All Submissions"    count={mAll.total}     max={funnelMax} color="bg-primary" />
+                    <FunnelBar label="Quick Valuations"   count={mAll.quick}     max={funnelMax} color="bg-sky-400" />
+                    <FunnelBar label="Full Valuations"    count={mAll.full}      max={funnelMax} color="bg-violet-500" />
+                    <FunnelBar label="Readiness Quizzes"  count={mAll.quiz}      max={funnelMax} color="bg-amber-500" />
+                    {horizonCount > 0 && (
+                      <FunnelBar label="Horizon Book Deals" count={horizonCount} max={funnelMax} color="bg-emerald-500" />
+                    )}
+                  </div>
+                )
+              })()}
           </div>
         </div>
 
         {/* RIGHT — Top States + Risk Grades + Recent Activity */}
         <div className="space-y-4">
 
-          {/* Top States — only renders when primary_state data exists */}
-          {!isLoading && mAll.topStates.length > 0 && (
+          {/* Top States — always full book, not time-windowed */}
+          {!isLoading && mBook.topStates.length > 0 && (
             <div className="rounded-lg border border-border bg-card p-4">
               <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                 Top States
               </p>
               <div className="space-y-2">
-                {mAll.topStates.map((row, i) => {
-                  const pct = Math.round((row.count / mAll.topStates[0].count) * 100)
+                {mBook.topStates.map((row, i) => {
+                  const pct = Math.round((row.count / mBook.topStates[0].count) * 100)
                   return (
                     <div key={row.state} className="flex items-center gap-2">
                       <span className="w-4 shrink-0 text-[11px] text-muted-foreground">{i + 1}</span>
@@ -521,14 +723,14 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
             </div>
           )}
 
-          {/* Risk Grade Distribution — only renders when full valuation grades exist */}
-          {!isLoading && mAll.riskGrades.length > 0 && (
+          {/* Risk Grade Distribution — always full book, not time-windowed */}
+          {!isLoading && mBook.riskGrades.length > 0 && (
             <div className="rounded-lg border border-border bg-card p-4">
               <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                 Risk Grade Distribution
               </p>
               <div className="flex flex-wrap gap-2">
-                {mAll.riskGrades.map(({ grade, count }) => (
+                {mBook.riskGrades.map(({ grade, count }) => (
                   <div
                     key={grade}
                     className={cn(
@@ -631,43 +833,74 @@ export function OverviewTab({ deals, onStatusChange, onDelete, onLoadDeal }: Ove
           ) : (
             deals.map((deal) => {
               const daysOld = Math.floor((Date.now() - new Date(deal.date_saved).getTime()) / 86400000)
+              const revenue      = deal.revenue      ?? deal.premium_base ?? 0
+              const totalPremium = deal.totalPremium ?? 0
+              const multiple     = deal.multiple     ?? (deal.details?.multiple as number | undefined) ?? null
               return (
-                <div key={deal.id} className="flex items-center justify-between border-b border-border px-4 py-2.5 last:border-0 hover:bg-muted/30 transition-colors">
-                  <div className="min-w-0 flex-1">
+                <div key={deal.id} className="border-b border-border px-4 py-3 last:border-0 hover:bg-muted/30 transition-colors">
+                  {/* Row 1: name + status + valuation + delete */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <button
+                        onClick={() => onLoadDeal(deal.id)}
+                        className="text-left text-[13px] font-semibold text-foreground hover:text-primary transition-colors"
+                      >
+                        {deal.deal_name}
+                      </button>
+                      <p className="text-[11px] text-muted-foreground">
+                        {new Date(deal.date_saved).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        {" · "}<span className="font-semibold uppercase">{deal.deal_type}</span>
+                        {daysOld > 30 && deal.status === "active" && (
+                          <span className="ml-2 font-bold text-amber-500">STALE ({daysOld}d)</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        onClick={() => onStatusChange(deal.id, getNextStatus(deal.status))}
+                        className={cn(
+                          "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase transition-colors",
+                          STATUS_STYLE[deal.status],
+                        )}
+                      >
+                        {deal.status}
+                      </button>
+                      <Button
+                        variant="ghost" size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        onClick={() => { if (confirm("Delete this deal?")) onDelete(deal.id) }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                  {/* Row 2: revenue · premium · valuation @ multiple */}
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px]">
+                    {revenue > 0 && (
+                      <span className="text-muted-foreground">
+                        Rev <span className="font-semibold text-foreground">{fmtDollars(revenue)}</span>
+                      </span>
+                    )}
+                    {totalPremium > 0 && (
+                      <span className="text-muted-foreground">
+                        Prem <span className="font-semibold text-foreground">{fmtDollars(totalPremium)}</span>
+                      </span>
+                    )}
+                    <span className="text-muted-foreground">
+                      Val{" "}
+                      <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
+                        {fmtDollars(deal.valuation)}
+                      </span>
+                      {multiple != null && (
+                        <span className="ml-1 text-muted-foreground">@ {multiple.toFixed(2)}x</span>
+                      )}
+                    </span>
                     <button
                       onClick={() => onLoadDeal(deal.id)}
-                      className="text-left text-[13px] font-semibold text-foreground hover:text-primary transition-colors"
+                      className="ml-auto text-primary underline-offset-2 hover:underline"
                     >
-                      {deal.deal_name}
+                      View Valuation
                     </button>
-                    <p className="text-[11px] text-muted-foreground">
-                      {new Date(deal.date_saved).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                      {" · "}<span className="font-semibold uppercase">{deal.deal_type}</span>
-                      {daysOld > 30 && deal.status === "active" && (
-                        <span className="ml-2 font-bold text-amber-500">STALE ({daysOld}d)</span>
-                      )}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => onStatusChange(deal.id, getNextStatus(deal.status))}
-                      className={cn(
-                        "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase transition-colors",
-                        STATUS_STYLE[deal.status],
-                      )}
-                    >
-                      {deal.status}
-                    </button>
-                    <p className="w-20 text-right text-[13px] font-extrabold text-emerald-600 dark:text-emerald-400">
-                      {fmtDollars(deal.valuation)}
-                    </p>
-                    <Button
-                      variant="ghost" size="icon"
-                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                      onClick={() => { if (confirm("Delete this deal?")) onDelete(deal.id) }}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
                   </div>
                 </div>
               )

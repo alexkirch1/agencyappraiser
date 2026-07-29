@@ -1,4 +1,5 @@
 import type { NextConfig } from "next"
+// bust stale SSR chunk cache
 
 const nextConfig: NextConfig = {
   env: {

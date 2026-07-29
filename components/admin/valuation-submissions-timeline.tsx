@@ -29,8 +29,13 @@ export function ValuationSubmissionsTimeline({ chartData }: ValuationSubmissions
   const hasActivity    = total > 0
   const maxCount       = Math.max(...chartData.map((b) => b.total), 1)
 
-  // Show a label every N bars to avoid overcrowding
-  const labelStep = chartData.length > 30 ? 30 : chartData.length > 14 ? 5 : 1
+  // Show a label every N bars to avoid overcrowding.
+  // Monthly mode (≤12 bars): every bar. Daily 7D: every 1st. Daily 30D: every 5th.
+  const labelStep    = chartData.length > 14 ? 5 : 1
+  // Minimum bar width: wider for monthly/sparse charts, narrow for daily
+  const minBarPx     = chartData.length <= 12 ? 32 : 2
+  // Chart area height in px — must match the h-40 (160px) container below
+  const CHART_H      = 160
 
   return (
     <Card className="border-border">
@@ -61,7 +66,9 @@ export function ValuationSubmissionsTimeline({ chartData }: ValuationSubmissions
           {/* Bar chart */}
           <div className="flex h-40 items-end gap-px overflow-hidden">
             {chartData.map((bar) => {
-              const totalPct     = (bar.total     / maxCount) * 100
+              // Use px heights so bars scale correctly inside the h-40 flex container.
+              // % heights on flex children are unreliable without an explicit parent height.
+              const barPx         = bar.total > 0 ? Math.max(Math.round((bar.total / maxCount) * CHART_H), 6) : 2
               const completedFrac = bar.total > 0 ? bar.completed / bar.total : 0
               const partialFrac   = bar.total > 0 ? bar.partial   / bar.total : 0
 
@@ -69,30 +76,24 @@ export function ValuationSubmissionsTimeline({ chartData }: ValuationSubmissions
                 <div
                   key={bar.date}
                   className="group relative flex flex-1 flex-col items-center justify-end"
-                  style={{ minWidth: 0 }}
+                  style={{ minWidth: `${minBarPx}px` }}
                 >
-                  {/* Stacked bar */}
-                  <div
-                    className="relative w-full"
-                    style={{ height: bar.total > 0 ? `${totalPct}%` : "3px" }}
-                  >
-                    {bar.total === 0 ? (
-                      <div className="w-full h-full rounded-sm bg-muted" />
-                    ) : (
-                      <>
-                        {/* Partial — bottom */}
-                        <div
-                          className="absolute bottom-0 w-full bg-amber-500"
-                          style={{ height: `${partialFrac * 100}%` }}
-                        />
-                        {/* Completed — top */}
-                        <div
-                          className="absolute top-0 w-full bg-primary"
-                          style={{ height: `${completedFrac * 100}%` }}
-                        />
-                      </>
-                    )}
-                  </div>
+                  {/* Bar — explicit px height so it renders inside the flex container */}
+                  {bar.total === 0 ? (
+                    <div className="w-full rounded-sm bg-border" style={{ height: "2px" }} />
+                  ) : (
+                    <div
+                      className="w-full rounded-sm"
+                      style={{
+                        height:          `${barPx}px`,
+                        backgroundColor: completedFrac >= 1
+                          ? "rgb(56 189 248)"   /* sky-400 */
+                          : partialFrac   >= 1
+                            ? "rgb(251 191 36)"  /* amber-400 */
+                            : `linear-gradient(to top, rgb(251 191 36) ${partialFrac * 100}%, rgb(56 189 248) ${partialFrac * 100}%)`,
+                      }}
+                    />
+                  )}
 
                   {/* Hover tooltip */}
                   {bar.total > 0 && (
@@ -107,12 +108,17 @@ export function ValuationSubmissionsTimeline({ chartData }: ValuationSubmissions
             })}
           </div>
 
-          {/* X-axis labels */}
-          <div className="mt-1.5 flex items-start gap-px overflow-hidden">
+          {/* X-axis labels — rendered as relative positioned row; only every Nth bar
+              gets a label, and labels use overflow-visible so they don't get clipped */}
+          <div className="relative mt-1.5 flex gap-px" style={{ height: "14px" }}>
             {chartData.map((bar, i) => (
-              <div key={bar.date} className="flex flex-1 justify-center" style={{ minWidth: 0 }}>
+              <div
+                key={bar.date}
+                className="relative flex flex-1 justify-center"
+                style={{ minWidth: `${minBarPx}px` }}
+              >
                 {i % labelStep === 0 && (
-                  <span className="truncate text-center text-[9px] text-muted-foreground">
+                  <span className="absolute top-0 whitespace-nowrap text-center text-[9px] text-muted-foreground">
                     {bar.date}
                   </span>
                 )}
@@ -133,11 +139,11 @@ export function ValuationSubmissionsTimeline({ chartData }: ValuationSubmissions
         {/* Legend */}
         <div className="mt-3 flex justify-end gap-4">
           <div className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm bg-primary" />
+            <span className="h-2.5 w-2.5 rounded-sm bg-sky-500 dark:bg-sky-400" />
             <span className="text-xs text-muted-foreground">Completed</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm bg-amber-500" />
+            <span className="h-2.5 w-2.5 rounded-sm bg-amber-400 dark:bg-amber-500" />
             <span className="text-xs text-muted-foreground">Partial</span>
           </div>
         </div>

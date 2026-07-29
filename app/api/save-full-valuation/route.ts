@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic"
 import { NextResponse } from "next/server"
 import sql from "@/lib/db"
 import { getCurrentUser } from "@/lib/auth"
-import { fullValuationNotificationEmail, fullValuationAgentEmail } from "@/lib/email-templates"
+import { fullValuationNotificationEmail, thankYouEmail, buildReportPdf } from "@/lib/email-templates"
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY
 const NOTIFY_EMAIL = "alex@rockyquote.com"
@@ -108,24 +108,30 @@ export async function POST(req: Request) {
             body: JSON.stringify({ from, to: [NOTIFY_EMAIL], reply_to: lead.email, subject: adminSubject, html }),
           })
 
-          // Send agent valuation report email
+          // Send thank-you email to lead with PDF report attached
           const firstName = (lead.name ?? "there").split(" ")[0]
-          const agentPayload = fullValuationAgentEmail({
-            firstName,
+          const pdfBase64 = await buildReportPdf({
+            type: "full",
+            name: lead.name ?? firstName,
             agencyName: lead.agency_name ?? undefined,
-            leadEmail: lead.email,
             lowOffer: results.lowOffer,
             highOffer: results.highOffer,
             calculatedMultiple: results.calculatedMultiple ?? 0,
             riskGrade: results.riskGrade ?? "N/A",
             revenueLTM: inputs?.revenueLTM ?? undefined,
             retentionRate: inputs?.retentionRate ?? undefined,
-            leadId,
           })
+          const tyPayload = thankYouEmail({ firstName, agencyName: lead.agency_name ?? undefined })
           await fetch("https://api.resend.com/emails", {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${RESEND_API_KEY}` },
-            body: JSON.stringify({ from: agentPayload.from, to: [lead.email], subject: agentPayload.subject, html: agentPayload.html }),
+            body: JSON.stringify({
+              from: tyPayload.from,
+              to: [lead.email],
+              subject: tyPayload.subject,
+              html: tyPayload.html,
+              attachments: [{ filename: "agency-valuation-report.pdf", content: pdfBase64 }],
+            }),
           })
         }
       } catch (emailErr) {

@@ -1,12 +1,10 @@
 {
-  "/admin/page": "app/admin/page.js",
-  "/api/admin/analytics/route": "app/api/admin/analytics/route.js",
-  "/api/admin/auth/route": "app/api/admin/auth/route.js",
-  "/api/admin/leads/route": "app/api/admin/leads/route.js",
-  "/api/admin/overview/route": "app/api/admin/overview/route.js",
-  "/api/admin/test-lead/route": "app/api/admin/test-lead/route.js",
   "/api/auth/me/route": "app/api/auth/me/route.js",
-  "/api/completed-deal/route": "app/api/completed-deal/route.js",
-  "/api/market-data/stats/route": "app/api/market-data/stats/route.js",
-  "/page": "app/page.js"
+  "/api/save-quick-valuation/route": "app/api/save-quick-valuation/route.js",
+  "/api/send-drip-email/route": "app/api/send-drip-email/route.js",
+  "/api/submit-lead/route": "app/api/submit-lead/route.js",
+  "/calculator/page": "app/calculator/page.js",
+  "/carrier/page": "app/carrier/page.js",
+  "/page": "app/page.js",
+  "/quick-value/page": "app/quick-value/page.js"
 }
