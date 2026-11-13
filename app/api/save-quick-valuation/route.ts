@@ -43,32 +43,30 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { leadId, name, email, sendReport, revenue, retention, bookType, growth, customers, policies, ratio, multiplier, suggested, lowValue, midValue, highValue, tier, isSuspiciousData } = body
 
-    console.log("[v0] save-quick-valuation received:", JSON.stringify({ name, email, sendReport, revenue, retention, bookType, growth, customers, policies, ratio, multiplier, suggested, lowValue, midValue, highValue, tier }))
+    const isValidNumber = (v: unknown): v is number =>
+      typeof v === "number" && isFinite(v) && v >= 0 && v <= 1_000_000_000
 
-    // Validate numeric fields are numbers and within plausible bounds
-    // When sendReport=true, only require the PDF-needed fields; allow others to be null/undefined
-    const requiredFields = sendReport
-      ? { revenue, lowValue, midValue, highValue }
-      : { revenue, retention, customers, policies, ratio, multiplier, suggested, lowValue, midValue, highValue }
-    for (const [field, val] of Object.entries(requiredFields)) {
-      if (typeof val !== "number" || !isFinite(val) || val < 0 || val > 1_000_000_000) {
+    for (const [field, val] of Object.entries({ revenue, lowValue, midValue, highValue })) {
+      if (!isValidNumber(val)) {
         return NextResponse.json({ error: `Invalid value for field: ${field}` }, { status: 400 })
       }
     }
-    // Optional fields: allow null/undefined only
-    if (!sendReport) {
-      const optionalNumeric: Record<string, unknown> = { retention, customers, policies, ratio, multiplier, suggested }
-      for (const [field, val] of Object.entries(optionalNumeric)) {
-        if (val != null && (typeof val !== "number" || !isFinite(val) || val < 0 || val > 1_000_000_000)) {
-          return NextResponse.json({ error: `Invalid value for field: ${field}` }, { status: 400 })
-        }
+    for (const [field, val] of Object.entries({ customers, policies, ratio, multiplier, suggested })) {
+      if (val != null && !isValidNumber(val)) {
+        return NextResponse.json({ error: `Invalid value for field: ${field}` }, { status: 400 })
       }
     }
-    if (tier != null && (typeof tier !== "string" || tier.length > 50)) {
-      return NextResponse.json({ error: "Invalid tier" }, { status: 400 })
+    // retention, bookType, growth and tier are category labels stored as text
+    for (const [field, val] of Object.entries({ retention, bookType, growth, tier })) {
+      if (val != null && (typeof val !== "string" || val.length > 100)) {
+        return NextResponse.json({ error: `Invalid value for field: ${field}` }, { status: 400 })
+      }
     }
-    if (bookType != null && (typeof bookType !== "string" || bookType.length > 100)) {
-      return NextResponse.json({ error: "Invalid bookType" }, { status: 400 })
+    if (sendReport) {
+      const validEmail = typeof email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+      if (!validEmail || typeof name !== "string" || !name.trim()) {
+        return NextResponse.json({ error: "A valid name and email are required" }, { status: 400 })
+      }
     }
 
     const rows = await sql`
@@ -80,7 +78,7 @@ export async function POST(req: Request) {
       ) VALUES (
         ${leadId ?? null},
         ${revenue ?? null}, ${retention ?? null}, ${bookType ?? null}, ${growth ?? null},
-        ${customers ?? null}, ${policies ?? null}, ${ratio ?? null},
+        ${customers != null ? Math.round(customers) : null}, ${policies != null ? Math.round(policies) : null}, ${ratio ?? null},
         ${multiplier ?? null}, ${suggested ?? null},
         ${lowValue ?? null}, ${midValue ?? null}, ${highValue ?? null}, ${tier ?? null}
       )
@@ -119,24 +117,29 @@ export async function POST(req: Request) {
       try {
         const leadRows = await sql`SELECT name, email, phone, agency_name FROM leads WHERE id = ${resolvedLeadId} LIMIT 1`
         const lead = leadRows[0] ?? { name, email, phone: null, agency_name: null }
+        // The name and email typed into this report form win over any older lead record
+        const reportName = String(name).trim().slice(0, 200)
+        const reportEmail = String(email).trim().slice(0, 200)
 
-        if (lead?.email) {
-          const firstName = ((lead.name ?? name ?? "there") as string).split(" ")[0]
+        if (reportEmail) {
+          const firstName = reportName.split(" ")[0] || "there"
 
           // Build the PDF report attachment with all form inputs
           const pdfBase64 = await buildReportPdf({
             type: "quick",
-            name: lead.name ?? firstName,
+            name: reportName,
             agencyName: lead.agency_name ?? undefined,
-            revenue: revenue ?? 0,
-            lowValue: lowValue ?? 0,
-            highValue: highValue ?? 0,
+            revenue,
+            lowValue,
+            midValue,
+            highValue,
+            multiplier: multiplier ?? undefined,
             suggested: suggested ?? multiplier ?? 0,
-            retention: typeof retention === "string" && retention ? retention : undefined,
-            bookType:  typeof bookType  === "string" && bookType  ? bookType  : undefined,
-            growth:    typeof growth    === "string" && growth    ? growth    : undefined,
-            customers: typeof customers === "number" ? customers : undefined,
-            policies:  typeof policies  === "number" ? policies  : undefined,
+            retention: retention || undefined,
+            bookType: bookType || undefined,
+            growth: growth || undefined,
+            customers: customers ?? undefined,
+            policies: policies ?? undefined,
           })
 
           // Email 1: Simple thank-you to the lead with PDF attached
@@ -144,35 +147,36 @@ export async function POST(req: Request) {
             firstName,
             agencyName: lead.agency_name ?? undefined,
           })
-          await sendEmail(lead.email, tyPayload.subject, tyPayload.html, tyPayload.from, {
+          await sendEmail(reportEmail, tyPayload.subject, tyPayload.html, tyPayload.from, {
             pdfBase64,
             pdfFilename: "agency-valuation-report.pdf",
           })
 
           // Email 2: Admin notification with all form fields
           const adminPayload = quickValuationAdminEmail({
-            leadName: lead.name ?? "Unknown",
-            leadEmail: lead.email,
+            leadName: reportName,
+            leadEmail: reportEmail,
             leadPhone: lead.phone ?? undefined,
             agencyName: lead.agency_name ?? undefined,
             leadId: resolvedLeadId,
-            revenue: revenue ?? 0,
+            revenue,
             retention: retention ?? undefined,
             bookType: bookType ?? undefined,
             growth: growth ?? undefined,
             customers: customers ?? undefined,
             policies: policies ?? undefined,
             ratio: ratio ?? undefined,
-            multiplier: multiplier ?? 0,
+            multiplier: multiplier ?? suggested ?? 0,
             suggested: suggested ?? multiplier ?? 0,
-            lowValue: lowValue ?? 0,
-            highValue: highValue ?? 0,
+            lowValue,
+            midValue,
+            highValue,
             tier: tier ?? "Standard",
           })
           const adminSubject = isSuspiciousData
             ? `[SUSPICIOUS DATA] ${adminPayload.subject}`
             : adminPayload.subject
-          await sendEmail(ADMIN_EMAIL, adminSubject, adminPayload.html, adminPayload.from, { replyTo: lead.email })
+          await sendEmail(ADMIN_EMAIL, adminSubject, adminPayload.html, adminPayload.from, { replyTo: reportEmail })
         }
       } catch (emailErr) {
         console.error("[save-quick-valuation] Email send failed:", emailErr)
