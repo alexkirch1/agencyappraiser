@@ -387,7 +387,9 @@ export type ReportData =
       name: string
       agencyName?: string
       lowValue: number
+      midValue: number
       highValue: number
+      multiplier?: number
       suggested: number
       revenue: number
       retention?: string   // "high" | "average" | "low"
@@ -461,7 +463,7 @@ export async function buildReportPdf(data: ReportData): Promise<string> {
   y += 24
 
   if (data.type === "quick") {
-    const mid = Math.round((data.lowValue + data.highValue) / 2)
+    const mid = data.midValue
 
     // Value box
     doc.setFillColor(240, 249, 255)
@@ -488,6 +490,7 @@ export async function buildReportPdf(data: ReportData): Promise<string> {
     // Metrics grid
     const metrics: [string, string][] = [
       ["Annual Revenue", fmt(data.revenue)],
+      ["Applied Multiple", `${(data.multiplier ?? data.suggested).toFixed(2)}x`],
       ["Suggested Multiple", `${data.suggested.toFixed(2)}x`],
       ...(data.retention ? [["Client Retention", retentionLabel[data.retention] ?? data.retention] as [string, string]] : []),
       ...(data.bookType  ? [["Book Type",       bookLabel[data.bookType]    ?? data.bookType]   as [string, string]] : []),
@@ -629,7 +632,7 @@ export function quickValuationAdminEmail(data: {
   leadId: number
   // Inputs
   revenue: number
-  retention?: number
+  retention?: string
   bookType?: string
   growth?: string
   customers?: number
@@ -640,12 +643,16 @@ export function quickValuationAdminEmail(data: {
   multiplier: number
   suggested: number
   lowValue: number
+  midValue: number
   highValue: number
   tier: string
 }) {
   const fmt = (n: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n)
-  const midValue = Math.round((data.lowValue + data.highValue) / 2)
+  const midValue = data.midValue
+  const retentionLabels: Record<string, string> = { high: "Excellent (90%+)", average: "Average (80-89%)", low: "Below Average (<80%)" }
+  const bookLabels: Record<string, string> = { commercial: "Mostly Commercial", mixed: "Mixed", personal: "Mostly Personal" }
+  const growthLabels: Record<string, string> = { strong: "Strong (10%+/yr)", moderate: "Moderate (3-9%/yr)", flat: "Flat", declining: "Declining" }
 
   function row(label: string, value: string | number | null | undefined) {
     if (value == null || value === "") return ""
@@ -688,9 +695,9 @@ export function quickValuationAdminEmail(data: {
       ${row("Phone", data.leadPhone)}
       ${row("Agency Name", data.agencyName)}
       ${row("Annual Revenue (LTM)", fmt(data.revenue))}
-      ${row("Retention Rate", data.retention != null ? `${data.retention}%` : null)}
-      ${row("Book Type", data.bookType)}
-      ${row("Revenue Growth Trend", data.growth)}
+      ${row("Client Retention", data.retention ? (retentionLabels[data.retention] ?? data.retention) : null)}
+      ${row("Book Type", data.bookType ? (bookLabels[data.bookType] ?? data.bookType) : null)}
+      ${row("Revenue Growth Trend", data.growth ? (growthLabels[data.growth] ?? data.growth) : null)}
       ${row("Active Customers", data.customers?.toLocaleString())}
       ${row("Active Policies", data.policies?.toLocaleString())}
       ${row("Policy/Customer Ratio", data.ratio != null ? data.ratio.toFixed(2) : null)}
